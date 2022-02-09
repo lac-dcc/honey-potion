@@ -1,5 +1,4 @@
-# 🍯 Honey Elixir 🍯
-## <center>Writing eBPF with Elixir</center>
+# 🍯 Honey Elixir - Writing eBPF with Elixir 🍯
 
 <p align="center">
   </br>
