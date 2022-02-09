@@ -25,7 +25,7 @@ defmodule ConstantPropagation do
                   )
 
                 constants = Keyword.put(constants, var_version, rhs)
-                {nil, constants}
+                {rhs, constants}
               else
                 {segment, constants}
               end

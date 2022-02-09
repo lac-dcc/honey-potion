@@ -25,5 +25,5 @@ ebpf_translator-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
-# The translated C file.
-translated_c.c
+examples/*.c
+/.vscode

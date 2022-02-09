@@ -73,6 +73,12 @@ defmodule Translator do
         :<= ->
           " <= "
 
+        :bsr ->
+          " >> "
+
+        :bsl ->
+          " << "
+
         _ ->
           raise "Erlang function not supported: #{Atom.to_string(function)}"
       end
@@ -91,6 +97,37 @@ defmodule Translator do
         lhs_in_c.return_var_name <> func_string <> rhs_in_c.return_var_name <> ";" <> "\n"
 
     TranslatedCode.new(code, c_var_name)
+  end
+
+  # C libraries
+  def to_c({{:., _, [Bpf.Bpf_helpers, function]}, _, params}, context) do
+    c_var_name = get_new_helper_var_name()
+
+    case function do
+      :bpf_printk ->
+        [params] = params
+
+        code_vars =
+          Enum.map(params, fn expr ->
+            to_c(expr, context)
+          end)
+
+        code =
+          Enum.reduce(code_vars, "", fn translated, so_far ->
+            so_far <> translated.code
+          end)
+
+        vars =
+          Enum.reduce(code_vars, "", fn translated, so_far ->
+            so_far = if so_far != "", do: so_far <> ", ", else: ""
+            so_far <> translated.return_var_name
+          end)
+
+        TranslatedCode.new("bpf_printk(#{vars});", "0no_var")
+
+      _ ->
+        TranslatedCode.new("", "#{function}()")
+    end
   end
 
   # Match operator, not complete
@@ -120,15 +157,7 @@ defmodule Translator do
     {is_cons, cons_type, cons_value_in_c} = is_constant(other)
 
     if(is_cons) do
-      if(cons_type != "int") do
-        raise "All values in the program must be integers. Received #{cons_type}: #{cons_value_in_c}"
-      end
-
-      c_var_name = get_new_helper_var_name()
-
-      code = "int #{c_var_name} = #{cons_value_in_c};"
-
-      TranslatedCode.new(code, c_var_name)
+      TranslatedCode.new("", cons_value_in_c)
     else
       IO.puts("We cannot convert this structure yet:")
       IO.inspect(other)
@@ -145,6 +174,7 @@ defmodule Translator do
         {true, "double", "#{item}"}
 
       is_bitstring(item) ->
+        item = String.replace(item, "\n", "\\n")
         {true, "string", "\"#{item}\""}
 
       is_boolean(item) ->
@@ -205,7 +235,25 @@ defmodule Translator do
     end
   end
 
-  def translate(ast, func_name) do
+  def requires_to_includes(requires) do
+    IO.inspect Enum.reduce(requires, "", fn req, includes ->
+      include =
+        case req do
+          Linux.Bpf ->
+            "#include <linux/bpf.h>\n\n"
+
+          Bpf.Bpf_helpers ->
+            "#include <bpf/bpf_helpers.h>\n\n"
+
+          _ ->
+            ""
+        end
+
+        include <> includes
+    end) <> "\n"
+  end
+
+  def translate(func_name, ast, sec, license, requires) do
     if(func_name == "main") do
       # TODO: replace this global counter with something more idiomatic in elixir
       gnew(:global_var)
@@ -213,21 +261,16 @@ defmodule Translator do
 
       %TranslatedCode{code: function_code_in_c, return_var_name: return_var_name} = to_c(ast)
 
-      code_in_c =
+      includes = requires_to_includes(requires)
+
+      includes <>
+        "char LICENSE[] SEC(\"license\") = \"#{license}\";\n\n" <>
+        "SEC(\"#{sec}\")\n" <>
         get_c_function_definition(func_name) <>
-          function_code_in_c <>
-          "return #{return_var_name};" <>
-          "\n" <>
-          "}"
-
-      {:ok, file} = File.open("translated_c.c", [:write])
-      IO.binwrite(file, code_in_c)
-      File.close(file)
-
-      # Optional, format the file using clang-format:
-      # System.cmd("/usr/lib/llvm_versions/llvm-11/build/bin/clang-format", ["-i", "translated_c.c"])
-
-      true
+        function_code_in_c <>
+        "return #{return_var_name};" <>
+        "\n" <>
+        "}"
     else
       false
     end
