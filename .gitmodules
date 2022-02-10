@@ -1,3 +1,5 @@
 [submodule "benchmark/libs/libbpf"]
 	path = benchmark/libs/libbpf
 	url = https://github.com/libbpf/libbpf
+	branch=master
+	ignore=all
