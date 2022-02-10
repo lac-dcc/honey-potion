@@ -5,12 +5,12 @@
 #include <unistd.h>
 #include <signal.h>
 
-struct bpf_map_def SEC("maps") map  = {
-  .type = BPF_MAP_TYPE_HASH,
-  .key_size = sizeof(long),
-  .value_size = sizeof(char),
-  .max_entries = 64,
-};
+struct {
+  __uint(type, BPF_MAP_TYPE_HASH);
+  __uint(max_entries, 64);
+  __type(key, long);
+  __type(value, char);
+} map SEC(".maps");
 
 struct syscalls_enter_kill_args {
   /**

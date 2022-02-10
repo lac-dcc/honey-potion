@@ -11,16 +11,16 @@
 #include <linux/string.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
-#include "bpf_endian.h"
-#include "bpf_helpers.h"
+#include <bpf/bpf_endian.h>
+#include <bpf/bpf_helpers.h>
 #include "prog.h"
 
-struct bpf_map_def SEC("maps") perf_map = {
-	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-	.key_size = sizeof(__u32),
-	.value_size = sizeof(__u32),
-	.max_entries = MAX_CPU,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+	__uint(max_entries, MAX_CPU);
+	__type(key, __u32);
+	__type(value, __u32);
+} perf_map SEC(".maps");
 
 static __always_inline bool parse_udp(void *data, __u64 off, void *data_end,
 									  struct pkt_meta *pkt)

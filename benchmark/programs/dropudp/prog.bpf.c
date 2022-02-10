@@ -5,12 +5,12 @@
 #include <netinet/ip.h>
 #include <linux/udp.h>
 
-struct bpf_map_def SEC("maps") map = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(long),
-    .max_entries = 1,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(value, long);
+    __type(key, __u32);
+} map SEC(".maps");
 
 /**
  * @brief Edit the destination port of the packet
