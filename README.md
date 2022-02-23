@@ -12,6 +12,6 @@
 
 ## Get Started
 This project uses `libbpf` to support the programs into the benchmark folder. Clone *Honey Elixir* using the following command line to get `libbpf` too:
-```
+```bash
 git clone --recursive <project url>
 ```
