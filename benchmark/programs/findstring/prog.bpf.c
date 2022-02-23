@@ -7,9 +7,6 @@
 #include <linux/in.h>
 #include "prog.h"
 
-#pragma pack(4)
-struct xdp_md;
-
 struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);

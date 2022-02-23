@@ -30,7 +30,7 @@ void _unloadProg() {
  * @brief Fill the map with the port that will be explored
  * @param obj Program eBPF
  */
-int fillMapPort(struct bpf_object *obj, int port) {
+int fillPortMap(struct bpf_object *obj, int port) {
     struct bpf_map *map = bpf_object__find_map_by_name(obj, MAPPORT);
     int map_fd = bpf_map__fd(map);
 
@@ -44,34 +44,31 @@ int fillMapPort(struct bpf_object *obj, int port) {
     return 0;
 }
 
-void printMachine(struct aho_c_automata *automata) {
-    printf("Printing out:\n");
-    for(int i = 0; i < MAXSTATES; i++) {
-        if(automata->out[i] != 0) {
-            printf("out[%d] = %d;\n", i, automata->out[i]);
-        }
+/**
+ * @brief Push the program to the program array
+ * @param obj Program eBPF
+ * @param prog_fd File Descriptor of the program
+ */
+int fillProgramsMap(struct bpf_object *obj,int prog_fd) {
+    struct bpf_map *map = bpf_object__find_map_by_name(obj, MAPSPROGS);
+    int map_fd = bpf_map__fd(map);
+
+    int unique_key = 0;
+    if (bpf_map_update_elem(map_fd, &unique_key, &prog_fd, BPF_ANY) < 0) {
+        printf("Error to update progs map.");
+        return -1;
     }
-    printf("All of the others automata->out[i] = 0;\n");
-   
-    printf("\nPrinting failure:\n");
-    for(int i = 0; i < MAXSTATES; i++) {
-        if(automata->failure[i] != -1) {
-            printf("automata->failure[%d] = %d;\n", i, automata->failure[i]);
-        }
-    }
-    printf("All of the others failure[i] = -1;\n");
-   
-    printf("\nPrinting go:\n");
-    for(int i = 0; i < MAXSTATES; i++) {
-        for(int j = 0; j < MAXC; j++) {
-            if(automata->go[i][j] != 0) {
-                printf("automata->go[%d][%d] = %d;\n", i, j, automata->go[i][j]);
-            }
-        }
-    }
-    printf("All of the others go[i][j] = 0;\n");
+
+    return 0;
 }
 
+/**
+ * @brief Get the next state of the automata
+ * @param automata Instace of an automata
+ * @param currentState The current state of the automata
+ * @param nextInput The next input of the automata
+ * @return New state 
+ */
 int findNextState(struct aho_c_automata *automata, int currentState, int nextInput)
 {  
     while (automata->go[currentState][nextInput] == 0)
@@ -246,20 +243,12 @@ int main(int argc, char **argv) {
     }
     struct bpf_program *prog;    
 
-    // Fill strings map
     prog = bpf_object__find_program_by_name(obj, PROGNAME);
     prog_fd = bpf_program__fd(prog);
 
-    // Push the program to the program array
-    struct bpf_map *map_progs = bpf_object__find_map_by_name(obj, MAPSPROGS);
-    int map_progs_fd = bpf_map__fd(map_progs);
-    int unique_key = 0;
-    if (bpf_map_update_elem(map_progs_fd, &unique_key, &prog_fd, BPF_ANY) < 0) {
-        printf("Error to update progs map.");
+    if (fillProgramsMap(obj, prog_fd))
         return -1;
-    }
-
-    if (fillMapPort(obj, 3000) < 0)
+    if (fillPortMap(obj, 3000) < 0)
         return -1;
     if (fillMapStrings(obj, "strings.txt") < 0)
         return -1;
