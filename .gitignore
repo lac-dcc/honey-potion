@@ -2,3 +2,4 @@ benchmark/.vscode
 benchmark/programs/*/prog.bpf.o
 benchmark/programs/*/prog.bpf.ll
 benchmark/programs/*/prog
+.vscode

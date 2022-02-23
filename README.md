@@ -4,9 +4,14 @@
 
 <p align="center">
   </br>
-  <img alt="Logo do projeto" src="./docs/honey.png" width="25%" height="auto"/>
+  <img alt="logo" src="./docs/honey.png" width="25%" height="auto"/>
 </p>
 
 ## Description
----
 *Honey Elixir* provides an environment for writing eBPF programs using Elixir Programming Language.
+
+## Get Started
+This project uses `libbpf` to support the programs into the benchmark folder. Clone *Honey Elixir* using the following command line to get `libbpf` too:
+```bash
+git clone --recursive <project url>
+```
