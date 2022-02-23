@@ -30,8 +30,7 @@ This program requires the `libbpf` and:
 ## 🚀 How to Build
 
 You can run the following command line:
-
-```
+```bash
 make
 ```
 It will generate the following files:
@@ -42,12 +41,11 @@ It will generate the following files:
 ## ☕ How to Run
 
 You can run:
-```
+```bash
 sudo ./prog -i <INTERFACE>
 ```
-The program may be started in driver mode using the following command :
-
-```
+The program may be started in driver mode using the following command:
+```bash
 sudo ./prog -i eth4
 ```
 >28228.714182 IP 10.0.0.2:9203 > 10.0.0.1:0 TCP seq 437136853, length 6 <br>
@@ -55,7 +53,7 @@ sudo ./prog -i eth4
 28234.040118 IP 10.0.0.2:1709 > 10.0.0.1:0 TCP seq 1723695364, length 30
 
 Payload information can also be displayed with the payload option:
-```
+```bash
 sudo ./prog -i eth4 -x
 ```
 >28298.719497 IP 10.0.0.2:1697 > 10.0.0.1:0 TCP seq 1017625101, length 6 <br>
@@ -65,7 +63,7 @@ sudo ./prog -i eth4 -x
        0200 7156 0000 0000 0000 0000
 
 The program may be offloaded to the SmartNIC using the HW offload option:
-```
+```bash
 ./xdpdump -i eth4 -x -H
 ```
 >28357.729517 IP 10.0.0.2:54013 > 10.0.0.1:53 UDP, length 51 <br>
@@ -77,7 +75,7 @@ The program may be offloaded to the SmartNIC using the HW offload option:
        0c00 0a00 08ce 1722 411e 4e95 8b
 
 For systems without a compatible XDP driver, it can also be loaded in SKB mode ::
-```
+```bash
 sudo ./xdpdump -i eth4 -S
 ```
 
