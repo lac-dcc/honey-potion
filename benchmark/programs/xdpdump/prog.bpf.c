@@ -22,9 +22,15 @@ struct {
 	__type(value, __u32);
 } perf_map SEC(".maps");
 
-static __always_inline bool parse_udp(void *data, __u64 off, void *data_end,
-									  struct pkt_meta *pkt)
-{
+/**
+ * @brief Get the UDP data and store it in the pkt pointer
+ * @param data Pointer to start of the packet
+ * @param off Size of ipv4/ipv6 header
+ * @param data_end Pointer to end of the packet
+ * @param pkt Pointer to the packet metadata struct
+ * @return boolean indicating success in the conversion
+ */
+static __always_inline bool parse_udp(void *data, __u64 off, void *data_end, struct pkt_meta *pkt) {
 	struct udphdr *udp;
 
 	udp = data + off;
@@ -36,9 +42,15 @@ static __always_inline bool parse_udp(void *data, __u64 off, void *data_end,
 	return true;
 }
 
-static __always_inline bool parse_tcp(void *data, __u64 off, void *data_end,
-									  struct pkt_meta *pkt)
-{
+/**
+ * @brief Get the TCP data and store it in the pkt pointer
+ * @param data Pointer to start of the packet
+ * @param off Size of ipv4/ipv6 header
+ * @param data_end Pointer to end of the packet
+ * @param pkt Pointer to the packet metadata struct
+ * @return boolean indicating success in the conversion
+ */
+static __always_inline bool parse_tcp(void *data, __u64 off, void *data_end, struct pkt_meta *pkt) {
 	struct tcphdr *tcp;
 
 	tcp = data + off;
@@ -52,9 +64,15 @@ static __always_inline bool parse_tcp(void *data, __u64 off, void *data_end,
 	return true;
 }
 
-static __always_inline bool parse_ip4(void *data, __u64 off, void *data_end,
-									  struct pkt_meta *pkt)
-{
+/**
+ * @brief Get the IPV4 data and store it in the pkt pointer
+ * @param data Pointer to start of the packet
+ * @param off Size of ethernet header
+ * @param data_end Pointer to end of the packet
+ * @param pkt Pointer to the packet metadata struct
+ * @return boolean indicating success in the conversion
+ */
+static __always_inline bool parse_ip4(void *data, __u64 off, void *data_end, struct pkt_meta *pkt) {
 	struct iphdr *iph;
 
 	iph = data + off;
@@ -71,9 +89,15 @@ static __always_inline bool parse_ip4(void *data, __u64 off, void *data_end,
 	return true;
 }
 
-static __always_inline bool parse_ip6(void *data, __u64 off, void *data_end,
-									  struct pkt_meta *pkt)
-{
+/**
+ * @brief Get the UDP data and store it in the pkt pointer
+ * @param data Pointer to start of the packet
+ * @param off Size of ethernet header
+ * @param data_end Pointer to end of the packet
+ * @param pkt Pointer to the packet metadata struct
+ * @return boolean indicating success in the conversion
+ */
+static __always_inline bool parse_ip6(void *data, __u64 off, void *data_end, struct pkt_meta *pkt) {
 	struct ipv6hdr *ip6h;
 
 	ip6h = data + off;
@@ -87,6 +111,9 @@ static __always_inline bool parse_ip6(void *data, __u64 off, void *data_end,
 	return true;
 }
 
+/**
+ * @brief Get metadata about the packets and send to perf
+ */
 SEC("xdp")
 int process_packet(struct xdp_md *ctx)
 {
@@ -103,6 +130,7 @@ int process_packet(struct xdp_md *ctx)
 
 	pkt.l3_proto = bpf_htons(eth->h_proto);
 
+	// Get IPv4 or IPv6 header
 	if (pkt.l3_proto == ETH_P_IP)
 	{
 		if (!parse_ip4(data, off, data_end, &pkt))
@@ -119,7 +147,7 @@ int process_packet(struct xdp_md *ctx)
 	if (data + off > data_end)
 		return XDP_PASS;
 
-	/* obtain port numbers for UDP and TCP traffic */
+	// Obtain port numbers for UDP and TCP traffic
 	if (pkt.l4_proto == IPPROTO_TCP)
 	{
 		if (!parse_tcp(data, off, data_end, &pkt))
