@@ -1,6 +1,6 @@
 # 🧮 TRAFFIC COUNT
 
-This program counts the number of received packets by MAC ADDRESS and print them on the terminal.
+This program counts the number of received packets by MAC ADDRESS and prints them on the terminal.
 
 ## 💻 Requirements
 
