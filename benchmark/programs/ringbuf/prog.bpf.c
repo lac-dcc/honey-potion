@@ -30,14 +30,15 @@ int handle_exec(struct trace_event_raw_sched_process_exec *ctx)
 	
 	e = bpf_map_lookup_elem(&heap, &zero);
 	if (!e) /* can't happen */
-		return 0;
+		return XDP_ABORTED;
 
 	e->pid = bpf_get_current_pid_tgid() >> 32;
 	bpf_get_current_comm(&e->comm, sizeof(e->comm));
 	bpf_probe_read_str(&e->filename, sizeof(e->filename), (void *)ctx + fname_off);
 
 	bpf_perf_event_output(ctx, &pb, BPF_F_CURRENT_CPU, e, sizeof(*e));
-	return 0;
+	
+	return XDP_ABORTED;
 }
 
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
