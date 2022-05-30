@@ -4,4 +4,6 @@ benchmark/programs/*/prog.bpf.ll
 benchmark/programs/*/prog
 benchmark/programs/*/venv
 benchmark/programs/*/prog.skel.h
+benchmark/programs/*/compress/*.temp.c
+benchmark/programs/*/compress/*.gz
 .vscode
