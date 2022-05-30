@@ -27,14 +27,14 @@ struct syscalls_enter_kill_args {
 SEC("tracepoint/syscalls/sys_enter_kill")
 int sysEnterKill(struct syscalls_enter_kill_args *ctx) {
   if (ctx->sig != SIGKILL)
-    return 0;
+    return XDP_ABORTED;
 
   long key = labs(ctx->pid);
   int val = 1;
 
   bpf_map_update_elem(&map, &key, &val, BPF_NOEXIST);
 
-  return 0;
+  return XDP_ABORTED;
 }
 
 // As this program is integrating with tracepoints, it must be GPL.
