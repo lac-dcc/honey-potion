@@ -1,4 +1,4 @@
-defmodule ConstantPropagation do
+defmodule Honey.ConstantPropagation do
   def is_constant(item) do
     is_number(item) or is_bitstring(item) or is_atom(item) or is_binary(item) or is_boolean(item) or
       is_nil(item)
@@ -92,9 +92,6 @@ defmodule ConstantPropagation do
 
         {new_segment, constants}
       end)
-
-    # IO.puts("\n =======Constants are:")
-    # IO.inspect(constants)
 
     # IO.puts("\n =======New AST after Constant propagation:")
     # IO.inspect(new_ast)

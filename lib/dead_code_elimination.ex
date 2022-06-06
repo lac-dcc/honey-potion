@@ -1,4 +1,4 @@
-defmodule DCE do
+defmodule Honey.DCE do
   def is_variable({name, meta, context})
       when is_atom(name) and is_list(meta) and is_atom(context) do
     true
@@ -10,7 +10,7 @@ defmodule DCE do
 
   def get_uses(segment, uses \\ []) do
     cond do
-      ConstantPropagation.is_constant(segment) ->
+      Honey.ConstantPropagation.is_constant(segment) ->
         uses
 
       is_variable(segment) ->
@@ -64,7 +64,7 @@ defmodule DCE do
 
     new_block =
       Enum.reduce(reversed_block, new_block, fn segment, new_block_acc ->
-        if(ConstantPropagation.is_constant(segment)) do
+        if(Honey.ConstantPropagation.is_constant(segment)) do
           new_block_acc
         else
           [segment | new_block_acc]
@@ -101,7 +101,7 @@ defmodule DCE do
   def analyze_case(case_block) do
     {:case, _, [var | [[do: cases]]]} = case_block
 
-    if(ConstantPropagation.is_constant(var)) do
+    if(Honey.ConstantPropagation.is_constant(var)) do
       correct_block =
         Enum.find_value(cases, {false, nil}, fn a_case ->
           {:->, _meta, [[match], block]} = a_case
@@ -123,12 +123,51 @@ defmodule DCE do
     end
   end
 
+  def analyze_cond(cond_block) do
+    {:cond, meta, [[do: conds]]} = cond_block
+
+    {single_block?, new_conds_or_block} = Enum.reduce(conds, {false, []}, fn a_cond, opt_conds_pair ->
+      {single_block?, new_conds} = opt_conds_pair
+      if(single_block?) do
+        opt_conds_pair
+      else
+        {:->, _meta, [[condition], block]} = a_cond
+        cond do
+          condition == true ->
+            if(length(new_conds) == 0) do
+              {true, block}
+            else
+              {false, [a_cond | new_conds]}
+            end
+
+          condition != false ->
+            {false, [a_cond | new_conds]}
+
+          condition == false ->
+            opt_conds_pair
+        end
+      end
+    end)
+
+    if(single_block?) do
+      new_conds_or_block
+    else
+      new_conds = Enum.reverse(new_conds_or_block)
+      {:cond, meta, [[do: new_conds]]}
+    end
+
+
+  end
+
   def run(fun_def) do
     new_ast =
       Macro.prewalk(fun_def, fn segment ->
         case segment do
           {:case, _, _} ->
             analyze_case(segment)
+
+          {:cond, _, _} ->
+            analyze_cond(segment)
 
           _ ->
             segment
@@ -208,6 +247,8 @@ defmodule DCE do
 
     # IO.puts("Ast after Dead Code Elimination:")
     # IO.inspect(new_ast)
+    # IO.puts("\nCode after Dead Code Elimination:")
+    # IO.puts(Macro.to_string(new_ast))
 
     new_ast
   end

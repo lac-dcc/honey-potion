@@ -1,0 +1,8 @@
+.vscode
+programs/*/prog.bpf.o
+programs/*/prog.bpf.ll
+programs/*/prog
+programs/*/venv
+programs/*/prog.skel.h
+programs/*/compress/*.temp.c
+programs/*/compress/*.gz

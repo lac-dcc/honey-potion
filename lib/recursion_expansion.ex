@@ -1,13 +1,13 @@
 # This alpha version contains some limitations:
-# - Fuel can only be used inside main/0
+# - Fuel can only be used inside main/1
 # - The function called inside fuel:
 #     - Cannot have guards
 #     - Cannot destructure its arguments
 #     - Cannot have default arguments
-#     - Must be in the same module as main/0
+#     - Must be in the same module as main/1
 # - It doesn't expand mutual recursions yet
 
-defmodule Fuel do
+defmodule Honey.Fuel do
   defmacro fuel(ammount, fun_call) do
     ensure_caller(__CALLER__)
 
@@ -21,12 +21,12 @@ defmodule Fuel do
   defp ensure_caller(env) do
     case env.function do
       {fun, arity} ->
-        if(fun != :main or arity != 0) do
-          Utils.compile_error!(env, "fuel can only be called inside main/0")
+        if(fun != :main or arity != 1) do
+          Honey.Utils.compile_error!(env, "fuel can only be called inside main/1")
         end
 
       _ ->
-        Utils.compile_error!(env, "fuel can only be called inside main/0")
+        Honey.Utils.compile_error!(env, "fuel can only be called inside main/1")
     end
   end
 
@@ -162,7 +162,7 @@ defmodule Fuel do
         {module, fun_name, length(args), args}
 
       _ ->
-        Utils.compile_error!(
+        Honey.Utils.compile_error!(
           caller_env,
           err_msg
         )

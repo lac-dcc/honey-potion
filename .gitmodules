@@ -1,5 +1,5 @@
-[submodule "benchmark/libs/libbpf"]
-	path = benchmark/libs/libbpf
+[submodule "benchmarks/libs/libbpf"]
+	path = benchmarks/libs/libbpf
 	url = https://github.com/libbpf/libbpf
 	branch=master
 	ignore=all
