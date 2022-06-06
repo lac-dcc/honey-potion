@@ -11,8 +11,6 @@ defmodule Honey.Fuel do
   defmacro fuel(ammount, fun_call) do
     ensure_caller(__CALLER__)
 
-    {module, function, arity, _args} = decompose_call!(fun_call, __CALLER__)
-
     fun_call = add_fuel_metadata(fun_call, ammount)
 
     fun_call
