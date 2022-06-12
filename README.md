@@ -6,7 +6,7 @@
   </a>
 </p>
 
-# 🍯 Honey Elixir - Writing eBPF with Elixir 🍯
+# 🍯 Honey Potion - Writing eBPF with Elixir 🍯
 
 <p align="center">
   </br>
@@ -14,7 +14,7 @@
 </p>
 
 ## Description
-*Honey Elixir* is a framework that brings the powerful eBPF technology into Elixir. Users can write Elixir code that will be transformed into eBPF bytecodes. Many high-level features of Elixir are available and more will be added soon.
+*Honey Potion* is a framework that brings the powerful eBPF technology into Elixir. Users can write Elixir code that will be transformed into eBPF bytecodes. Many high-level features of Elixir are available and more will be added soon.
 In this alpha version, the framework translates the code to restricted C that uses [libbpf](https://github.com/libbpf/libbpf)'s features. Then it's possible to use `clang` to obtain the bytecodes and load it into the Kernel.
 
 ## Installation
@@ -24,7 +24,7 @@ The package can be installed by adding `honey` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:honey, git: "https://github.com/lac-dcc/elixir-project/"}
+    {:honey, git: "https://github.com/lac-dcc/honey-potion/"}
   ]
 end
 ```
