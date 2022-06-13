@@ -10,7 +10,7 @@
 
 <p align="center">
   </br>
-  <img alt="logo" src="./img/honey.png" width="25%" height="auto"/>
+  <img alt="logo" src="./assets/honey.png" width="25%" height="auto"/>
 </p>
 
 ## Description
@@ -85,9 +85,11 @@ Referencing the usual `#include <bpf/bpf_helpers>`, this module allows you to ca
   - **bpf_map_update_elem(map, key, value)** ➜ Update a position in a map. It receives the name of the map, the key (currently, only integers) and the value to be updated. The return is 0 on success, or a negative error in case of failure.
 
   - **bpf_printk(params)** ➜ Send a string to the debug pipe. In this Alpha version, `params` is an array. The first position must be a string containing up to three format specifiers `%d`. The number of next elements must be the same number of `%d` used. For example:
+
     ```elixir
     bpf_printk(["I am printing the number %d, and also %d.", n1, n2])
     ```
+    
     You can read the pipe with `sudo cat /sys/kernel/debug/tracing/trace_pipe`. In the Alpha version, only variables of type integers can be printed.
 
   - **bpf_get_current_pid_tgid()** ➜ Return the PID of the process that triggered the eBPF program.
