@@ -15,7 +15,7 @@
 
 ## Description
 *Honey Potion* is a framework that brings the powerful eBPF technology into Elixir. Users can write Elixir code that will be transformed into eBPF bytecodes. Many high-level features of Elixir are available and more will be added soon.
-In this alpha version, the framework translates the code to restricted C that uses [libbpf](https://github.com/libbpf/libbpf)'s features. Then it's possible to use `clang` to obtain the bytecodes and load it into the Kernel.
+In this alpha version, the framework translates the code to a subset of C that uses [libbpf](https://github.com/libbpf/libbpf)'s features. Then it's possible to use `clang` to obtain the bytecodes and load it into the Kernel.
 
 ## Installation
 
@@ -30,7 +30,7 @@ end
 ```
 
 ## Usage
-When you `use Honey` in your module, it'll be translated to restricted C the next time you compile the project. For example:
+When you `use Honey` in your module, it'll be translated to C the next time you compile the project. For example:
 ```elixir
 defmodule Minimal do
   use Honey, license: "Dual BSD/GPL"
@@ -42,7 +42,7 @@ end
 Will generate `Minimal.bpf.c` in the same folder as the module.
 
 Notice the `license` option: as eBPF demands, we need to specify a license to our program.
-Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the restricted C file generated.
+Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the C file generated.
 
 #### Main function
 A module that uses `Honey` must define a function `main/1` that receives a `ctx`. The main function is the entry point of our eBPF program. For example:
@@ -130,7 +130,7 @@ This framework is still Alpha, and we have lots of features to add, improve and 
 - We do not support mutual recursive functions.
 - We do not support user-defined structs.
 
-There are more, and we are currently working to 
+There are more, and we are actively working to improve it.
 
 Contributions are very welcome! If you are interested in collaborating, let's stay in touch so our work doesn't overlap.
-Feedback and suggestions are also very much appreciated! Please tell us your thoughts at `vinicpac@gmail.com`.
+Feedback and suggestions are also very much appreciated! You can file a [Github issue](https://github.com/lac-dcc/honey-potion/issues) or contact us at `vinicpac@gmail.com`.
