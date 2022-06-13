@@ -6,16 +6,16 @@
   </a>
 </p>
 
-# 🍯 Honey Elixir - Writing eBPF with Elixir 🍯
+# 🍯 Honey Potion - Writing eBPF with Elixir 🍯
 
 <p align="center">
   </br>
-  <img alt="logo" src="./img/honey.png" width="25%" height="auto"/>
+  <img alt="logo" src="./assets/honey.png" width="25%" height="auto"/>
 </p>
 
 ## Description
-*Honey Elixir* is a framework that brings the powerful eBPF technology into Elixir. Users can write Elixir code that will be transformed into eBPF bytecodes. Many high-level features of Elixir are available and more will be added soon.
-In this alpha version, the framework translates the code to restricted C that uses [libbpf](https://github.com/libbpf/libbpf)'s features. Then it's possible to use `clang` to obtain the bytecodes and load it into the Kernel.
+*Honey Potion* is a framework that brings the powerful eBPF technology into Elixir. Users can write Elixir code that will be transformed into eBPF bytecodes. Many high-level features of Elixir are available and more will be added soon.
+In this alpha version, the framework translates the code to a subset of C that uses [libbpf](https://github.com/libbpf/libbpf)'s features. Then it's possible to use `clang` to obtain the bytecodes and load it into the Kernel.
 
 ## Installation
 
@@ -24,13 +24,13 @@ The package can be installed by adding `honey` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:honey, git: "https://github.com/lac-dcc/elixir-project/"}
+    {:honey, git: "https://github.com/lac-dcc/honey-potion/"}
   ]
 end
 ```
 
 ## Usage
-When you `use Honey` in your module, it'll be translated to restricted C the next time you compile the project. For example:
+When you `use Honey` in your module, it'll be translated to C the next time you compile the project. For example:
 ```elixir
 defmodule Minimal do
   use Honey, license: "Dual BSD/GPL"
@@ -42,7 +42,7 @@ end
 Will generate `Minimal.bpf.c` in the same folder as the module.
 
 Notice the `license` option: as eBPF demands, we need to specify a license to our program.
-Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the restricted C file generated.
+Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the C file generated.
 
 #### Main function
 A module that uses `Honey` must define a function `main/1` that receives a `ctx`. The main function is the entry point of our eBPF program. For example:
@@ -85,9 +85,9 @@ Referencing the usual `#include <bpf/bpf_helpers>`, this module allows you to ca
   - **bpf_map_update_elem(map, key, value)** ➜ Update a position in a map. It receives the name of the map, the key (currently, only integers) and the value to be updated. The return is 0 on success, or a negative error in case of failure.
 
   - **bpf_printk(params)** ➜ Send a string to the debug pipe. In this Alpha version, `params` is an array. The first position must be a string containing up to three format specifiers `%d`. The number of next elements must be the same number of `%d` used. For example:
-    ```elixir
+  ```elixir
     bpf_printk(["I am printing the number %d, and also %d.", n1, n2])
-    ```
+  ```
     You can read the pipe with `sudo cat /sys/kernel/debug/tracing/trace_pipe`. In the Alpha version, only variables of type integers can be printed.
 
   - **bpf_get_current_pid_tgid()** ➜ Return the PID of the process that triggered the eBPF program.
@@ -130,7 +130,7 @@ This framework is still Alpha, and we have lots of features to add, improve and 
 - We do not support mutual recursive functions.
 - We do not support user-defined structs.
 
-There are more, and we are currently working to 
+There are more, and we are actively working to improve it.
 
 Contributions are very welcome! If you are interested in collaborating, let's stay in touch so our work doesn't overlap.
-Feedback and suggestions are also very much appreciated! Please tell us your thoughts at `vinicpac@gmail.com`.
+Feedback and suggestions are also very much appreciated! You can file a [Github issue](https://github.com/lac-dcc/honey-potion/issues) or contact us at `vinicpac@gmail.com`.

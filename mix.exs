@@ -7,7 +7,20 @@ defmodule Honey.MixProject do
       version: "0.1.0",
       elixir: "~> 1.12-rc",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+
+      # Docs
+      name: "Honey Potion",
+      source_url: "https://github.com/lac-dcc/honey-potion",
+      homepage_url: "https://github.com/lac-dcc/honey-potion",
+      docs: [
+        main: "readme",
+        logo: "assets/honey.png",
+        extras: ["README.md": [title: "Documentation"]],
+        assets: "assets",
+        api_reference: false,
+        filter_modules: ~r/$^/
+      ]
     ]
   end
 
@@ -21,8 +34,8 @@ defmodule Honey.MixProject do
     [
      files: ["lib", "mix.exs", "README.md"],
      maintainers: ["Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil"],
-     licenses: ["GPL-3.0"],
-     links: %{"GitHub" => "https://github.com/lac-dcc/elixir-project",
+     licenses: ["	GPL-3.0-only"],
+     links: %{"GitHub" => "https://github.com/lac-dcc/honey-potion",
               "Docs" => ""}
      ]
   end
@@ -37,7 +50,8 @@ defmodule Honey.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      { :global_variable, ">= 0.0.0" }
+      { :global_variable, ">= 0.0.0" },
+      {:ex_doc, "~> 0.27", only: :dev, runtime: false}
     ]
   end
 end
