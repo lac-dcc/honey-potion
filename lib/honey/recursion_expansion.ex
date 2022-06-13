@@ -27,14 +27,9 @@ defmodule Honey.Fuel do
     {new_ast, modified} =
       Macro.postwalk(main_ast, false, fn
         {_, meta, _} = call, modified when is_call(call) ->
-          {fuel, meta} = Keyword.pop(meta, :fuel)
-
-          case fuel do
+          case Keyword.get(meta, :fuel) do
             fuel when is_integer(fuel) and fuel > 0 ->
-              new_ast =
-                call
-                |> Macro.update_meta(fn _ -> meta end)
-                |> get_def_for_reinjection(env, fuel)
+              new_ast = get_def_for_reinjection(call, env, fuel)
 
               {new_ast, true}
 
