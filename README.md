@@ -98,7 +98,7 @@ Referencing the usual `#include <bpf/bpf_helpers>`, this module allows you to ca
 It is possible to define recursive functions and call them from `main/1`. For example, let's define a function that recursively sums two natural numbers:
 ```elixir
 def sum(a, b) do
-  if(b == 0) ->
+  if b == 0 do
      a
   else
     sum(a + 1, b - 1)

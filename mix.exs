@@ -5,7 +5,7 @@ defmodule Honey.MixProject do
     [
       app: :honey,
       version: "0.1.0",
-      elixir: "~> 1.12-rc",
+      elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
 
@@ -24,33 +24,32 @@ defmodule Honey.MixProject do
     ]
   end
 
-  defp description do
+  def description do
     """
     Writing eBPF with Elixir!
     """
   end
 
-  defp package do
+  def package do
     [
-     files: ["lib", "mix.exs", "README.md"],
-     maintainers: ["Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil"],
-     licenses: ["	GPL-3.0-only"],
-     links: %{"GitHub" => "https://github.com/lac-dcc/honey-potion",
-              "Docs" => ""}
-     ]
+      files: ["lib", "mix.exs", "README.md"],
+      maintainers: ["Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil"],
+      licenses: ["GPL-3.0-only"],
+      links: %{
+        "GitHub" => "https://github.com/lac-dcc/honey-potion",
+        "Docs" => ""
+      }
+    ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      { :global_variable, ">= 0.0.0" },
       {:ex_doc, "~> 0.27", only: :dev, runtime: false}
     ]
   end
