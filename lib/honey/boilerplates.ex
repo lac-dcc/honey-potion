@@ -429,7 +429,7 @@ defmodule Honey.Boilerplates do
     gen """
     SEC("#{config.libbpf_prog_type}")
     int main_func(#{generate_main_arguments(config)}) {
-      #{beggning_main_code()}
+      #{beginning_main_code()}
       #{generate_middle_main_code(config)}
       // =============== beginning of user code ===============
       #{config.translated_code.code}
