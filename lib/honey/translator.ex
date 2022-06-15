@@ -104,7 +104,7 @@ defmodule Honey.Translator do
 
         result_var = unique_helper_var()
 
-        # TODO: Return nil insted of 0, as Elixir would
+        # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
         # huh?
         """
         #{code}
