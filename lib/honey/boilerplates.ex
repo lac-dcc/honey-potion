@@ -1,7 +1,7 @@
 defmodule Honey.Boilerplates do
 
   import Honey.Utils, only: [gen: 1]
-  
+
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
 
   def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code) do
@@ -321,7 +321,7 @@ defmodule Honey.Boilerplates do
     File.read!(path) <> generate_getMember(config) <> "\n\n"
   end
 
-  def beggning_main_code do
+  def beginning_main_code do
     gen """
     StrFormatSpec str_param1;
     StrFormatSpec str_param2;
