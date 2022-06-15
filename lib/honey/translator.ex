@@ -1,5 +1,4 @@
 defmodule Honey.Translator do
-
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
 
@@ -92,7 +91,7 @@ defmodule Honey.Translator do
         end
 
         string = String.replace(string, "\n", "\\n")
-        code_vars = Enum.map(other_params, & to_c(&1, context))
+        code_vars = Enum.map(other_params, &to_c(&1, context))
 
         code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
 
@@ -286,21 +285,23 @@ defmodule Honey.Translator do
         end_var_name = "end_#{new_var_name}"
         len_var_name = "len_#{new_var_name}"
 
-        code = gen """
-        unsigned #{len_var_name} = #{str_len};
-        unsigned #{end_var_name} = *string_pool_index + #{len_var_name} - 1;
-        if(#{end_var_name} + 1 >= STRING_POOL_SIZE) {
-          op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
-          goto CATCH;
-        }
+        code =
+          gen("""
+          unsigned #{len_var_name} = #{str_len};
+          unsigned #{end_var_name} = *string_pool_index + #{len_var_name} - 1;
+          if(#{end_var_name} + 1 >= STRING_POOL_SIZE) {
+            op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
+            goto CATCH;
+          }
 
-        if(*string_pool_index < STRING_POOL_SIZE - #{len_var_name}) {
-          __builtin_memcpy(&(*string_pool)[*string_pool_index], "#{str}", #{len_var_name});
-        }
+          if(*string_pool_index < STRING_POOL_SIZE - #{len_var_name}) {
+            __builtin_memcpy(&(*string_pool)[*string_pool_index], "#{str}", #{len_var_name});
+          }
 
-        Generic #{var_name_in_c} = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = #{end_var_name}}};
-        *string_pool_index = #{end_var_name} + 1;
-        """
+          Generic #{var_name_in_c} = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = #{end_var_name}}};
+          *string_pool_index = #{end_var_name} + 1;
+          """)
+
         {:ok, TranslatedCode.new(code, var_name_in_c)}
 
       is_atom(item) ->
@@ -343,7 +344,7 @@ defmodule Honey.Translator do
 
     block_in_c = to_c(block)
 
-    gen """
+    gen("""
     #{condition_in_c.code}
     if (to_bool(&#{condition_in_c.return_var_name})) {
       #{block_in_c.code}
@@ -351,13 +352,17 @@ defmodule Honey.Translator do
     } else {
       #{cond_statments_to_c(other_conds, cond_var_name_in_c)}
     }
-    """
+    """)
   end
 
   defp block_to_c({:__block__, _, exprs}, context) do
     Enum.reduce(exprs, Honey.TranslatedCode.new(), fn expr, translated_so_far ->
       translated_expr = to_c(expr, context)
-      %TranslatedCode{translated_expr | code: translated_so_far.code <> "\n" <> translated_expr.code}
+
+      %TranslatedCode{
+        translated_expr
+        | code: translated_so_far.code <> "\n" <> translated_expr.code
+      }
     end)
   end
 
