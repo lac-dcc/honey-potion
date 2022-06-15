@@ -7,6 +7,8 @@ defmodule Honey.MixProject do
       version: "0.1.0",
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
+      description: description(),
+      package: package(),
       deps: deps(),
 
       # Docs
@@ -37,7 +39,7 @@ defmodule Honey.MixProject do
       licenses: ["GPL-3.0-only"],
       links: %{
         "GitHub" => "https://github.com/lac-dcc/honey-potion",
-        "Docs" => ""
+        "Docs" => "https://github.com/lac-dcc/honey-potion"
       }
     ]
   end
