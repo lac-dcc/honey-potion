@@ -1,12 +1,10 @@
-<p align="center">
-  <a href="https://img.shields.io/badge/version-Alpha-orange.svg"><img src="https://img.shields.io/badge/version-Alpha-orange.svg"></a>
-  <a href="https://www.gnu.org/licenses/gpl-3.0">
-    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg"
-         alt="License: GPL v3">
-  </a>
-</p>
-
 # 🍯 Honey Potion - Writing eBPF with Elixir 🍯
+
+[![Hex Version](https://img.shields.io/hexpm/v/honey.svg)](https://hex.pm/packages/honey)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/honey/)
+[![Total Download](https://img.shields.io/hexpm/dt/honey.svg)](https://hex.pm/packages/honey)
+[![License](https://img.shields.io/hexpm/l/honey.svg)](https://github.com/lac-dcc/honey-potion/blob/master/LICENSE)
+[![Last Updated](https://img.shields.io/github/last-commit/lac-dcc/honey-potion.svg)](https://github.com/lac-dcc/honey-potion/commits/master)
 
 <p align="center">
   </br>
@@ -76,12 +74,12 @@ In the Alpha version, just the map type `BPF_MAP_TYPE_ARRAY` is available, but y
 
 #### Helper functions
 eBPF and `libbpf` provides some helper functions, and so does *Honey*. In the Alpha version, there is a single module you can import:
- 
+
 `import Honey.Bpf.Bpf_helpers`
 
 Referencing the usual `#include <bpf/bpf_helpers>`, this module allows you to call:
  - **bpf_map_lookup_elem(map, key)** ➜ Map access are easy, you can pass the name of the map declared with `defmap` and the key (currently, only integer), and the function will the return the value to you. In the Alpha version, if it is not possible to access that position of the map, a Runtime exception will be thrown.
-  
+
   - **bpf_map_update_elem(map, key, value)** ➜ Update a position in a map. It receives the name of the map, the key (currently, only integers) and the value to be updated. The return is 0 on success, or a negative error in case of failure.
 
   - **bpf_printk(params)** ➜ Send a string to the debug pipe. In this Alpha version, `params` is an array. The first position must be a string containing up to three format specifiers `%d`. The number of next elements must be the same number of `%d` used. For example:
@@ -89,7 +87,7 @@ Referencing the usual `#include <bpf/bpf_helpers>`, this module allows you to ca
     ```elixir
     bpf_printk(["I am printing the number %d, and also %d.", n1, n2])
     ```
-    
+
     You can read the pipe with `sudo cat /sys/kernel/debug/tracing/trace_pipe`. In the Alpha version, only variables of type integers can be printed.
 
   - **bpf_get_current_pid_tgid()** ➜ Return the PID of the process that triggered the eBPF program.
@@ -107,7 +105,7 @@ end
 ```
 
 To avoid infinite recursion and satisfy the eBPF verifier, we require you to inform a constant number that will be used to limit the maximum depth of recursion at runtime. This is done through the macro `fuel`. Its syntax is:
-`fuel max_number, function_call(...)` 
+`fuel max_number, function_call(...)`
 
 Let's see an example inside main:
 ```elixir
@@ -117,16 +115,16 @@ def main(ctx) do
   y = fuel 10, sum(x, 5)
   bpf_printk(["The value of y is %d", y])
 end
-``` 
+```
 We provide a constant amount of `10` units fuel in the first call `sum`. Each time `sum` calls itself, it burns one unit of fuel. If, at some point, `sum` tries to calls itself again with no fuel remaining, a Runtime Exception will be thrown and the program will halt.
 
 ## Runtime Exceptions
 Exceptions are a natural part of dynamically-typed languages such as Elixir. To allow many of the high-level constructs of Elixir, we simulate the notion of Runtime Exceptions when translating programs to eBPF.
 In this Alpha version, when a Runtime Exception is thrown, the program will print the exception message to the debug pipe, and return with `0`.
 
-## Current limitations & Contributing
+## Current limitations
 This framework is still Alpha, and we have lots of features to add, improve and correct. Amongst the current known limitations are:
-- We cannot destructure elements while doing pattern matching. Because of that, the matching operator `=` is working like a traditional assignment operator with only a simple variable in the left-hand side. For the same reason, `case` and `if-else` blocks are not supported, unless they are totally optimized out at compile time. 
+- We cannot destructure elements while doing pattern matching. Because of that, the matching operator `=` is working like a traditional assignment operator with only a simple variable in the left-hand side. For the same reason, `case` and `if-else` blocks are not supported, unless they are totally optimized out at compile time.
 - Only a small number of operators are available, such as `+`, `-`, `*`, `/` and `==`.
 - We do not support function guards nor default arguments.
 - We do not support mutual recursive functions.
@@ -134,5 +132,22 @@ This framework is still Alpha, and we have lots of features to add, improve and 
 
 There are more, and we are actively working to improve it.
 
+## Contributing
 Contributions are very welcome! If you are interested in collaborating, let's stay in touch so our work doesn't overlap.
-Feedback and suggestions are also very much appreciated! You can file a [Github issue](https://github.com/lac-dcc/honey-potion/issues) or contact us at `vinicpac@gmail.com`.
+Feedback and suggestions are also very much appreciated! You can file a [GitHub issue](https://github.com/lac-dcc/honey-potion/issues) or contact us at `vinicpac@gmail.com`.
+
+## Copyright & License
+Copyright (C) 2022 Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
