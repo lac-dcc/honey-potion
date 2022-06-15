@@ -431,7 +431,7 @@ defmodule Honey.Boilerplates do
     int main_func(#{generate_main_arguments(config)}) {
       #{beggning_main_code()}
       #{generate_middle_main_code(config)}
-      // =============== beggining of user code ===============
+      // =============== beginning of user code ===============
       #{config.translated_code.code}
       // =============== end of user code ==============
       #{generate_ending_main_code(config.translated_code.return_var_name)}
