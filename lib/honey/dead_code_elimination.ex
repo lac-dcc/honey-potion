@@ -1,19 +1,13 @@
 defmodule Honey.DCE do
-  def is_variable({name, meta, context})
-      when is_atom(name) and is_list(meta) and is_atom(context) do
-    true
-  end
 
-  def is_variable(_) do
-    false
-  end
+  import Honey.Utils, only: [is_var: 1, is_constant: 1]
 
   def get_uses(segment, uses \\ []) do
     cond do
-      Honey.ConstantPropagation.is_constant(segment) ->
+      is_constant(segment) ->
         uses
 
-      is_variable(segment) ->
+      is_var(segment) ->
         [get_var_version(segment) | uses]
 
       true ->
@@ -64,7 +58,7 @@ defmodule Honey.DCE do
 
     new_block =
       Enum.reduce(reversed_block, new_block, fn segment, new_block_acc ->
-        if(Honey.ConstantPropagation.is_constant(segment)) do
+        if is_constant(segment) do
           new_block_acc
         else
           [segment | new_block_acc]
@@ -101,7 +95,7 @@ defmodule Honey.DCE do
   def analyze_case(case_block) do
     {:case, _, [var | [[do: cases]]]} = case_block
 
-    if(Honey.ConstantPropagation.is_constant(var)) do
+    if is_constant(var) do
       correct_block =
         Enum.find_value(cases, {false, nil}, fn a_case ->
           {:->, _meta, [[match], block]} = a_case
@@ -126,28 +120,31 @@ defmodule Honey.DCE do
   def analyze_cond(cond_block) do
     {:cond, meta, [[do: conds]]} = cond_block
 
-    {single_block?, new_conds_or_block} = Enum.reduce(conds, {false, []}, fn a_cond, opt_conds_pair ->
-      {single_block?, new_conds} = opt_conds_pair
-      if(single_block?) do
-        opt_conds_pair
-      else
-        {:->, _meta, [[condition], block]} = a_cond
-        cond do
-          condition == true ->
-            if(length(new_conds) == 0) do
-              {true, block}
-            else
+    {single_block?, new_conds_or_block} =
+      Enum.reduce(conds, {false, []}, fn a_cond, opt_conds_pair ->
+        {single_block?, new_conds} = opt_conds_pair
+
+        if(single_block?) do
+          opt_conds_pair
+        else
+          {:->, _meta, [[condition], block]} = a_cond
+
+          cond do
+            condition == true ->
+              if(length(new_conds) == 0) do
+                {true, block}
+              else
+                {false, [a_cond | new_conds]}
+              end
+
+            condition != false ->
               {false, [a_cond | new_conds]}
-            end
 
-          condition != false ->
-            {false, [a_cond | new_conds]}
-
-          condition == false ->
-            opt_conds_pair
+            condition == false ->
+              opt_conds_pair
+          end
         end
-      end
-    end)
+      end)
 
     if(single_block?) do
       new_conds_or_block
@@ -155,8 +152,6 @@ defmodule Honey.DCE do
       new_conds = Enum.reverse(new_conds_or_block)
       {:cond, meta, [[do: new_conds]]}
     end
-
-
   end
 
   def run(fun_def) do
