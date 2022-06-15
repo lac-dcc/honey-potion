@@ -1,5 +1,4 @@
 defmodule Honey.DCE do
-
   import Honey.Utils, only: [is_var: 1, is_constant: 1]
 
   def get_uses(segment, uses \\ []) do

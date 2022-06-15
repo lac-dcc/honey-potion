@@ -11,6 +11,7 @@ defmodule Honey do
     end
 
     Module.register_attribute(__CALLER__.module, :ebpf_maps, accumulate: true)
+
     quote do
       import Honey.Fuel
       import Honey

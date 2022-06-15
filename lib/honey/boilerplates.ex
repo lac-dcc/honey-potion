@@ -1,5 +1,4 @@
 defmodule Honey.Boilerplates do
-
   import Honey.Utils, only: [gen: 1]
 
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
@@ -39,10 +38,10 @@ defmodule Honey.Boilerplates do
   end
 
   def default_includes() do
-    gen """
+    gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
-    """
+    """)
   end
 
   def generate_includes(config) do
@@ -50,7 +49,7 @@ defmodule Honey.Boilerplates do
   end
 
   def generate_defines(_config) do
-    gen """
+    gen("""
     #ifndef __inline
     #define __inline \\
       inline __attribute__((always_inline))
@@ -84,11 +83,11 @@ defmodule Honey.Boilerplates do
 
     #define QUOTE_HELPER(expr) #expr
     #define QUOTE(expr) QUOTE_HELPER(expr)
-    """
+    """)
   end
 
   def generate_structs(_config) do
-    gen """
+    gen("""
     typedef struct Generic Generic;
     typedef enum Operation Operation;
     typedef enum Type Type;
@@ -176,11 +175,11 @@ defmodule Honey.Boilerplates do
       long sig;
     };
 
-    """
+    """)
   end
 
   def default_maps do
-    gen """
+    gen("""
     // String pool
     struct
     {
@@ -214,7 +213,7 @@ defmodule Honey.Boilerplates do
       __uint(key_size, sizeof(int));
       __uint(value_size, sizeof(int));
     } array_pool_index_map SEC(\".maps\");
-    """
+    """)
   end
 
   def create_c_maps(maps) do
@@ -255,7 +254,7 @@ defmodule Honey.Boilerplates do
   end
 
   def generate_getMember(config) do
-    gen """
+    gen("""
     static void getMember(OpResult *result, Generic *elixir_struct, char member_name[20], Generic *member)
     {
       *result = (OpResult){.exception = 0};
@@ -266,53 +265,48 @@ defmodule Honey.Boilerplates do
         *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, getMember function)."};
         return;
       }
-    #{
-      gen(case config.libbpf_prog_type do
-        "tracepoint/syscalls/sys_enter_kill" ->
-          "if (elixir_struct->type == TYPE_Syscalls_enter_kill_arg)
-        {
-          if (__builtin_memcmp(member_name, \"pad\", 4) == 0)
-          {
-            unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pad;
-            if (index < ARRAY_POOL_SIZE)
+    #{gen(case config.libbpf_prog_type do
+      "tracepoint/syscalls/sys_enter_kill" -> "if (elixir_struct->type == TYPE_Syscalls_enter_kill_arg)
             {
-              *member = (*array_pool)[index];
-            }
-          }
-          else if (__builtin_memcmp(member_name, \"syscall_nr\", 11) == 0)
-          {
-            unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_syscall_nr;
-            if (index < ARRAY_POOL_SIZE)
-            {
-              *member = (*array_pool)[index];
-            }
-          }
-          else if (__builtin_memcmp(member_name, \"pid\", 4) == 0)
-          {
-            unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pid;
-            if (index < ARRAY_POOL_SIZE)
-            {
-              *member = (*array_pool)[index];
-            }
-          }
-          else if (__builtin_memcmp(member_name, \"sig\", 4) == 0)
-          {
-            unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_sig;
-            if (index < ARRAY_POOL_SIZE)
-            {
-              *member = (*array_pool)[index];
-            }
-          }
-        }"
-
-        _ ->
-          ""
-      end)
-    }
+              if (__builtin_memcmp(member_name, \"pad\", 4) == 0)
+              {
+                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pad;
+                if (index < ARRAY_POOL_SIZE)
+                {
+                  *member = (*array_pool)[index];
+                }
+              }
+              else if (__builtin_memcmp(member_name, \"syscall_nr\", 11) == 0)
+              {
+                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_syscall_nr;
+                if (index < ARRAY_POOL_SIZE)
+                {
+                  *member = (*array_pool)[index];
+                }
+              }
+              else if (__builtin_memcmp(member_name, \"pid\", 4) == 0)
+              {
+                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pid;
+                if (index < ARRAY_POOL_SIZE)
+                {
+                  *member = (*array_pool)[index];
+                }
+              }
+              else if (__builtin_memcmp(member_name, \"sig\", 4) == 0)
+              {
+                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_sig;
+                if (index < ARRAY_POOL_SIZE)
+                {
+                  *member = (*array_pool)[index];
+                }
+              }
+            }"
+      _ -> ""
+    end)}
       *result = (OpResult){.exception = 1, .exception_msg = "(InvalidMember) Tried to access invalid member of a struct."};
       return;
     }
-    """
+    """)
   end
 
   def generate_runtime_functions(config) do
@@ -322,7 +316,7 @@ defmodule Honey.Boilerplates do
   end
 
   def beginning_main_code do
-    gen """
+    gen("""
     StrFormatSpec str_param1;
     StrFormatSpec str_param2;
     StrFormatSpec str_param3;
@@ -361,7 +355,7 @@ defmodule Honey.Boilerplates do
       op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access array pool index, main function).\"};
       goto CATCH;
     }
-    """
+    """)
   end
 
   def generate_middle_main_code(config) do
@@ -369,8 +363,8 @@ defmodule Honey.Boilerplates do
       "tracepoint/syscalls/sys_enter_kill" ->
         [arg | _] = config.func_args
 
-        #FIXME: comment in a first clause
-        gen """
+        # FIXME: comment in a first clause
+        gen("""
         Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*array_pool_index)++, (*array_pool_index)++, (*array_pool_index)++, (*array_pool_index)++}};
         unsigned last_index = #{arg}.value.syscalls_enter_kill_args.pos_sig;
         if (#{arg}.value.syscalls_enter_kill_args.pos_pad < ARRAY_POOL_SIZE)
@@ -389,12 +383,12 @@ defmodule Honey.Boilerplates do
         {
           (*array_pool)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
         }
-        """
+        """)
     end
   end
 
   def generate_ending_main_code(return_var_name) do
-    gen """
+    gen("""
     if (#{return_var_name}.type != INTEGER) {
       op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
       goto CATCH;
@@ -404,15 +398,15 @@ defmodule Honey.Boilerplates do
     CATCH:
       bpf_printk(\"** %s\\n\", op_result.exception_msg);
       return 0;
-    """
+    """)
   end
 
   def generate_license(config) do
-    gen """
+    gen("""
     char LICENSE[] SEC("license") = "#{config.license}";
 
 
-    """
+    """)
   end
 
   def generate_main_arguments(config) do
@@ -426,7 +420,7 @@ defmodule Honey.Boilerplates do
   end
 
   def generate_main(config) do
-    gen """
+    gen("""
     SEC("#{config.libbpf_prog_type}")
     int main_func(#{generate_main_arguments(config)}) {
       #{beginning_main_code()}
@@ -436,18 +430,18 @@ defmodule Honey.Boilerplates do
       // =============== end of user code ==============
       #{generate_ending_main_code(config.translated_code.return_var_name)}
     }
-    """
+    """)
   end
 
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>
-      generate_defines(config) <>
-      generate_structs(config) <>
-      generate_maps(config) <>
-      generate_license(config) <>
-      generate_runtime_functions(config) <>
-      generate_main(config)
+        generate_defines(config) <>
+        generate_structs(config) <>
+        generate_maps(config) <>
+        generate_license(config) <>
+        generate_runtime_functions(config) <>
+        generate_main(config)
     )
   end
 end

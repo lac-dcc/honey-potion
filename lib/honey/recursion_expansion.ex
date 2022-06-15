@@ -63,6 +63,7 @@ defmodule Honey.Fuel do
     formal_into_actual =
       for {formal_arg, actual_arg} <- Enum.zip(formal_args, actual_args) do
         var = replace_context(formal_arg, context)
+
         quote do
           unquote(var) = unquote(actual_arg)
         end
