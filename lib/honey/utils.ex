@@ -4,7 +4,7 @@ defmodule Honey.Utils do
   #
   # PS
   # I just don't like sigils, because macro can have an english name
-  # while sigil is just one char, which makes no sence for readers
+  # while sigil is just one char, which makes no sense for readers
   defmacro gen(text) do
     %Macro.Env{file: file, line: line} = __CALLER__
 

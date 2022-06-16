@@ -64,7 +64,7 @@ int fillProgramsMap(struct bpf_object *obj,int prog_fd) {
 
 /**
  * @brief Get the next state of the automata
- * @param automata Instace of an automata
+ * @param automata Instance of an automata
  * @param currentState The current state of the automata
  * @param nextInput The next input of the automata
  * @return New state 

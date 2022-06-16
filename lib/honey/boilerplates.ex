@@ -15,7 +15,7 @@ defmodule Honey.Boilerplates do
   end
 
   # I'd suggest not to use `require` because it is used to import macros
-  # I'd suggest using `@include` module attribute, which makes more sence
+  # I'd suggest using `@include` module attribute, which makes more sense
   # both in naming and order (which is persisted for attributes)
   def requires_to_includes(requires) do
     Enum.reduce(requires, "", fn req, includes ->
