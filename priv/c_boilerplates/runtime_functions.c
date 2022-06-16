@@ -286,7 +286,7 @@ static void Copy(OpResult *result, Generic *to, Generic *from)
 
     if (to->value.string.end > STRING_POOL_SIZE - 1)
     {
-      *result = (OpResult){.exception = 1, .exception_msg = "(StringPoolSizeError) The program reached the maximum size of " QUOTE(STRING_POOL_SIZE) " characteres stored in all bitstrings."};
+      *result = (OpResult){.exception = 1, .exception_msg = "(StringPoolSizeError) The program reached the maximum size of " QUOTE(STRING_POOL_SIZE) " characters stored in all bitstrings."};
     }
 
     char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);

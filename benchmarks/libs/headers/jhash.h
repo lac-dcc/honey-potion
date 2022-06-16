@@ -58,7 +58,7 @@ typedef unsigned int u32;
 /* jhash - hash an arbitrary key
  * @k: sequence of bytes as key
  * @length: the length of the key
- * @initval: the previous hash, or an arbitray value
+ * @initval: the previous hash, or an arbitrary value
  *
  * The generic version, hashes an arbitrary sequence of bytes.
  * No alignment or length assumptions are made about the input key.
@@ -107,7 +107,7 @@ static inline u32 jhash(const void *key, u32 length, u32 initval)
 /* jhash2 - hash an array of u32's
  * @k: the key which must be an array of u32's
  * @length: the number of u32's in the key
- * @initval: the previous hash, or an arbitray value
+ * @initval: the previous hash, or an arbitrary value
  *
  * Returns the hash value of the key.
  */

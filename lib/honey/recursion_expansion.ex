@@ -10,10 +10,10 @@ defmodule Honey.Fuel do
 
   import Honey.Utils, only: [is_var: 1, is_call: 1, compile_error!: 2]
 
-  defmacro fuel(ammount, fun_call) do
+  defmacro fuel(amount, fun_call) do
     ensure_caller(__CALLER__)
 
-    add_fuel_metadata(fun_call, ammount)
+    add_fuel_metadata(fun_call, amount)
   end
 
   defp ensure_caller(%Macro.Env{function: {:main, 1}}), do: :ok

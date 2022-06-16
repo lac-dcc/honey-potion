@@ -99,7 +99,7 @@ int dropXDP(struct xdp_md *ctx) {
     __u64 nh_off = sizeof(*eth);
     __u32 ipproto = 0;
 
-    // Verifier use this boundry check
+    // Verifier use this boundary check
     if (data + nh_off > data_end)
         return XDP_ABORTED;
 
