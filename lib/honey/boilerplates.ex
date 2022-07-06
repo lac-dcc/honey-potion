@@ -58,7 +58,7 @@ defmodule Honey.Boilerplates do
     #define MAX_ITERATION 100
     #define MAX_STR_SIZE 50
     #define STRING_POOL_SIZE 500
-    #define ARRAY_POOL_SIZE 100
+    #define HEAP_SIZE 100
     #define MAX_STRUCT_MEMBERS 5
 
     #define field_pad 1
@@ -197,14 +197,14 @@ defmodule Honey.Boilerplates do
       __uint(value_size, sizeof(int));
     } string_pool_index_map SEC(\".maps\");
 
-    // Array pool
+    // Heap
     struct
     {
       __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
       __uint(max_entries, 1);
       __uint(key_size, sizeof(int));
-      __uint(value_size, sizeof(Generic[ARRAY_POOL_SIZE]));
-    } array_pool_map SEC(\".maps\");
+      __uint(value_size, sizeof(Generic[HEAP_SIZE]));
+    } heap_map SEC(\".maps\");
 
     struct
     {
@@ -212,7 +212,7 @@ defmodule Honey.Boilerplates do
       __uint(max_entries, 1);
       __uint(key_size, sizeof(int));
       __uint(value_size, sizeof(int));
-    } array_pool_index_map SEC(\".maps\");
+    } heap_index_map SEC(\".maps\");
     """)
   end
 
@@ -259,8 +259,8 @@ defmodule Honey.Boilerplates do
     {
       *result = (OpResult){.exception = 0};
       int zero = 0;
-      Generic(*array_pool)[ARRAY_POOL_SIZE] = bpf_map_lookup_elem(&array_pool_map, &zero);
-      if (!array_pool)
+      Generic(*heap)[HEAP_SIZE] = bpf_map_lookup_elem(&heap_map, &zero);
+      if (!heap)
       {
         *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, getMember function)."};
         return;
@@ -271,33 +271,33 @@ defmodule Honey.Boilerplates do
               if (__builtin_memcmp(member_name, \"pad\", 4) == 0)
               {
                 unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pad;
-                if (index < ARRAY_POOL_SIZE)
+                if (index < HEAP_SIZE)
                 {
-                  *member = (*array_pool)[index];
+                  *member = (*heap)[index];
                 }
               }
               else if (__builtin_memcmp(member_name, \"syscall_nr\", 11) == 0)
               {
                 unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_syscall_nr;
-                if (index < ARRAY_POOL_SIZE)
+                if (index < HEAP_SIZE)
                 {
-                  *member = (*array_pool)[index];
+                  *member = (*heap)[index];
                 }
               }
               else if (__builtin_memcmp(member_name, \"pid\", 4) == 0)
               {
                 unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pid;
-                if (index < ARRAY_POOL_SIZE)
+                if (index < HEAP_SIZE)
                 {
-                  *member = (*array_pool)[index];
+                  *member = (*heap)[index];
                 }
               }
               else if (__builtin_memcmp(member_name, \"sig\", 4) == 0)
               {
                 unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_sig;
-                if (index < ARRAY_POOL_SIZE)
+                if (index < HEAP_SIZE)
                 {
-                  *member = (*array_pool)[index];
+                  *member = (*heap)[index];
                 }
               }
             }"
@@ -342,17 +342,17 @@ defmodule Honey.Boilerplates do
     __builtin_memcpy(*string_pool + 3, \"false\", 5);
     __builtin_memcpy(*string_pool + 3 + 5, \"true\", 4);
 
-    Generic(*array_pool)[ARRAY_POOL_SIZE] = bpf_map_lookup_elem(&array_pool_map, &zero);
-    if (!array_pool)
+    Generic(*heap)[HEAP_SIZE] = bpf_map_lookup_elem(&heap_map, &zero);
+    if (!heap)
     {
-      op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access array pool, main function).\"};
+      op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access heap map, main function).\"};
       goto CATCH;
     }
 
-    unsigned *array_pool_index = bpf_map_lookup_elem(&array_pool_index_map, &zero);
-    if (!array_pool_index)
+    unsigned *heap_index = bpf_map_lookup_elem(&heap_index_map, &zero);
+    if (!heap_index)
     {
-      op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access array pool index, main function).\"};
+      op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access heap map index, main function).\"};
       goto CATCH;
     }
     """)
@@ -365,23 +365,23 @@ defmodule Honey.Boilerplates do
 
         # FIXME: comment in a first clause
         gen("""
-        Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*array_pool_index)++, (*array_pool_index)++, (*array_pool_index)++, (*array_pool_index)++}};
+        Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*heap_index)++, (*heap_index)++, (*heap_index)++, (*heap_index)++}};
         unsigned last_index = #{arg}.value.syscalls_enter_kill_args.pos_sig;
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pad < ARRAY_POOL_SIZE)
+        if (#{arg}.value.syscalls_enter_kill_args.pos_pad < HEAP_SIZE)
         {
-          // (*array_pool)[#{arg}.value.syscalls_enter_kill_args.pos_pad] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pad};
+          // (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pad] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pad};
         }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr < ARRAY_POOL_SIZE)
+        if (#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr < HEAP_SIZE)
         {
-          (*array_pool)[#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr] = (Generic){.type = INTEGER, .value.integer = ctx_arg->syscall_nr};
+          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr] = (Generic){.type = INTEGER, .value.integer = ctx_arg->syscall_nr};
         }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pid < ARRAY_POOL_SIZE)
+        if (#{arg}.value.syscalls_enter_kill_args.pos_pid < HEAP_SIZE)
         {
-          (*array_pool)[#{arg}.value.syscalls_enter_kill_args.pos_pid] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pid};
+          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pid] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pid};
         }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_sig < ARRAY_POOL_SIZE)
+        if (#{arg}.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
         {
-          (*array_pool)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
+          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
         }
         """)
     end
