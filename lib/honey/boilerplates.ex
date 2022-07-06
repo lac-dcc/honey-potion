@@ -48,6 +48,9 @@ defmodule Honey.Boilerplates do
     gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
+    #include <linux/if_ether.h>
+    #include <linux/ip.h>
+    #include <linux/icmp.h>
     """)
   end
 

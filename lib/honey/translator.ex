@@ -185,6 +185,66 @@ defmodule Honey.Translator do
     end
   end
 
+  # Xdp_md
+  def to_c({{:., _, [Honey.Xdp_md, function]}, _, params}, _context) do
+    case function do
+      :convert_to_ethhdr ->
+        [pos] = params
+
+        if !is_integer(pos) do
+          raise "convert_to_ethhdr: 'pos' must be an integer. Received: #{Macro.to_string(pos)}"
+        end
+
+        data_var = unique_helper_var()
+        data_end_var = unique_helper_var()
+        eth_c_var = unique_helper_var()
+        eth_generic_var = unique_helper_var()
+        off_var = unique_helper_var()
+
+        """
+        void *#{data_end_var} = (void *)(long)arg_1->data_end;
+        void *#{data_var} = (void *)(long)arg_1->data;
+        __u32 #{off_var} = sizeof(struct ethhdr) + #{pos};
+        struct ethhdr *#{eth_c_var} = #{data_var} + #{pos};
+        if(#{data_var} + #{off_var} > #{data_end_var}) {
+          op_result = (OpResult){.exception = 1, .exception_msg = "(ConvertionError) Can't obtain ethhdr from position #{pos} because there is not enough data."};
+          goto CATCH;
+        }
+        Generic #{eth_generic_var} = (Generic){.type = TYPE_Ethhdr, .value.value_Ethhdr = {(*heap_index)++, (*heap_index)++, (*heap_index)++}};
+        if (#{eth_generic_var}.value.value_Ethhdr.idx_h_dest < HEAP_SIZE)
+        {
+          (*heap)[#{eth_generic_var}.value.value_Ethhdr.idx_h_dest] = (Generic){.type = STRING, .value.string = {.start = *string_pool_index, .end = *string_pool_index + ETH_ALEN - 1}};
+
+          for(int i  = 0; i < ETH_ALEN; i++, (*string_pool_index)++) {
+            if(*string_pool_index >= STRING_POOL_SIZE) {
+              op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
+              goto CATCH;
+            }
+            (*string_pool)[*string_pool_index] = #{eth_c_var}->h_dest[i];
+          }
+        }
+        if (#{eth_generic_var}.value.value_Ethhdr.idx_h_source < HEAP_SIZE)
+        {
+          (*heap)[#{eth_generic_var}.value.value_Ethhdr.idx_h_source] = (Generic){.type = STRING, .value.string = {.start = *string_pool_index, .end = *string_pool_index + ETH_ALEN - 1}};
+
+          for(int i  = 0; i < ETH_ALEN; i++, (*string_pool_index)++) {
+            if(*string_pool_index >= STRING_POOL_SIZE) {
+              op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
+              goto CATCH;
+            }
+            (*string_pool)[*string_pool_index] = #{eth_c_var}->h_source[i];
+          }
+        }
+        if (#{eth_generic_var}.value.value_Ethhdr.idx_h_proto < HEAP_SIZE)
+        {
+          (*heap)[#{eth_generic_var}.value.value_Ethhdr.idx_h_proto] = (Generic){.type = INTEGER, .value.integer = #{eth_c_var}->h_proto};
+        }
+        """
+        |> gen()
+        |> TranslatedCode.new(eth_generic_var)
+    end
+  end
+
   # General dot operator
   def to_c({{:., _, [var, property]}, _, _}, _context) do
     var_name_in_c = var_to_string(var)

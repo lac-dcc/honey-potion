@@ -259,36 +259,37 @@ static void Multiply(OpResult *result, Generic *var1, Generic *var2)
 
 static void Copy(OpResult *result, Generic *to, Generic *from)
 {
-  if (from->type == STRING)
-  {
-    to->type = STRING;
+  // TODO
+  // if (from->type == STRING)
+  // {
+  //   to->type = STRING;
 
-    int zero = 0;
-    int *string_pool_index = bpf_map_lookup_elem(&string_pool_index_map, &zero);
-    if (!string_pool_index)
-    {
-      *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool index, function Copy)."};
-      return;
-    }
+  //   int zero = 0;
+  //   int *string_pool_index = bpf_map_lookup_elem(&string_pool_index_map, &zero);
+  //   if (!string_pool_index)
+  //   {
+  //     *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool index, function Copy)."};
+  //     return;
+  //   }
 
-    int str_len = from->value.string.end - from->value.string.start + 1;
-    to->value.string.start = *string_pool_index;
-    to->value.string.end = to->value.string.start + str_len - 1;
+  //   int str_len = from->value.string.end - from->value.string.start + 1;
+  //   to->value.string.start = *string_pool_index;
+  //   to->value.string.end = to->value.string.start + str_len - 1;
 
-    if (to->value.string.end > STRING_POOL_SIZE - 1)
-    {
-      *result = (OpResult){.exception = 1, .exception_msg = "(StringPoolSizeError) The program reached the maximum size of " QUOTE(STRING_POOL_SIZE) " characters stored in all bitstrings."};
-    }
+  //   if (to->value.string.end > STRING_POOL_SIZE - 1)
+  //   {
+  //     *result = (OpResult){.exception = 1, .exception_msg = "(StringPoolSizeError) The program reached the maximum size of " QUOTE(STRING_POOL_SIZE) " characteres stored in all bitstrings."};
+  //   }
 
-    char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
-    if (!string_pool)
-    {
-      *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, function Copy)."};
-      return;
-    }
+  //   char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
+  //   if (!string_pool)
+  //   {
+  //     *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, function Copy)."};
+  //     return;
+  //   }
 
-    __builtin_memcpy(*string_pool[to->value.string.start], *string_pool[from->value.string.start], str_len);
-  }
+  //   __builtin_memcpy(*string_pool[to->value.string.start], *string_pool[from->value.string.start], str_len);
+  // }
 }
 
 static int pattern_match(Generic *var1, Generic *var2)

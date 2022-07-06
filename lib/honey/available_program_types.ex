@@ -50,6 +50,22 @@ defmodule Honey.AvailableProgramTypes do
             }
             """)
         }
+      },
+      "xdp_traffic_count" => %ProgramType{
+        sec: "xdp_traffic_count",
+        main_arguments_types: ["struct xdp_md*"],
+        add_on: %AddOn{
+          structs: [
+            %Struct{
+              name: "Ethhdr",
+              fields: ["h_dest", "h_source", "h_proto"]
+            }
+          ],
+          main_code:
+            gen("""
+            Generic converted_arg_1 = {.type = INTEGER, .value.integer = 0};
+            """)
+        }
       }
     }
   end
