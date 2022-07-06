@@ -1,11 +1,13 @@
-defmodule Honey.Boilerplates do
-  import Honey.Utils, only: [gen: 1]
+defmodule Honey.Boilerplates.AddOn do
+  defstruct [:includes, :defines, :code_before_structs, :structs, :main_code]
+end
 
-  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
+defmodule Honey.Boilerplates.Config do
+  defstruct [:prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
 
-  def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code) do
+  def new(prog_type, func_args, license, elixir_maps, requires, translated_code) do
     %__MODULE__{
-      libbpf_prog_type: libbpf_prog_type,
+      prog_type: prog_type,
       func_args: func_args,
       license: license,
       elixir_maps: elixir_maps,
@@ -13,9 +15,14 @@ defmodule Honey.Boilerplates do
       translated_code: translated_code
     }
   end
+end
+
+defmodule Honey.Boilerplates do
+  alias Honey.{Struct}
+  import Honey.Utils, only: [gen: 1]
 
   # I'd suggest not to use `require` because it is used to import macros
-  # I'd suggest using `@include` module attribute, which makes more sense
+  # I'd suggest using `@include` module attribute, which makes more sence
   # both in naming and order (which is persisted for attributes)
   def requires_to_includes(requires) do
     Enum.reduce(requires, "", fn req, includes ->
@@ -48,7 +55,7 @@ defmodule Honey.Boilerplates do
     default_includes() <> requires_to_includes(config.requires)
   end
 
-  def generate_defines(_config) do
+  def generate_runtime_defines() do
     gen("""
     #ifndef __inline
     #define __inline \\
@@ -60,11 +67,6 @@ defmodule Honey.Boilerplates do
     #define STRING_POOL_SIZE 500
     #define HEAP_SIZE 100
     #define MAX_STRUCT_MEMBERS 5
-
-    #define field_pad 1
-    #define field_syscall_nr 2
-    #define field_pid 3
-    #define field_sig 4
 
     #define BINARY_OPERATION(generic_result, op, var1, var2) \\
       op(&op_result, &var1, &var2);                          \\
@@ -86,14 +88,38 @@ defmodule Honey.Boilerplates do
     """)
   end
 
-  def generate_structs(_config) do
-    gen("""
-    typedef struct Generic Generic;
-    typedef enum Operation Operation;
-    typedef enum Type Type;
-    typedef struct Tuple Tuple;
-    typedef union ElixirValue ElixirValue;
+  def generate_progtype_defines(config) do
+    Enum.reduce(config.prog_type.add_on.structs, {"", 1}, fn struct, {all_defines, counter} ->
+      {struct_defines, counter} =
+        Enum.reduce(struct.fields, {"", counter}, fn field, {struct_defines, counter} ->
+          {struct_defines <> "#define #{Struct.field_to_id!(struct, field)} #{counter}\n",
+           counter + 1}
+        end)
 
+      {all_defines <> struct_defines, counter}
+    end)
+    |> elem(0)
+    |> gen()
+  end
+
+  def generate_defines(config) do
+    generate_runtime_defines() <>
+      generate_progtype_defines(config)
+  end
+
+  def generate_custom_types(config) do
+    Enum.map(config.prog_type.add_on.structs, &Struct.to_type_enum/1)
+    |> Enum.join(",\n")
+  end
+
+  def generate_custom_ElixirValue_fields(config) do
+    Enum.reduce(config.prog_type.add_on.structs, "", fn struct, code ->
+      code <> "#{Struct.to_c_type(struct)} #{Struct.to_ElixirValue_accessor(struct)};\n"
+    end)
+  end
+
+  def generate_runtime_structs(config) do
+    gen("""
     typedef enum Type
     {
       INVALID_TYPE,
@@ -104,35 +130,32 @@ defmodule Honey.Boilerplates do
       ATOM,
       TUPLE,
       LIST,
-      STRUCT,
-      TYPE_Syscalls_enter_kill_arg
+      #{generate_custom_types(config)}
     } Type;
+
+    typedef struct Generic Generic;
+    typedef enum Operation Operation;
+    typedef enum Type Type;
+    typedef struct Tuple Tuple;
+    typedef union ElixirValue ElixirValue;
 
     typedef struct Tuple
     {
-      int idx;
-      int value_idx;
-      int nextElement_idx;
+      unsigned idx;
+      unsigned value_idx;
+      unsigned nextElement_idx;
     } Tuple;
 
     typedef struct String
     {
-      int start;
-      int end;
+      unsigned start;
+      unsigned end;
     } String;
 
     typedef struct StrToPrint
     {
       char str[MAX_STR_SIZE + 6];
     } StrToPrint;
-
-    typedef struct struct_Syscalls_enter_kill_args
-    {
-      unsigned pos_pad;
-      unsigned pos_syscall_nr;
-      unsigned pos_pid;
-      unsigned pos_sig;
-    } struct_Syscalls_enter_kill_args;
 
     typedef union ElixirValue
     {
@@ -141,7 +164,7 @@ defmodule Honey.Boilerplates do
       double double_precision;
       Tuple tuple;
       String string;
-      struct_Syscalls_enter_kill_args syscalls_enter_kill_args;
+      #{generate_custom_ElixirValue_fields(config)}
     } ElixirValue;
 
     typedef struct Generic
@@ -161,21 +184,29 @@ defmodule Honey.Boilerplates do
     {
       char spec[2];
     } StrFormatSpec;
-
-    struct syscalls_enter_kill_args
-    {
-      /**
-       * This is the tracepoint arguments of the kill functions.
-       * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
-       */
-      long long pad;
-
-      long syscall_nr;
-      long pid;
-      long sig;
-    };
-
     """)
+  end
+
+  def generate_progtype_structs(config) do
+    Enum.reduce(config.prog_type.add_on.structs, "", fn struct, code ->
+      code <>
+        """
+        typedef struct #{Struct.to_c_type(struct)}
+        {
+          #{Enum.reduce(struct.fields, "", fn field, code -> code <> "unsigned #{Struct.field_to_c_field!(struct, field)};\n" end)}
+        } #{Struct.to_c_type(struct)};
+        """
+    end)
+    |> gen()
+  end
+
+  def generate_structs(config) do
+    generate_progtype_structs(config) <>
+      generate_runtime_structs(config)
+  end
+
+  def generate_addon_before_structs(config) do
+    config.prog_type.add_on.code_before_structs || ""
   end
 
   def default_maps do
@@ -242,7 +273,7 @@ defmodule Honey.Boilerplates do
           #{fields}
           __type(key, int);
           __uint(value_size, sizeof(Generic));
-        } #{map_name} SEC(".maps")
+        } #{map_name} SEC(".maps");
         """
       end)
 
@@ -255,7 +286,7 @@ defmodule Honey.Boilerplates do
 
   def generate_getMember(config) do
     gen("""
-    static void getMember(OpResult *result, Generic *elixir_struct, char member_name[20], Generic *member)
+    static __inline void getMember(OpResult *result, Generic *elixir_struct, unsigned member_id, Generic *member)
     {
       *result = (OpResult){.exception = 0};
       int zero = 0;
@@ -265,44 +296,21 @@ defmodule Honey.Boilerplates do
         *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, getMember function)."};
         return;
       }
-    #{gen(case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" -> "if (elixir_struct->type == TYPE_Syscalls_enter_kill_arg)
-            {
-              if (__builtin_memcmp(member_name, \"pad\", 4) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pad;
-                if (index < HEAP_SIZE)
-                {
-                  *member = (*heap)[index];
-                }
-              }
-              else if (__builtin_memcmp(member_name, \"syscall_nr\", 11) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_syscall_nr;
-                if (index < HEAP_SIZE)
-                {
-                  *member = (*heap)[index];
-                }
-              }
-              else if (__builtin_memcmp(member_name, \"pid\", 4) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pid;
-                if (index < HEAP_SIZE)
-                {
-                  *member = (*heap)[index];
-                }
-              }
-              else if (__builtin_memcmp(member_name, \"sig\", 4) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_sig;
-                if (index < HEAP_SIZE)
-                {
-                  *member = (*heap)[index];
-                }
-              }
-            }"
-      _ -> ""
-    end)}
+    #{Enum.reduce(config.prog_type.add_on.structs, "", fn struct, code -> code <> """
+        if (elixir_struct->type == #{Struct.to_type_enum(struct)}) {
+          #{Enum.reduce(struct.fields, "", fn field, code -> code <> """
+        if(member_id == #{Struct.field_to_id!(struct, field)}) {
+          unsigned index = elixir_struct->value.#{Struct.to_ElixirValue_accessor(struct)}.#{Struct.field_to_c_field!(struct, field)};
+          if (index < HEAP_SIZE)
+          {
+            *member = (*heap)[index];
+            return;
+          }
+        }
+        """ end)}
+        }
+      """ end)
+    |> gen()}
       *result = (OpResult){.exception = 1, .exception_msg = "(InvalidMember) Tried to access invalid member of a struct."};
       return;
     }
@@ -337,6 +345,7 @@ defmodule Honey.Boilerplates do
       op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool index, main function).\"};
       goto CATCH;
     }
+    *string_pool_index = 0;
 
     __builtin_memcpy(*string_pool, \"nil\", 3);
     __builtin_memcpy(*string_pool + 3, \"false\", 5);
@@ -355,36 +364,21 @@ defmodule Honey.Boilerplates do
       op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access heap map index, main function).\"};
       goto CATCH;
     }
+    *heap_index = 0;
     """)
   end
 
-  def generate_middle_main_code(config) do
-    case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" ->
-        [arg | _] = config.func_args
+  def generate_progtype_main(config) do
+    config.prog_type.add_on.main_code <>
+      (config.func_args
+       |> Enum.with_index(fn func_arg, index ->
+         "Generic #{func_arg} = converted_arg_#{index + 1};"
+       end)
+       |> Enum.join("\n"))
+  end
 
-        # FIXME: comment in a first clause
-        gen("""
-        Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*heap_index)++, (*heap_index)++, (*heap_index)++, (*heap_index)++}};
-        unsigned last_index = #{arg}.value.syscalls_enter_kill_args.pos_sig;
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pad < HEAP_SIZE)
-        {
-          // (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pad] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pad};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr] = (Generic){.type = INTEGER, .value.integer = ctx_arg->syscall_nr};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pid < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pid] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pid};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
-        }
-        """)
-    end
+  def generate_middle_main_code(config) do
+    generate_progtype_main(config)
   end
 
   def generate_ending_main_code(return_var_name) do
@@ -404,24 +398,18 @@ defmodule Honey.Boilerplates do
   def generate_license(config) do
     gen("""
     char LICENSE[] SEC("license") = "#{config.license}";
-
-
     """)
   end
 
   def generate_main_arguments(config) do
-    case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" ->
-        "struct syscalls_enter_kill_args *ctx_arg"
-
-      _ ->
-        ""
-    end
+    config.prog_type.main_arguments_types
+    |> Enum.with_index(fn arg_type, index -> "#{arg_type} arg_#{index + 1}" end)
+    |> Enum.join(",")
   end
 
   def generate_main(config) do
     gen("""
-    SEC("#{config.libbpf_prog_type}")
+    SEC("#{config.prog_type.sec}")
     int main_func(#{generate_main_arguments(config)}) {
       #{beginning_main_code()}
       #{generate_middle_main_code(config)}
@@ -437,6 +425,7 @@ defmodule Honey.Boilerplates do
     gen(
       generate_includes(config) <>
         generate_defines(config) <>
+        generate_addon_before_structs(config) <>
         generate_structs(config) <>
         generate_maps(config) <>
         generate_license(config) <>

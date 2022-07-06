@@ -1,6 +1,5 @@
 defmodule Honey.Translator do
-  alias Honey.Boilerplates
-  alias Honey.TranslatedCode
+  alias Honey.{Boilerplates, TranslatedCode, AvailableProgramTypes}
 
   import Honey.Utils, only: [gen: 1, var_to_string: 1]
 
@@ -190,13 +189,20 @@ defmodule Honey.Translator do
   def to_c({{:., _, [var, property]}, _, _}, _context) do
     var_name_in_c = var_to_string(var)
     property_var = unique_helper_var()
-    str_name_var = unique_helper_var()
+    property_id_var = unique_helper_var()
+
+    property_id = "field_id_#{property}"
 
     """
     Generic #{property_var} = {0};
-    char #{str_name_var}[20] = "#{Atom.to_string(property)}";
-    getMember(&op_result, &#{var_name_in_c}, #{str_name_var}, &#{property_var});
-    if (op_result.exception) goto CATCH
+    #ifdef #{property_id}
+    unsigned #{property_id_var} = #{property_id};
+    getMember(&op_result, &#{var_name_in_c}, #{property_id_var}, &#{property_var});
+    if (op_result.exception) goto CATCH;
+    #else
+    op_result = (OpResult){ .exception = 1, .exception_msg = \"(InvalidField) Tried to access invalid field '#{property}' of variable '#{elem(var, 0)}'.\"};
+    goto CATCH;
+    #endif
     """
     |> gen()
     |> TranslatedCode.new(property_var)
@@ -366,11 +372,14 @@ defmodule Honey.Translator do
     end)
   end
 
-  @supported_types ~w[tracepoint/syscalls/sys_enter_kill]
   defp ensure_right_type(type) do
+    # TODO: Also check if the number of arguments received in main is correct
+
+    available_types = AvailableProgramTypes.generate_available_types()
+
     case type do
-      type when type in @supported_types ->
-        true
+      type when is_map_key(available_types, type) ->
+        available_types[type]
 
       type when type in ["", nil] ->
         raise "The main/1 function must be preceded by a @sec indicating the type of the program."
@@ -380,14 +389,16 @@ defmodule Honey.Translator do
     end
   end
 
-  def translate(func_name, ast, sec, license, requires, elixir_maps) do
+  def translate(func_name, func_args, ast, sec, license, requires, elixir_maps) do
     case func_name do
       "main" ->
-        ensure_right_type(sec)
+        program_type = ensure_right_type(sec)
+        func_args_str = Enum.map(func_args, &var_to_string/1)
+
         translated_code = to_c(ast)
 
-        sec
-        |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code)
+        program_type
+        |> Boilerplates.Config.new(func_args_str, license, elixir_maps, requires, translated_code)
         |> Boilerplates.generate_whole_code()
 
       _ ->

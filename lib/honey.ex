@@ -88,7 +88,7 @@ defmodule Honey do
     license = Keyword.fetch!(ebpf_options, :license)
     maps = Module.get_attribute(env.module, :ebpf_maps)
     # TODO: env.requires stores the requires in alphabetical order. This might be a problem.
-    c_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
+    c_code = Translator.translate("main", arguments, final_ast, sec, license, env.requires, maps)
 
     clang_format = Keyword.get(ebpf_options, :clang_format)
     write_c_file(c_code, env.file, env.module, clang_format)
