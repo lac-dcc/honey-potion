@@ -196,7 +196,8 @@ defmodule Honey.DCE do
       Macro.prewalk(new_ast, Keyword.new(), fn segment, def_use ->
         {segment, def_use} =
           case segment do
-            {:=, _meta, [lhs, rhs]} ->
+            # TODO: Add support for analysing pattern matchings
+            {:=, _meta, [lhs = {_, _, _}, rhs]} ->
               var_version = get_var_version(lhs)
 
               var_uses = get_uses(rhs)

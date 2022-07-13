@@ -1,5 +1,5 @@
 defmodule Honey.Bpf do
-  defmodule Bpf_helpers do
+  defmodule BpfHelpers do
     def bpf_printk(_str) do
     end
 

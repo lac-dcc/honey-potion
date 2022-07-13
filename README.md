@@ -75,7 +75,7 @@ In the Alpha version, just the map type `BPF_MAP_TYPE_ARRAY` is available, but y
 #### Helper functions
 eBPF and `libbpf` provides some helper functions, and so does *Honey*. In the Alpha version, there is a single module you can import:
 
-`import Honey.Bpf.Bpf_helpers`
+`import Honey.Bpf.BpfHelpers`
 
 Referencing the usual `#include <bpf/bpf_helpers>`, this module allows you to call:
  - **bpf_map_lookup_elem(map, key)** ➜ Map access are easy, you can pass the name of the map declared with `defmap` and the key (currently, only integer), and the function will the return the value to you. In the Alpha version, if it is not possible to access that position of the map, a Runtime exception will be thrown.

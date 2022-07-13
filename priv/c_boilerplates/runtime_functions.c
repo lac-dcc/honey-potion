@@ -1,4 +1,4 @@
-static int to_bool(Generic *var)
+static __inline int to_bool(Generic *var)
 {
   if (var->type == ATOM)
   {
@@ -55,7 +55,7 @@ static int to_bool(Generic *var)
   return 1;
 }
 
-static int values_are_equal(Generic *var1, Generic *var2)
+static __inline int values_are_equal(Generic *var1, Generic *var2)
 {
   if (var1->type == INTEGER)
   {
@@ -76,13 +76,13 @@ static int values_are_equal(Generic *var1, Generic *var2)
 }
 
 // Unary operations
-static void negate(Generic *var, Generic *result)
+static __inline void negate(Generic *var, Generic *result)
 {
   // TODO
 }
 
 // Binary operations
-static void Subtract(OpResult *result, Generic *var1, Generic *var2)
+static __inline void Subtract(OpResult *result, Generic *var1, Generic *var2)
 {
   result->exception = 0;
 
@@ -115,10 +115,10 @@ static void Subtract(OpResult *result, Generic *var1, Generic *var2)
     }
   }
 
-  *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Sum)."};
+  *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Subtract)."};
 }
 
-static void Sum(OpResult *result, Generic *var1, Generic *var2)
+static __inline void Sum(OpResult *result, Generic *var1, Generic *var2)
 {
   result->exception = 0;
 
@@ -154,7 +154,7 @@ static void Sum(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Sum)."};
 }
 
-static void Divide(OpResult *result, Generic *var1, Generic *var2)
+static __inline void Divide(OpResult *result, Generic *var1, Generic *var2)
 {
   result->exception = 0;
   if (var1->type == DOUBLE || var2->type == DOUBLE)
@@ -200,7 +200,7 @@ static void Divide(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Divide)."};
 }
 
-static void Multiply(OpResult *result, Generic *var1, Generic *var2)
+static __inline void Multiply(OpResult *result, Generic *var1, Generic *var2)
 {
   result->exception = 0;
   if (var1->type == DOUBLE || var2->type == DOUBLE)
@@ -257,7 +257,7 @@ static void Multiply(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Multiply)."};
 }
 
-static void Copy(OpResult *result, Generic *to, Generic *from)
+static __inline void Copy(OpResult *result, Generic *to, Generic *from)
 {
   // TODO
   // if (from->type == STRING)
@@ -292,13 +292,13 @@ static void Copy(OpResult *result, Generic *to, Generic *from)
   // }
 }
 
-static int pattern_match(Generic *var1, Generic *var2)
+static __inline int pattern_match(Generic *var1, Generic *var2)
 {
   // TODO
   return 0;
 }
 
-static void Equals(OpResult *result, Generic *var1, Generic *var2) {
+static __inline void Equals(OpResult *result, Generic *var1, Generic *var2) {
   result->exception = 0;
 
   if(var1->type != var2->type) {

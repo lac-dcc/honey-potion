@@ -32,7 +32,7 @@ defmodule Honey.Boilerplates do
             # Already included
             ""
 
-          Bpf.Bpf_helpers ->
+          Bpf.BpfHelpers ->
             # Already included
             ""
 
@@ -258,23 +258,30 @@ defmodule Honey.Boilerplates do
 
         fields =
           Enum.map(map_content, fn {key, value} ->
-            value =
+            {bpf_key, bpf_value} =
               case key do
                 :type ->
-                  Macro.to_string(value)
+                  {"type", Macro.to_string(value)}
 
+                :key_type ->
+                  case value do
+                    %{type: :string, size: size} ->
+                      {"key_size", "sizeof(char[#{size}])"}
+                  end
                 _ ->
-                  Integer.to_string(value)
+                  {key, value}
               end
 
-            "__uint(#{key}, #{value});"
+            "__uint(#{bpf_key}, #{bpf_value});"
           end)
           |> Enum.join("\n")
 
         """
         struct {
           #{fields}
-          __type(key, int);
+          #{if(map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or map_content.type == BPF_MAP_TYPE_ARRAY) do
+            "__type(key, int);"
+          end}
           __uint(value_size, sizeof(Generic));
         } #{map_name} SEC(".maps");
         """

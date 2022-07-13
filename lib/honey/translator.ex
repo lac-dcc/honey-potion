@@ -1,5 +1,13 @@
+defmodule Honey.TranslatorContext do
+  defstruct [:maps]
+
+  def new(maps) do
+    %__MODULE__{maps: maps}
+  end
+end
+
 defmodule Honey.Translator do
-  alias Honey.{Boilerplates, TranslatedCode, AvailableProgramTypes}
+  alias Honey.{Boilerplates, TranslatedCode, AvailableProgramTypes, TranslatorContext}
 
   import Honey.Utils, only: [gen: 1, var_to_string: 1]
 
@@ -79,120 +87,14 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(c_var_name)
   end
 
-  # C libraries
-  def to_c({{:., _, [Honey.Bpf.Bpf_helpers, function]}, _, params}, context) do
+  # XdpMd
+  def to_c({{:., _, [Honey.XdpMd, function]}, _, params}, _context) do
     case function do
-      :bpf_printk ->
-        [[string | other_params]] = params
-
-        if !is_bitstring(string) do
-          raise "First argument of bpf_printk must be a string. Received: #{Macro.to_string(params)}"
-        end
-
-        string = String.replace(string, "\n", "\\n")
-        code_vars = Enum.map(other_params, &to_c(&1, context))
-
-        code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
-
-        vars =
-          Enum.reduce(code_vars, "", fn translated, so_far ->
-            so_far = if so_far != "", do: so_far <> ", ", else: ""
-            so_far <> translated.return_var_name <> ".value.integer"
-          end)
-
-        result_var = unique_helper_var()
-
-        # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
-        """
-        #{code}
-        bpf_printk(\"#{string}\", #{vars});
-        Generic #{result_var} = {.type = INTEGER, .value.integer = 0};
-        """
-        |> gen()
-        |> TranslatedCode.new(result_var)
-
-      # TODO: Maps stopped working after the addition of dynamic types.
-      :bpf_map_lookup_elem ->
-        [map, key_ast] = params
-
-        if !is_atom(map) do
-          raise "bpf_map_lookup_elem: 'map' must be an atom. Received: #{Macro.to_string(map)}"
-        end
-
-        str_map_name = Atom.to_string(map)
-
-        key = to_c(key_ast, context)
-
-        result_var_pointer = unique_helper_var()
-        result_var = unique_helper_var()
-
-        """
-        #{key.code}
-        if(#{key.return_var_name}.type != INTEGER) {
-          op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_lookup_elem is not integer."};
-          goto CATCH;
-        }
-        Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
-        if(!#{result_var_pointer}) {
-          op_result = (OpResult){.exception = 1, .exception_msg = "(MapAcess) Impossible to access map '#{str_map_name}' with the key informed."};
-          goto CATCH;
-        }
-        Generic #{result_var} = *#{result_var_pointer};
-        """
-        |> gen()
-        |> TranslatedCode.new(result_var)
-
-      :bpf_map_update_elem ->
-        [map, key_ast, value_ast] = params
-
-        if !is_atom(map) do
-          raise "bpf_map_update_elem: 'map' must be an atom. Received: #{Macro.to_string(map)}"
-        end
-
-        str_map_name = Atom.to_string(map)
-
-        # if(!is_atom(flags)) do
-        #   throw "bpf_map_update_elem: 'flags' must be an atom. Received: #{Macro.to_string(map)}"
-        # end
-        # flags_map_name = Atom.to_string(flags)
-        # |> String.replace("Elixir.", "")
-
-        key = to_c(key_ast, context)
-        value = to_c(value_ast, context)
-
-        result_var_c = unique_helper_var()
-        result_var = unique_helper_var()
-
-        """
-        #{key.code}
-        #{value.code}
-        if(#{key.return_var_name}.type != INTEGER) {
-          op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
-          goto CATCH;
-        }
-        int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, BPF_ANY);
-        Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
-        """
-        |> gen()
-        |> TranslatedCode.new(result_var)
-
-      :bpf_get_current_pid_tgid ->
-        result_var = unique_helper_var()
-
-        "Generic #{result_var} = {.type = INTEGER, .value.integer = bpf_get_current_pid_tgid()};\n"
-        |> gen()
-        |> TranslatedCode.new(result_var)
-    end
-  end
-
-  # Xdp_md
-  def to_c({{:., _, [Honey.Xdp_md, function]}, _, params}, _context) do
-    case function do
-      :convert_to_ethhdr ->
+      :convert_to_ethhdr! ->
         [pos] = params
 
         if !is_integer(pos) do
-          raise "convert_to_ethhdr: 'pos' must be an integer. Received: #{Macro.to_string(pos)}"
+          raise "convert_to_ethhdr!: 'pos' must be an integer. Received: #{Macro.to_string(pos)}"
         end
 
         data_var = unique_helper_var()
@@ -215,9 +117,10 @@ defmodule Honey.Translator do
         {
           (*heap)[#{eth_generic_var}.value.value_Ethhdr.idx_h_dest] = (Generic){.type = STRING, .value.string = {.start = *string_pool_index, .end = *string_pool_index + ETH_ALEN - 1}};
 
-          for(int i  = 0; i < ETH_ALEN; i++, (*string_pool_index)++) {
+          for(unsigned i  = 0; i < ETH_ALEN; i++, (*string_pool_index)++) {
             if(*string_pool_index >= STRING_POOL_SIZE) {
-              op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
+              op_result.exception = 1;
+              __builtin_memcpy(op_result.exception_msg, "(MemoryLimitReached) Impossible to create string, the string pool is full.", sizeof("(MemoryLimitReached)1 Impossible to create string, the string pool is full."));
               goto CATCH;
             }
             (*string_pool)[*string_pool_index] = #{eth_c_var}->h_dest[i];
@@ -227,9 +130,10 @@ defmodule Honey.Translator do
         {
           (*heap)[#{eth_generic_var}.value.value_Ethhdr.idx_h_source] = (Generic){.type = STRING, .value.string = {.start = *string_pool_index, .end = *string_pool_index + ETH_ALEN - 1}};
 
-          for(int i  = 0; i < ETH_ALEN; i++, (*string_pool_index)++) {
+          for(unsigned i  = 0; i < ETH_ALEN; i++, (*string_pool_index)++) {
             if(*string_pool_index >= STRING_POOL_SIZE) {
-              op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
+              op_result.exception = 1;
+              __builtin_memcpy(op_result.exception_msg, "(MemoryLimitReached) Impossible to create string, the string pool is full.", sizeof("(MemoryLimitReached)1 Impossible to create string, the string pool is full."));
               goto CATCH;
             }
             (*string_pool)[*string_pool_index] = #{eth_c_var}->h_source[i];
@@ -245,8 +149,12 @@ defmodule Honey.Translator do
     end
   end
 
+  def to_c(ast = {{:., _, [Honey.Bpf.BpfHelpers, _]}, _, _}, context) do
+    matching_bpf_helpers({}, ast, context)
+  end
+
   # General dot operator
-  def to_c({{:., _, [var, property]}, _, _}, _context) do
+  def to_c(ast = {{:., _, [var, property]}, _, _}, _context) do
     var_name_in_c = var_to_string(var)
     property_var = unique_helper_var()
     property_id_var = unique_helper_var()
@@ -282,16 +190,22 @@ defmodule Honey.Translator do
   end
 
   # Match operator, not complete
-  def to_c({:=, _, [lhs, rhs]}, _context) do
-    rhs_in_c = to_c(rhs)
-    c_var_name = var_to_string(lhs)
+  def to_c({:=, _, [lhs, rhs]}, context) do
+    case rhs do
+      {{:., _, [Honey.Bpf.BpfHelpers, _]}, _, _} ->
+        matching_bpf_helpers(lhs, rhs, context)
 
-    """
-    #{rhs_in_c.code}
-    Generic #{c_var_name} = #{rhs_in_c.return_var_name};
-    """
-    |> gen()
-    |> TranslatedCode.new(c_var_name)
+      _ ->
+        rhs_in_c = to_c(rhs)
+        c_var_name = var_to_string(lhs)
+
+        """
+        #{rhs_in_c.code}
+        Generic #{c_var_name} = #{rhs_in_c.return_var_name};
+        """
+        |> gen()
+        |> TranslatedCode.new(c_var_name)
+    end
   end
 
   # Cond
@@ -421,6 +335,228 @@ defmodule Honey.Translator do
     """)
   end
 
+  def matching_bpf_helpers(lhs, {{:., _, [Honey.Bpf.BpfHelpers, function]}, _, params}, context) do
+    case function do
+      :bpf_printk ->
+        [[string | other_params]] = params
+
+        if !is_bitstring(string) do
+          raise "First argument of bpf_printk must be a string. Received: #{Macro.to_string(params)}"
+        end
+
+        string = String.replace(string, "\n", "\\n")
+        code_vars = Enum.map(other_params, &to_c(&1, context))
+
+        code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
+
+        vars =
+          Enum.reduce(code_vars, "", fn translated, so_far ->
+            so_far = if so_far != "", do: so_far <> ", ", else: ""
+            so_far <> translated.return_var_name <> ".value.integer"
+          end)
+
+        result_var = unique_helper_var()
+
+        # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
+        """
+        #{code}
+        bpf_printk(\"#{string}\", #{vars});
+        Generic #{result_var} = {.type = INTEGER, .value.integer = 0};
+        """
+        |> gen()
+        |> TranslatedCode.new(result_var)
+
+      # TODO: Maps stopped working after the addition of dynamic types.
+      :bpf_map_lookup_elem ->
+        [map_name, key_ast] = params
+
+        if !is_atom(map_name) do
+          raise "bpf_map_lookup_elem: 'map' must be an atom. Received: #{Macro.to_string(map_name)}"
+        end
+
+        declared_maps = context.maps
+
+        map =
+          Enum.find(declared_maps, nil, fn map ->
+            map[:name] == map_name
+          end)
+
+        if(!map) do
+          raise "bpf_map_update_elem: No map declared with name #{map_name}."
+        end
+
+        map_content = map[:content]
+
+        case lhs do
+          {found_var, item_var} ->
+            found_var_name = var_to_string(found_var)
+            item_var_name = var_to_string(item_var)
+
+            str_map_name = Atom.to_string(map_name)
+
+            key = to_c(key_ast, context)
+
+            result_var_pointer = unique_helper_var()
+            result_var = unique_helper_var()
+
+            if(
+              map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
+                map_content.type == BPF_MAP_TYPE_ARRAY
+            ) do
+              """
+              #{key.code}
+              if(#{key.return_var_name}.type != INTEGER) {
+                op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not integer."};
+                goto CATCH;
+              }
+              Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
+
+              Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = 0}; // This is a fake variable, necessary while we still need to return a var name.
+
+              Generic #{found_var_name} = (Generic){.type = INTEGER, .value.integer = #{result_var_pointer} != NULL};
+              Generic #{item_var_name} = (Generic){0};
+              if(!#{result_var_pointer}) {
+                #{item_var_name} = ATOM_NIL;
+              } else {
+                #{item_var_name} = *#{result_var_pointer};
+              }
+              """
+              |> gen()
+              |> TranslatedCode.new(result_var)
+            else
+              case Map.fetch(map_content, :key_type) do
+                {:ok, key_type} ->
+                  case key_type[:type] do
+                    :string ->
+                      """
+                      #{key.code}
+                      if(#{key.return_var_name}.type != STRING) {
+                        op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not a string."};
+                        goto CATCH;
+                      }
+                      if(#{key.return_var_name}.value.string.end - #{key.return_var_name}.value.string.start + 1 < #{key_type[:size]}) {
+                        op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) String passed to bpf_map_lookup_elem is not long enough for key of size #{key_type[:size]}."};
+                        goto CATCH;
+                      }
+                      if(#{key.return_var_name}.value.string.start >= STRING_POOL_SIZE) {
+                        op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
+                        goto CATCH;
+                      }
+                      if(#{key.return_var_name}.value.string.start + #{key_type[:size]} >= STRING_POOL_SIZE) {
+                        op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
+                        goto CATCH;
+                      }
+                      Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, (*string_pool) + #{key.return_var_name}.value.string.start);
+
+                      Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = 0}; // This is a fake variable, necessary while we still need to return a var name.
+
+                      Generic #{found_var_name} = (Generic){0};
+                      Generic #{item_var_name} = (Generic){0};
+                      if(!#{result_var_pointer}) {
+                        #{found_var_name} = ATOM_FALSE;
+                        #{item_var_name} = ATOM_NIL;
+                      } else {
+                        #{found_var_name} = ATOM_TRUE;
+                        #{item_var_name} = *#{result_var_pointer};
+                      }
+                      """
+                      |> gen()
+                      |> TranslatedCode.new(result_var)
+                  end
+              end
+            end
+
+          _ ->
+            raise "In the alpha version of Honey Elixir, use pattern matching when calling bpf_map_lookup_elem: \n    {found, item} = bpf_map_lookup_elem(...)"
+        end
+
+      :bpf_map_update_elem ->
+        [map_name, key_ast, value_ast | _] = params
+
+        declared_maps = context.maps
+
+        if !is_atom(map_name) do
+          raise "bpf_map_update_elem: 'map' must be an atom. Received: #{Macro.to_string(map_name)}"
+        end
+
+        str_map_name = Atom.to_string(map_name)
+
+        map =
+          Enum.find(declared_maps, nil, fn map ->
+            map[:name] == map_name
+          end)
+
+        if(!map) do
+          raise "bpf_map_update_elem: No map declared with name #{map_name}."
+        end
+
+        key = to_c(key_ast, context)
+        value = to_c(value_ast, context)
+
+        result_var_c = unique_helper_var()
+        result_var = unique_helper_var()
+
+        map_content = map[:content]
+
+        if(
+          map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or map_content.type == BPF_MAP_TYPE_ARRAY
+        ) do
+          """
+          #{key.code}
+          #{value.code}
+          if(#{key.return_var_name}.type != INTEGER) {
+            op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
+            goto CATCH;
+          }
+          int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, BPF_ANY);
+          Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
+          """
+          |> gen()
+          |> TranslatedCode.new(result_var)
+        else
+          case Map.fetch(map_content, :key_type) do
+            {:ok, key_type} ->
+              case key_type[:type] do
+                :string ->
+                  """
+                  #{key.code}
+                  if(#{key.return_var_name}.type != STRING) {
+                    op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not a string."};
+                    goto CATCH;
+                  }
+                  if(#{key.return_var_name}.value.string.end - #{key.return_var_name}.value.string.start + 1 < #{key_type[:size]}) {
+                    op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) String passed to bpf_map_lookup_elem is not long enough for key of size #{key_type[:size]}."};
+                    goto CATCH;
+                  }
+                  if(#{key.return_var_name}.value.string.start >= STRING_POOL_SIZE) {
+                    op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
+                    goto CATCH;
+                  }
+                  if(#{key.return_var_name}.value.string.start + #{key_type[:size]} >= STRING_POOL_SIZE) {
+                    op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
+                    goto CATCH;
+                  }
+                  int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, (*string_pool) + #{key.return_var_name}.value.string.start), &#{value.return_var_name}, BPF_ANY); // TODO: Allow other flags
+
+                  Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
+                  """
+                  |> TranslatedCode.new(result_var)
+              end
+
+            _ ->
+              raise "Missing attribute 'key_type' on map #{map_name}. Maps of type different than BPF_MAP_TYPE_PERCPU_ARRAY and BPF_MAP_TYPE_ARRAY must contain the attribute 'key_type'."
+          end
+        end
+
+      :bpf_get_current_pid_tgid ->
+        result_var = unique_helper_var()
+
+        "Generic #{result_var} = {.type = INTEGER, .value.integer = bpf_get_current_pid_tgid()};\n"
+        |> gen()
+        |> TranslatedCode.new(result_var)
+    end
+  end
+
   defp block_to_c({:__block__, _, exprs}, context) do
     Enum.reduce(exprs, Honey.TranslatedCode.new(), fn expr, translated_so_far ->
       translated_expr = to_c(expr, context)
@@ -455,7 +591,8 @@ defmodule Honey.Translator do
         program_type = ensure_right_type(sec)
         func_args_str = Enum.map(func_args, &var_to_string/1)
 
-        translated_code = to_c(ast)
+        context = TranslatorContext.new(elixir_maps)
+        translated_code = to_c(ast, context)
 
         program_type
         |> Boilerplates.Config.new(func_args_str, license, elixir_maps, requires, translated_code)

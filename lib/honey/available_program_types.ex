@@ -51,8 +51,8 @@ defmodule Honey.AvailableProgramTypes do
             """)
         }
       },
-      "xdp_traffic_count" => %ProgramType{
-        sec: "xdp_traffic_count",
+      "xdp" => %ProgramType{
+        sec: "xdp",
         main_arguments_types: ["struct xdp_md*"],
         add_on: %AddOn{
           structs: [
