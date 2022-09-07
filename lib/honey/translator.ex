@@ -2,7 +2,7 @@ defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
 
-  import Honey.Utils, only: [gen: 1, var_to_string: 1]
+  import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
 
   def unique_helper_var() do
     "helper_var_#{:erlang.unique_integer([:positive])}"
@@ -217,15 +217,24 @@ defmodule Honey.Translator do
 
   # Match operator, not complete
   def to_c({:=, _, [lhs, rhs]}, _context) do
-    rhs_in_c = to_c(rhs)
-    c_var_name = var_to_string(lhs)
+    IO.puts("==============")
+    IO.inspect(lhs)
+    IO.inspect(rhs)
+    IO.puts("==============")
 
-    """
-    #{rhs_in_c.code}
-    Generic #{c_var_name} = #{rhs_in_c.return_var_name};
-    """
+
+    rhs_in_c = to_c(rhs)
+    # c_var_name = var_to_string(lhs)
+
+    "#{rhs_in_c.code}\n" <> pattern_matching(lhs, rhs_in_c.return_var_name)
     |> gen()
-    |> TranslatedCode.new(c_var_name)
+    |> TranslatedCode.new(rhs_in_c.return_var_name)
+    # """
+    # #{rhs_in_c.code}
+    # Generic #{c_var_name} = #{rhs_in_c.return_var_name};
+    # """
+    # |> gen()
+    # |> TranslatedCode.new(c_var_name)
   end
 
   # Cond
@@ -253,6 +262,29 @@ defmodule Honey.Translator do
         IO.inspect(other)
         raise "We cannot convert this structure yet."
     end
+  end
+
+  # def pattern_matching({first, second} = var, helper_var_name) do
+  #   pattern_matching(first, helper_var_name <> "")
+  #     <>
+  #   pattern_matching(second, helper_var_name)
+  # end
+
+  def pattern_matching(var, helper_var_name) when is_var(var) do
+    c_var_name = var_to_string(var)
+    """
+    Generic #{c_var_name} = #{helper_var_name};
+    """
+  end
+
+  def pattern_matching(constant, helper_var_name) do
+    constant_code = to_c(constant)
+    """
+    if(values_are_equal(&#{constant_code.return_var_name}, &#{helper_var_name})) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto CATCH
+    }
+    """
   end
 
   def constant_to_code(item) do

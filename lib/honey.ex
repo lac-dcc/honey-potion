@@ -77,9 +77,9 @@ defmodule Honey do
     final_ast =
       func_ast
       |> Fuel.burn_fuel(env)
-      |> Optimizer.run()
+      # |> Optimizer.run()
 
-    # print_ast(final_ast)
+    print_ast(final_ast)
 
     ebpf_options = Module.get_attribute(env.module, :ebpf_options)
 

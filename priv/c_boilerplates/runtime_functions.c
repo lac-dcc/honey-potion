@@ -55,23 +55,38 @@ static int to_bool(Generic *var)
   return 1;
 }
 
+static int strcmp(String *s1, String *s2){
+  int it1 = s1->start, it2 = s2->start;
+  int zero = 0;
+  char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
+  if (!string_pool)
+  {
+   op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, main function)."};
+    // goto CATCH;
+  }
+  while(it1 < STRING_POOL_SIZE && it2 < STRING_POOL_SIZE
+        && it1 <= s1->end && it2 <= s2->end
+        && string_pool[it1] == string_pool[it2]){
+    ++it1;
+    ++it2;
+  }
+  return it1 > s1->end && it2 > s2->end;
+}
+
 static int values_are_equal(Generic *var1, Generic *var2)
 {
-  if (var1->type == INTEGER)
-  {
-    if (var2->type == INTEGER)
-    {
-      if (var1->value.integer == var2->value.integer)
-      {
-        return 1;
-      }
-      else
-      {
-        return 0;
-      }
-    }
+  switch (var1->type) {
+    case INTEGER:
+      return var1->type == var2->type && var1->value.integer == var2->value.integer;
+    case DOUBLE:
+      return var1->type == var2->type && var1->value.double_precision == var2->value.double_precision;
+    case STRING:
+      return var1->type == var2->type && strcmp(&var1->value.string, &var2->value.string);
+    case ATOM:
+      return var1->type == var2->type && strcmp(&var1->value.string, &var2->value.string);
+    default: // TODO: raise an error
+      break;
   }
-
   return 0;
 }
 
