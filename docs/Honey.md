@@ -1,10 +1,10 @@
 # Lib/Honey Folder Documented
 
-> This is where the code for Honey-Potion resides. In other words, this is what does the process of turning an elixir code into a C counterpart.
+> This is where the code of Honey-Potion resides. In other words, this does the process of turning an elixir code into a C counterpart.
 
 All files have a specific function detailed below.
 
-Important dependencies are mentioned except for Utils (used in MANY files).
+Important dependencies are mentioned, except for Utils (used in MANY files).
 
 ## Boilerplates
 
@@ -21,17 +21,17 @@ Defines the optimization pipeline for Honey, as in, what modules are called in w
 
 ### constant_propagation
 
-Does constant propagation, in other words, evaluates constant blocks into smaller chunks before translating to C and also prepares variables for constant folding.
+Does constant propagation and constant folding, evaluating constant expressions at compile time.
 
 ### dead_code_elimination
 
-Cleans up the code by eliminating/refactoring dead code. For example checks variables that aren't being used and removes them or eliminates unecessary constant expressions [if true then branch 1 else branch 2 -> branch 1]. 
+Cleans up the code by eliminating/refactoring dead code. For example, it checks variables that aren't being used and removes them or eliminates unecessary constant expressions (e.g., if true then branch 1 else branch 2 **becomes** branch 1). 
 
 ## Recursion_expansion
 
 Defines the fuel macro and the functions to make it work.
 
-_fuel: a macro that unrolls recursive calls into a fixed number of repeated calls, as eBPF doesn't allow infinite recursion_
+_fuel: a macro that unrolls recursive calls into a fixed number of repeated calls, as eBPF doesn't allow recursive functions._
 
 ## Translated_code
 
@@ -41,8 +41,7 @@ Defines a struct for keeping C code.
 
 > **CHECK BEFORE**: Uses the /priv/c_boilerplates/runtime_functions.c for certain methods, for full understanding of it we recommend you familiarize yourself with it before reading the translator.
 
-Translates the elixir code into C using the methods described in Priv/C_boilerplates/runtime_functions for operators.
-
+Translates the elixir code into C that uses methods defined in Priv/C_boilerplates/runtime_functions, such as basic math operators.
 
 ## Utils
 
