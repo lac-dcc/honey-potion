@@ -32,4 +32,4 @@ Contains code that has to be persisted in the Hex documentation, currently it co
 Contains files for testing Honey-Potion, WIP.
 
 ## Docs
-Contains the documentation of Honey-Potion project as an overview. Documentation of specifics parts of code is currently handled with intuitive naming or comments.
+Contains the documentation of Honey-Potion project as an overview. Documentation of specific parts of code is currently handled with intuitive naming or comments.
