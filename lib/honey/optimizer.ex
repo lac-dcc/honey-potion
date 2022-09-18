@@ -2,8 +2,7 @@ defmodule Honey.Optimizer do
   alias Honey.{ConstantPropagation, DCE, Analyze}
 
   def run(fun_def) do
-    Analyze.run(fun_def)
-    fun_def
+    fun_def |> Analyze.run()
     |> ConstantPropagation.run()
     |> DCE.run()
   end

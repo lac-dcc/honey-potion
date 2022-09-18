@@ -14,18 +14,29 @@ defmodule Honey.Analyze do
     IO.inspect(lvu)
 
     #Does a second postwalk to recount, if the new count reached the first one, that's the last use.
-    Macro.postwalk(ast, [] , fn segment, nlvu ->
+    {ast, _} = Macro.postwalk(ast, [] , fn segment, nlvu ->
       if match?({_, [version: _, line: _], nil}, segment) do
-        {var, [version: _, line: l], nil} = segment
+        {var, [version: v, line: l], nil} = segment
         {_,nlvu} = Keyword.get_and_update(nlvu, var, fn x -> if is_integer(x), do: {x, x + 1}, else: {nil, 1} end)
         if(Keyword.get(nlvu, var) == Keyword.get(lvu, var)) do
           IO.puts("Variable " <> to_string(var) <> " was last used in line " <> to_string(l))
+
+          segment = {var, [version: v, line: l, last: true], nil}
+
+          {segment, nlvu}
+        else
+          segment = {var, [version: v, line: l, last: false], nil}
+
+          {segment, nlvu}
         end
-        {:ok, nlvu}
+
       else
-        {:none, nlvu}
+        {segment, nlvu}
       end
     end)
 
+    ast
   end
+
 end
+
