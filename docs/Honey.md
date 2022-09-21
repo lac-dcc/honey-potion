@@ -13,11 +13,15 @@ Important dependencies are mentioned, except for Utils (used in MANY files).
 Adds and manages the boilerplate of C. Notably the #defines, structs, functions and other static parts that are always present in any target. 
 
 ## Optimizer
-> **DEPENDENCIES**: Uses files for static analisis and optimization of code. Currently: *dead_code_elimination* and *constant_propagation*
+> **DEPENDENCIES**: Uses files for static analisis and optimization of code. Currently: *variable analysis*, *dead_code_elimination* and *constant_propagation*
 
 Defines the optimization pipeline for Honey, as in, what modules are called in what order to optimize. Works on the AST of the source.
 
 ## Optimizer dependencies:
+
+### variable_analysis
+
+Checks if a variable is in it's last use or not. Adds the information to the ast.
 
 ### constant_propagation
 
