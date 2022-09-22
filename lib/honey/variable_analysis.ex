@@ -22,7 +22,7 @@ defmodule Honey.Analyze do
         {_,nlvu} = Keyword.get_and_update(nlvu, var, fn x -> if is_integer(x), do: {x, x + 1}, else: {nil, 1} end)
         if(Keyword.get(nlvu, var) == Keyword.get(lvu, var)) do
           #Prints the variable and the line of the last use:: #IO.puts("Variable " <> to_string(var) <> " was last used in line " <> to_string(l))
-          segment = {var, meta ++ [{:last, false}], context}
+          segment = {var, meta ++ [{:last, true}], context}
           {segment, nlvu}
         else
           segment = {var, meta ++ [{:last, false}], context}
