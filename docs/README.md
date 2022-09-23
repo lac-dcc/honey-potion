@@ -31,5 +31,9 @@ Contains code that has to be persisted in the Hex documentation, currently it co
 ## Test
 Contains files for testing Honey-Potion, WIP.
 
+## Examples
+
+Contains examples of elixir programs translated to C. Use mix in the folder with new elixir files in ./examples/lib/ to try out new examples.
+
 ## Docs
 Contains the documentation of Honey-Potion project as an overview. Documentation of specific parts of code is currently handled with intuitive naming or comments.
