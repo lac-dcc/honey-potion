@@ -90,6 +90,18 @@ static int values_are_equal(Generic *var1, Generic *var2)
   return 0;
 }
 
+static Generic get_tuple_element(Tuple *tuple_var, int index) {
+  if(tuple_var->start+index >= tuple_var->end+index) {
+    op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+    // goto CATCH
+  }
+  int zero = 0;
+  Generic(*heap_pool)[HEAP_POOL_SIZE] = bpf_map_lookup_elem(&heap_pool_map, &zero);
+  // TODO: Get the heap_map from `bpf_map_lookup_elem(&string_pool_map, &zero);
+    // use the heap_map to get the element given at the position:
+  return *(heap_pool[tuple_var->start+index]);
+}
+
 static char get_str_format_specifier(Generic *g, StrFormatSpec *result)
 {
   // TODO

@@ -217,10 +217,10 @@ defmodule Honey.Translator do
 
   # Match operator, not complete
   def to_c({:=, _, [lhs, rhs]}, _context) do
-    IO.puts("==============")
-    IO.inspect(lhs)
-    IO.inspect(rhs)
-    IO.puts("==============")
+    # IO.puts("==============")
+    # IO.inspect(lhs)
+    # IO.inspect(rhs)
+    # IO.puts("==============")
 
 
     rhs_in_c = to_c(rhs)
@@ -264,17 +264,66 @@ defmodule Honey.Translator do
     end
   end
 
-  # def pattern_matching({first, second} = var, helper_var_name) do
-  #   pattern_matching(first, helper_var_name <> "")
-  #     <>
-  #   pattern_matching(second, helper_var_name)
-  # end
+  # [{:|, [], [{:x, [if_undefined: :apply], Elixir}, []]}]
+
+  def pattern_matching({:{}, meta, [first_tuple_elm | tail]}, helper_var_name) do
+    first_tuple_elm_name = unique_helper_var()
+    """
+    if(var->type != TUPLE){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto CATCH
+    }
+    #{first_tuple_elm_name} = get_tuple_element(&#{helper_var_name}.value.tuple, 0);
+    """
+      <>
+    pattern_matching(first_tuple_elm, first_tuple_elm_name)
+      <>
+    pattern_matching({:{}, meta, tail}, helper_var_name, 1)
+  end
+
+  def pattern_matching({first, second}, helper_var_name) do
+    first_tuple_elm_name = unique_helper_var()
+    second_tuple_elm_name = unique_helper_var()
+
+    """
+    if(var->type != TUPLE){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto CATCH
+    }
+    #{first_tuple_elm_name} = get_tuple_element(&#{helper_var_name}.value.tuple, 0);
+    #{second_tuple_elm_name} = get_tuple_element(&#{helper_var_name}.value.tuple, 1);
+    """
+      <>
+    pattern_matching(first, first_tuple_elm_name)
+      <>
+    pattern_matching(second, second_tuple_elm_name)
+  end
 
   def pattern_matching(var, helper_var_name) when is_var(var) do
     c_var_name = var_to_string(var)
     """
     Generic #{c_var_name} = #{helper_var_name};
     """
+  end
+
+
+# x = {1, 2, 3}
+# y = Enum.set(x, 1, 4) # {1, 4, 3}
+
+
+  def pattern_matching([first_list_elm | tail], helper_var_name) do
+    first_list_elm_name = unique_helper_var()
+    """
+    if(var->type != LIST){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto CATCH
+    }
+    #{first_list_elm_name} = get_list_element(&#{helper_var_name}.value.list, 0);
+    """
+      <>
+    pattern_matching(first_list_elm, first_list_elm_name)
+      <>
+    pattern_matching(tail, helper_var_name, 1)
   end
 
   def pattern_matching(constant, helper_var_name) do
@@ -285,6 +334,32 @@ defmodule Honey.Translator do
       goto CATCH
     }
     """
+  end
+
+  def pattern_matching({:{}, _meta, []}, _helper_var_name, _index), do: ""
+
+  def pattern_matching({:{}, meta, [first_tuple_elm | tail]}, helper_var_name, index) do
+    first_tuple_elm_name = unique_helper_var()
+    """
+    #{first_tuple_elm_name} = get_tuple_element(&#{helper_var_name}.value.tuple, #{index});
+    """
+      <>
+    pattern_matching(first_tuple_elm, first_tuple_elm_name)
+      <>
+    pattern_matching({:{}, meta, tail}, helper_var_name, index+1)
+  end
+
+  def pattern_matching([], _helper_var_name, _index), do: ""
+
+  def pattern_matching([first_list_elem | tail], helper_var_name, index) do
+    first_list_elem_name = unique_helper_var()
+    """
+    #{first_list_elem_name} = get_list_element(&#{helper_var_name}.value.list, #{index});
+    """
+      <>
+    pattern_matching(first_list_elem, first_list_elem_name)
+      <>
+    pattern_matching(tail, helper_var_name, index+1)
   end
 
   def constant_to_code(item) do
