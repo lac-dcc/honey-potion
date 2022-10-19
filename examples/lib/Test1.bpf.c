@@ -611,25 +611,29 @@ if (ctx0nil.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
 }
 
   // =============== beginning of user code ===============
-  // Generated at /home/kpop/GitHub/honey-potion/lib/honey/translator.ex:241
-Generic helper_var_201 = {.type = INTEGER, .value.integer = 0};
+  
+
+// Generated at /home/kpop/GitHub/honey-potion/lib/honey/translator.ex:241
+Generic helper_var_196 = {.type = INTEGER, .value.integer = 0};
 // Generated at /home/kpop/GitHub/honey-potion/lib/honey/translator.ex:347
-Generic helper_var_265 = ATOM_TRUE;
-if (to_bool(&helper_var_265)) {
-  Generic helper_var_329 = {.type = INTEGER, .value.integer = 4};
-  helper_var_201 = helper_var_329;
+Generic helper_var_260 = ATOM_TRUE;
+if (to_bool(&helper_var_260)) {
+  Generic helper_var_324 = {.type = INTEGER, .value.integer = 4};
+  helper_var_196 = helper_var_324;
 } else {
-  helper_var_201 = (Generic){.type = ATOM, .value.string = (String){0, 2}};
+  helper_var_196 = (Generic){.type = ATOM, .value.string = (String){0, 2}};
 }
 
+
+Generic helper_var_388 = {.type = INTEGER, .value.integer = 2};
 
   // =============== end of user code ==============
   // Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:391
-if (helper_var_201.type != INTEGER) {
+if (helper_var_388.type != INTEGER) {
   op_result = (OpResult){.exception = 1, .exception_msg = "(IncorrectReturn) eBPF function is not returning an integer."};
   goto CATCH;
 }
-return helper_var_201.value.integer;
+return helper_var_388.value.integer;
 
 CATCH:
   bpf_printk("** %s\n", op_result.exception_msg);

@@ -12,7 +12,12 @@ defmodule Test1 do
       true -> (cond do
         c == 2 -> 4
       end)
-      
+    end
+    if a == 3 do
+      c == 3
+    else
+      c == 4
+      ^b = 2
     end
   end
 end
