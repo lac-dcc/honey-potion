@@ -2,10 +2,14 @@ defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
 
-  import Honey.Utils, only: [gen: 1, var_to_string: 1]
+  import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
 
   def unique_helper_var() do
     "helper_var_#{:erlang.unique_integer([:positive])}"
+  end
+
+  def unique_helper_label() do
+    "label_#{:erlang.unique_integer([:positive])}"
   end
 
   def to_c(tree, context \\ {})
@@ -97,8 +101,7 @@ defmodule Honey.Translator do
 
         vars =
           Enum.reduce(code_vars, "", fn translated, so_far ->
-            so_far = if so_far != "", do: so_far <> ", ", else: ""
-            so_far <> translated.return_var_name <> ".value.integer"
+            so_far<>", "<>translated.return_var_name <> ".value.integer"
           end)
 
         result_var = unique_helper_var()
@@ -106,7 +109,7 @@ defmodule Honey.Translator do
         # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
         """
         #{code}
-        bpf_printk(\"#{string}\", #{vars});
+        bpf_printk(\"#{string}\"#{vars});
         Generic #{result_var} = {.type = INTEGER, .value.integer = 0};
         """
         |> gen()
@@ -215,18 +218,8 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(new_var_name)
   end
 
-  # Match operator, not complete
-  def to_c({:=, _, [lhs, rhs]}, _context) do
-    rhs_in_c = to_c(rhs)
-    c_var_name = var_to_string(lhs)
-
-    """
-    #{rhs_in_c.code}
-    Generic #{c_var_name} = #{rhs_in_c.return_var_name};
-    """
-    |> gen()
-    |> TranslatedCode.new(c_var_name)
-  end
+  # Match
+  def to_c(pm_operation = {:=, _, [_lhs, _rhs]}, context), do: to_c(pm_operation, context, true)
 
   # Cond
   def to_c({:cond, _, [[do: conds]]}, _context) do
@@ -252,6 +245,96 @@ defmodule Honey.Translator do
         IO.puts("We cannot convert this structure yet:")
         IO.inspect(other)
         raise "We cannot convert this structure yet."
+    end
+  end
+
+  # Match operator, not complete
+  def to_c({:=, _, [lhs, rhs]}, _context, raise_exception) do
+    exit_label = unique_helper_label()
+    pattern_matching_return_var_name = unique_helper_var()
+    rhs_in_c = to_c(rhs)
+
+    pattern_matching_code =
+      """
+      #{rhs_in_c.code}
+      op_result.exception = 0;
+      Generic #{pattern_matching_return_var_name} = (Generic){.type = INTEGER, .value.integer = 1};
+      #{pattern_matching(lhs, rhs_in_c.return_var_name, exit_label)}
+      #{exit_label}:
+      """
+
+    exit_code =
+      if(raise_exception) do
+        """
+        if(op_result.exception == 1) {
+          #{pattern_matching_return_var_name}.value.integer = 0;
+          goto CATCH;
+        }
+        """
+      else
+        """
+        if(op_result.exception == 1) {
+          #{pattern_matching_return_var_name} = (Generic){.type = INTEGER, .value.integer = 0};
+        }
+        op_result = (OpResult){};
+        """
+      end
+
+    (pattern_matching_code <> exit_code)
+    |> gen()
+    |> TranslatedCode.new(pattern_matching_return_var_name)
+  end
+
+  defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
+    c_var_name = var_to_string(var)
+    """
+    Generic #{c_var_name} = #{helper_var_name};
+    """
+  end
+
+  defp pattern_matching(constant, helper_var_name, exit_label) when is_integer(constant) do
+    """
+    if(#{helper_var_name}.type != INTEGER || #{constant} != #{helper_var_name}.value.integer) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(constant, helper_var_name, exit_label) when is_bitstring(constant) do
+    string_var_name = unique_helper_var()
+    """
+    if(#{helper_var_name}.type != STRING) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+
+    String #{string_var_name} = #{helper_var_name}.value.string;
+    if(#{String.length(constant)} != (#{string_var_name}.end - #{string_var_name}.start)){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
+  end
+
+  defp generate_bitstring_checker_at_position("", _string_var_name, _index, _exit_label), do: ""
+
+  defp generate_bitstring_checker_at_position(constant, string_var_name, index, exit_label) when is_bitstring(constant) do
+    if (String.length(constant) <= index) do
+      ""
+    else
+      """
+      if(#{string_var_name}.start < STRING_POOL_SIZE - #{index} && #{string_var_name}.start >= 0) {
+        if(\'#{String.at(constant, index)}\' != *((*string_pool)+(#{string_var_name}.start + #{index}))) {
+          op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+          goto #{exit_label};
+        }
+      }
+      """
+      <>
+      generate_bitstring_checker_at_position(constant, string_var_name, index+1, exit_label)
     end
   end
 

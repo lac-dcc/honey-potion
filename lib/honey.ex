@@ -77,7 +77,7 @@ defmodule Honey do
     final_ast =
       func_ast
       |> Fuel.burn_fuel(env)
-      |> Optimizer.run()
+      # |> Optimizer.run()
 
     # print_ast(final_ast)
 
