@@ -263,6 +263,9 @@ defmodule Honey.Translator do
       #{exit_label}:
       """
 
+    # `raise_exception` is a boolean parameter that defines if the pattern
+    # matching operation should report an error or not if it is not possible
+    # to match the expression
     exit_code =
       if(raise_exception) do
         """
@@ -319,6 +322,8 @@ defmodule Honey.Translator do
     generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
   end
 
+  # Compare if a given constant string `constant` is equals to a given variable by checking
+  # chars one by one.
   defp generate_bitstring_checker_at_position("", _string_var_name, _index, _exit_label), do: ""
 
   defp generate_bitstring_checker_at_position(constant, string_var_name, index, exit_label) when is_bitstring(constant) do
