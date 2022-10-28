@@ -237,15 +237,15 @@ defmodule Honey.Translator do
 
   # Case
   def to_c({:case, _, [case_input, [do: cases]]} = case_exp, _context) do
-
     case_input_translated = to_c(case_input)
     case_return_var = unique_helper_var()
 
-    case_code = case_statements_to_c(case_expanded_expression.return_var_name,
+    case_code = case_statements_to_c(case_input_translated.return_var_name,
                                      case_return_var,
                                      cases)
 
     """
+    #{case_input_translated.code}
     Generic #{case_return_var};
     #{case_code}
     """
@@ -309,6 +309,33 @@ defmodule Honey.Translator do
     """
   end
 
+  defp pattern_matching(:true, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 8 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(:false, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 3 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(:nil, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 0 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
   defp pattern_matching(constant, helper_var_name, exit_label) when is_integer(constant) do
     """
     if(#{helper_var_name}.type != INTEGER || #{constant} != #{helper_var_name}.value.integer) {
@@ -355,18 +382,30 @@ defmodule Honey.Translator do
       <>
       generate_bitstring_checker_at_position(constant, string_var_name, index+1, exit_label)
     end
-
-  defp case_statements_to_c(rhs_var_name, return_var_name, []) do
-    """
-  else {
-    op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
-    goto CATCH;
-  }
-  """
   end
 
-  defp case_statements_to_c(rhs_var_name, return_var_name, [{:->, _meta, [[lhs_expression]], case_code_block} | further_cases]) do
+  defp case_statements_to_c(case_input_var_name, return_var_name, []) do
+    """
+      op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
+      goto CATCH;
+    """
+  end
 
+  defp case_statements_to_c(case_input_var_name, return_var_name, [{:->, _meta, [[lhs_expression], case_code_block]} | further_cases]) do
+    exit_label = unique_helper_label()
+    translated_case_code_block = to_c(case_code_block)
+
+    """
+    op_result.exception = 0;
+    #{pattern_matching(lhs_expression, case_input_var_name, exit_label)}
+    #{exit_label}:
+    if(op_result.exception == 0) {
+      #{translated_case_code_block.code}
+      #{return_var_name} = #{translated_case_code_block.return_var_name};
+    } else {
+      #{case_statements_to_c(case_input_var_name, return_var_name, further_cases)}
+    }
+    """
   end
 
   def constant_to_code(item) do
