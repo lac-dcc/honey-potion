@@ -1,4 +1,4 @@
-defmodule IntegerStringPatternMatching do
+defmodule Integer_String_Pattern_Matching do
   use Honey, license: "Dual BSD/GPL"
 
   @sec "tracepoint/syscalls/sys_enter_kill"

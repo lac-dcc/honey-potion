@@ -632,174 +632,164 @@ int main_func(struct syscalls_enter_kill_args *ctx_arg)
 
   // =============== beginning of user code ===============
 
-  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:284
-  Generic helper_var_1159 = {.type = INTEGER, .value.integer = 1};
+  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:281
+  Generic helper_var_165 = {.type = INTEGER, .value.integer = 1};
   op_result.exception = 0;
-  Generic helper_var_1127 = (Generic){.type = INTEGER, .value.integer = 1};
-  Generic x0 = helper_var_1159;
+  Generic x0 = helper_var_165;
 
-label_1095:
+label_6:
   if (op_result.exception == 1)
   {
-    helper_var_1127.value.integer = 0;
     goto CATCH;
   }
 
-  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:284
-  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:372
-  unsigned len_helper_var_1415 = 4;
-  unsigned end_helper_var_1415 = *string_pool_index + len_helper_var_1415 - 1;
-  if (end_helper_var_1415 + 1 >= STRING_POOL_SIZE)
+  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:281
+  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:373
+  unsigned len_helper_var_261 = 4;
+  unsigned end_helper_var_261 = *string_pool_index + len_helper_var_261 - 1;
+  if (end_helper_var_261 + 1 >= STRING_POOL_SIZE)
   {
     op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
     goto CATCH;
   }
 
-  if (*string_pool_index < STRING_POOL_SIZE - len_helper_var_1415)
+  if (*string_pool_index < STRING_POOL_SIZE - len_helper_var_261)
   {
-    __builtin_memcpy(&(*string_pool)[*string_pool_index], "foo", len_helper_var_1415);
+    __builtin_memcpy(&(*string_pool)[*string_pool_index], "foo", len_helper_var_261);
   }
 
-  Generic helper_var_1287 = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = end_helper_var_1415}};
-  *string_pool_index = end_helper_var_1415 + 1;
+  Generic helper_var_229 = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = end_helper_var_261}};
+  *string_pool_index = end_helper_var_261 + 1;
 
   op_result.exception = 0;
-  Generic helper_var_1255 = (Generic){.type = INTEGER, .value.integer = 1};
-  Generic str1 = helper_var_1287;
+  Generic str1 = helper_var_229;
 
-label_1223:
+label_197:
   if (op_result.exception == 1)
   {
-    helper_var_1255.value.integer = 0;
     goto CATCH;
   }
 
-  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:284
+  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:281
 
   op_result.exception = 0;
-  Generic helper_var_1479 = (Generic){.type = INTEGER, .value.integer = 1};
   if (x0.type != INTEGER || 1 != x0.value.integer)
   {
     op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-    goto label_1447;
+    goto label_293;
   }
 
-label_1447:
+label_293:
   if (op_result.exception == 1)
   {
-    helper_var_1479.value.integer = 0;
     goto CATCH;
   }
 
-  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:284
+  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:281
 
   op_result.exception = 0;
-  Generic helper_var_1543 = (Generic){.type = INTEGER, .value.integer = 1};
   if (str1.type != STRING)
   {
     op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-    goto label_1511;
+    goto label_325;
   }
 
-  String helper_var_1575 = str1.value.string;
-  if (3 != (helper_var_1575.end - helper_var_1575.start))
+  String helper_var_357 = str1.value.string;
+  if (3 != (helper_var_357.end - helper_var_357.start))
   {
     op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-    goto label_1511;
+    goto label_325;
   }
-  if (helper_var_1575.start < STRING_POOL_SIZE - 0 && helper_var_1575.start >= 0)
+  if (helper_var_357.start < STRING_POOL_SIZE - 0 && helper_var_357.start >= 0)
   {
-    if ('f' != *((*string_pool) + (helper_var_1575.start + 0)))
+    if ('f' != *((*string_pool) + (helper_var_357.start + 0)))
     {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto label_1511;
+      goto label_325;
     }
   }
-  if (helper_var_1575.start < STRING_POOL_SIZE - 1 && helper_var_1575.start >= 0)
+  if (helper_var_357.start < STRING_POOL_SIZE - 1 && helper_var_357.start >= 0)
   {
-    if ('o' != *((*string_pool) + (helper_var_1575.start + 1)))
+    if ('o' != *((*string_pool) + (helper_var_357.start + 1)))
     {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto label_1511;
+      goto label_325;
     }
   }
-  if (helper_var_1575.start < STRING_POOL_SIZE - 2 && helper_var_1575.start >= 0)
+  if (helper_var_357.start < STRING_POOL_SIZE - 2 && helper_var_357.start >= 0)
   {
-    if ('o' != *((*string_pool) + (helper_var_1575.start + 2)))
+    if ('o' != *((*string_pool) + (helper_var_357.start + 2)))
     {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto label_1511;
+      goto label_325;
     }
   }
 
-label_1511:
+label_325:
   if (op_result.exception == 1)
   {
-    helper_var_1543.value.integer = 0;
     goto CATCH;
   }
 
   // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:115
 
   bpf_printk("Success");
-  Generic helper_var_1607 = {.type = INTEGER, .value.integer = 0};
+  Generic helper_var_389 = {.type = INTEGER, .value.integer = 0};
 
-  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:284
+  // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/translator.ex:281
 
   op_result.exception = 0;
-  Generic helper_var_1671 = (Generic){.type = INTEGER, .value.integer = 1};
   if (str1.type != STRING)
   {
     op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-    goto label_1639;
+    goto label_421;
   }
 
-  String helper_var_1703 = str1.value.string;
-  if (3 != (helper_var_1703.end - helper_var_1703.start))
+  String helper_var_453 = str1.value.string;
+  if (3 != (helper_var_453.end - helper_var_453.start))
   {
     op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-    goto label_1639;
+    goto label_421;
   }
-  if (helper_var_1703.start < STRING_POOL_SIZE - 0 && helper_var_1703.start >= 0)
+  if (helper_var_453.start < STRING_POOL_SIZE - 0 && helper_var_453.start >= 0)
   {
-    if ('b' != *((*string_pool) + (helper_var_1703.start + 0)))
+    if ('b' != *((*string_pool) + (helper_var_453.start + 0)))
     {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto label_1639;
+      goto label_421;
     }
   }
-  if (helper_var_1703.start < STRING_POOL_SIZE - 1 && helper_var_1703.start >= 0)
+  if (helper_var_453.start < STRING_POOL_SIZE - 1 && helper_var_453.start >= 0)
   {
-    if ('a' != *((*string_pool) + (helper_var_1703.start + 1)))
+    if ('a' != *((*string_pool) + (helper_var_453.start + 1)))
     {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto label_1639;
+      goto label_421;
     }
   }
-  if (helper_var_1703.start < STRING_POOL_SIZE - 2 && helper_var_1703.start >= 0)
+  if (helper_var_453.start < STRING_POOL_SIZE - 2 && helper_var_453.start >= 0)
   {
-    if ('r' != *((*string_pool) + (helper_var_1703.start + 2)))
+    if ('r' != *((*string_pool) + (helper_var_453.start + 2)))
     {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto label_1639;
+      goto label_421;
     }
   }
 
-label_1639:
+label_421:
   if (op_result.exception == 1)
   {
-    helper_var_1671.value.integer = 0;
     goto CATCH;
   }
 
   // =============== end of user code ==============
   // Generated at /home/vrjuliao/workfolder/lac-dcc/honey-potion/lib/honey/boilerplates.ex:391
-  if (helper_var_1671.type != INTEGER)
+  if (str1.type != INTEGER)
   {
     op_result = (OpResult){.exception = 1, .exception_msg = "(IncorrectReturn) eBPF function is not returning an integer."};
     goto CATCH;
   }
-  return helper_var_1671.value.integer;
+  return str1.value.integer;
 
 CATCH:
   bpf_printk("** %s\n", op_result.exception_msg);
