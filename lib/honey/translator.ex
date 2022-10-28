@@ -235,6 +235,24 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(cond_var)
   end
 
+  # Case
+  def to_c({:case, _, [case_input, [do: cases]]} = case_exp, _context) do
+
+    case_input_translated = to_c(case_input)
+    case_return_var = unique_helper_var()
+
+    case_code = case_statements_to_c(case_expanded_expression.return_var_name,
+                                     case_return_var,
+                                     cases)
+
+    """
+    Generic #{case_return_var};
+    #{case_code}
+    """
+    |> gen()
+    |> TranslatedCode.new(case_return_var)
+  end
+
   # Other structures
   def to_c(other, _context) do
     case constant_to_code(other) do
@@ -337,6 +355,18 @@ defmodule Honey.Translator do
       <>
       generate_bitstring_checker_at_position(constant, string_var_name, index+1, exit_label)
     end
+
+  defp case_statements_to_c(rhs_var_name, return_var_name, []) do
+    """
+  else {
+    op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
+    goto CATCH;
+  }
+  """
+  end
+
+  defp case_statements_to_c(rhs_var_name, return_var_name, [{:->, _meta, [[lhs_expression]], case_code_block} | further_cases]) do
+
   end
 
   def constant_to_code(item) do
