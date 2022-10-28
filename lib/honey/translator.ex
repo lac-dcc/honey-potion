@@ -251,14 +251,12 @@ defmodule Honey.Translator do
   # Match operator, not complete
   def to_c({:=, _, [lhs, rhs]}, _context, raise_exception) do
     exit_label = unique_helper_label()
-    pattern_matching_return_var_name = unique_helper_var()
     rhs_in_c = to_c(rhs)
 
     pattern_matching_code =
       """
       #{rhs_in_c.code}
       op_result.exception = 0;
-      Generic #{pattern_matching_return_var_name} = (Generic){.type = INTEGER, .value.integer = 1};
       #{pattern_matching(lhs, rhs_in_c.return_var_name, exit_label)}
       #{exit_label}:
       """
@@ -270,23 +268,21 @@ defmodule Honey.Translator do
       if(raise_exception) do
         """
         if(op_result.exception == 1) {
-          #{pattern_matching_return_var_name}.value.integer = 0;
           goto CATCH;
         }
         """
       else
         """
-        if(op_result.exception == 1) {
-          #{pattern_matching_return_var_name} = (Generic){.type = INTEGER, .value.integer = 0};
-        }
         op_result = (OpResult){};
         """
       end
 
     (pattern_matching_code <> exit_code)
     |> gen()
-    |> TranslatedCode.new(pattern_matching_return_var_name)
+    |> TranslatedCode.new(rhs_in_c.return_var_name)
   end
+
+  defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var), do: ""
 
   defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
     c_var_name = var_to_string(var)
