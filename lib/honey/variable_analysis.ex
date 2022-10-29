@@ -46,7 +46,7 @@ defmodule Honey.Analyze do
     #Does a left to right traverse to check variables in scope. After that checks which variables are dead.
     #A variable is consided dead if it is in scope and isn't used anymore.
     #sv == set of in scope variables and dv == set of dead variables.
-    {ast, _sv} = forwards_traverse(ast, MapSet.new(), fn segment, sv -> {segment, sv} end, fn segment, sv ->
+    {ast, _sv} = cond_notup_forwards_traverse(ast, MapSet.new(), fn segment, sv -> {segment, sv} end, fn segment, sv ->
       if is_var(segment) do
 
         #Get info from segment
@@ -87,55 +87,56 @@ defmodule Honey.Analyze do
   end
 
   #Traverses from left to right. If inside a case or cond block the accumulator is unique per branch and not returned upwards.
-  defp forwards_traverse(ast, acc, pre, post) when is_function(pre, 2) and is_function(post, 2) do
+  defp cond_notup_forwards_traverse(ast, acc, pre, post) when is_function(pre, 2) and is_function(post, 2) do
     {ast, acc} = pre.(ast, acc)
-    do_traverse_l(ast, acc, pre, post, false)
+    do_cond_notup_traverse_l(ast, acc, pre, post, false)
   end
 
-  defp do_traverse_l({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) and (form == :case or form == :cond) do
-    {args, acc} = do_traverse_args_l(args, acc, pre, post, true)
+  #Do conditional traverse (as in case or cond as father creates unique accumulator for each child) not propagating accumulator upwards from left to right
+  defp do_cond_notup_traverse_l({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) and (form == :case or form == :cond) do
+    {args, acc} = do_cond_notup_traverse_args_l(args, acc, pre, post, true)
     post.({form, meta, args}, acc)
   end
 
-  defp do_traverse_l({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) do
-    {args, acc} = do_traverse_args_l(args, acc, pre, post, false)
+  defp do_cond_notup_traverse_l({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) do
+    {args, acc} = do_cond_notup_traverse_args_l(args, acc, pre, post, false)
     post.({form, meta, args}, acc)
   end
 
-  defp do_traverse_l({form, meta, args}, acc, pre, post, _casecondFather) do
+  defp do_cond_notup_traverse_l({form, meta, args}, acc, pre, post, _casecondFather) do
     {form, acc} = pre.(form, acc)
-    {form, acc} = do_traverse_l(form, acc, pre, post, false)
-    {args, acc} = do_traverse_args_l(args, acc, pre, post, false)
+    {form, acc} = do_cond_notup_traverse_l(form, acc, pre, post, false)
+    {args, acc} = do_cond_notup_traverse_args_l(args, acc, pre, post, false)
     post.({form, meta, args}, acc)
   end
 
-  defp do_traverse_l({left, right}, acc, pre, post, casecondFather) do
+  defp do_cond_notup_traverse_l({left, right}, acc, pre, post, casecondFather) do
     {left, acc} = pre.(left, acc)
-    {left, acc} = do_traverse_l(left, acc, pre, post, casecondFather)
+    {left, acc} = do_cond_notup_traverse_l(left, acc, pre, post, casecondFather)
     {right, acc} = pre.(right, acc)
-    {right, acc} = do_traverse_l(right, acc, pre, post, casecondFather)
+    {right, acc} = do_cond_notup_traverse_l(right, acc, pre, post, casecondFather)
     post.({left, right}, acc)
   end
 
-  defp do_traverse_l(list, acc, pre, post, casecondFather) when is_list(list) do
-    {list, acc} = do_traverse_args_l(list, acc, pre, post, casecondFather)
+  defp do_cond_notup_traverse_l(list, acc, pre, post, casecondFather) when is_list(list) do
+    {list, acc} = do_cond_notup_traverse_args_l(list, acc, pre, post, casecondFather)
     post.(list, acc)
   end
 
-  defp do_traverse_l(x, acc, _pre, post, _casecondFather) do
+  defp do_cond_notup_traverse_l(x, acc, _pre, post, _casecondFather) do
     post.(x, acc)
   end
 
-  defp do_traverse_args_l(args, acc, _pre, _post, _casecondFather) when is_atom(args) do
+  defp do_cond_notup_traverse_args_l(args, acc, _pre, _post, _casecondFather) when is_atom(args) do
     {args, acc}
   end
 
-  defp do_traverse_args_l(args, acc, pre, post, casecondFather) when is_list(args) do
+  defp do_cond_notup_traverse_args_l(args, acc, pre, post, casecondFather) when is_list(args) do
     if casecondFather do
       return = :lists.mapfoldr(
         fn x, return ->
           {x, _} = pre.(x, acc)
-          back = do_traverse_l(x, acc, pre, post, casecondFather)
+          back = do_cond_notup_traverse_l(x, acc, pre, post, casecondFather)
 
           return = MapSet.union(return, elem(back, 1))
 
@@ -151,7 +152,7 @@ defmodule Honey.Analyze do
       :lists.mapfoldl(
         fn x, acc ->
           {x, acc} = pre.(x, acc)
-          do_traverse_l(x, acc, pre, post, casecondFather)
+          do_cond_notup_traverse_l(x, acc, pre, post, casecondFather)
         end,
         acc,
         args
@@ -163,50 +164,51 @@ defmodule Honey.Analyze do
   #Does a right to left traverse. If in a case or cond block creates unique acumulators per block. All return the union upwards.
   defp backwards_traverse(ast, acc, pre, post) when is_function(pre, 2) and is_function(post, 2) do
     {ast, acc} = pre.(ast, acc)
-    do_traverse_r(ast, acc, pre, post, false)
+    do_cond_traverse_r(ast, acc, pre, post, false)
   end
 
-  defp do_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) and (form == :case or form == :cond) do
-    {args, acc} = do_traverse_args_r(args, acc, pre, post, true, true)
+  #Do conditional traverse from right to left
+  defp do_cond_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) and (form == :case or form == :cond) do
+    {args, acc} = do_cond_traverse_args_r(args, acc, pre, post, true, true)
     post.({form, meta, args}, acc)
   end
 
-  defp do_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) do
-    {args, acc} = do_traverse_args_r(args, acc, pre, post, false, true)
+  defp do_cond_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) do
+    {args, acc} = do_cond_traverse_args_r(args, acc, pre, post, false, true)
     post.({form, meta, args}, acc)
   end
 
-  defp do_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) do
+  defp do_cond_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) do
     {form, acc} = pre.(form, acc)
-    {args, acc} = do_traverse_args_r(args, acc, pre, post, false, true)
-    {form, acc} = do_traverse_r(form, acc, pre, post, false)
+    {args, acc} = do_cond_traverse_args_r(args, acc, pre, post, false, true)
+    {form, acc} = do_cond_traverse_r(form, acc, pre, post, false)
     post.({form, meta, args}, acc)
   end
 
-  defp do_traverse_r({left, right}, acc, pre, post, casecondFather) do
+  defp do_cond_traverse_r({left, right}, acc, pre, post, casecondFather) do
     {right, acc} = pre.(right, acc)
-    {right, acc} = do_traverse_r(right, acc, pre, post, casecondFather)
+    {right, acc} = do_cond_traverse_r(right, acc, pre, post, casecondFather)
     {left, acc} = pre.(left, acc)
-    {left, acc} = do_traverse_r(left, acc, pre, post, casecondFather) #possibly change false to casecondFather
+    {left, acc} = do_cond_traverse_r(left, acc, pre, post, casecondFather) #possibly change false to casecondFather
     post.({left, right}, acc)
   end
 
-  defp do_traverse_r(list, acc, pre, post, casecondFather) when is_list(list) do
-    {list, acc} = do_traverse_args_r(list, acc, pre, post, casecondFather, not casecondFather)
+  defp do_cond_traverse_r(list, acc, pre, post, casecondFather) when is_list(list) do
+    {list, acc} = do_cond_traverse_args_r(list, acc, pre, post, casecondFather, not casecondFather)
     post.(list, acc)
   end
 
-  defp do_traverse_r(x, acc, _pre, post, _casecondFather) do
+  defp do_cond_traverse_r(x, acc, _pre, post, _casecondFather) do
     post.(x, acc)
   end
 
-  defp do_traverse_args_r(args, acc, _pre, _post, _casecondFather, _sharedAccumulator) when is_atom(args) do
+  defp do_cond_traverse_args_r(args, acc, _pre, _post, _casecondFather, _sharedAccumulator) when is_atom(args) do
     {args, acc}
   end
 
-  defp do_traverse_args_r(args, acc, pre, post, casecondFather, sharedAccumulator) when is_list(args) do
+  defp do_cond_traverse_args_r(args, acc, pre, post, casecondFather, sharedAccumulator) when is_list(args) do
 
-    traverse = &do_traverse_r/5
+    traverse = &do_cond_traverse_r/5
 
     if sharedAccumulator do
       :lists.mapfoldr(
