@@ -6,7 +6,7 @@ defmodule Honey.Analyze do
     #Does a right to left traverse to check what variables have uses from a point on. Considers case/cond branches
     #as separate with unique acumulators.
     #uv == set of variables that still have uses
-    {ast,uv} = backwards_traverse(ast, MapSet.new() , fn segment, uv -> {segment, uv} end, fn segment, uv ->
+    {ast,uv} = cond_backwards_traverse(ast, MapSet.new() , fn segment, uv -> {segment, uv} end, fn segment, uv ->
       if is_var(segment) do
 
         #Get info from segment
@@ -162,7 +162,7 @@ defmodule Honey.Analyze do
 
 
   #Does a right to left traverse. If in a case or cond block creates unique acumulators per block. All return the union upwards.
-  defp backwards_traverse(ast, acc, pre, post) when is_function(pre, 2) and is_function(post, 2) do
+  defp cond_backwards_traverse(ast, acc, pre, post) when is_function(pre, 2) and is_function(post, 2) do
     {ast, acc} = pre.(ast, acc)
     do_cond_traverse_r(ast, acc, pre, post, false)
   end
