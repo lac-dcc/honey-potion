@@ -11,33 +11,32 @@ defmodule Honey.Analyze do
 
         #Get info from segment
         {var, meta, context} = segment
-        ver = Keyword.get(meta, :version)
+        #Get variable unique key
+        keyatom = var_to_key(var, meta, context)
 
-        #Transform info to unique key
-        keystring = to_string(var) <> "_" <> to_string(ver) <> "_" <> to_string(context)
-        keyatom = String.to_atom(keystring)
+        #Check if variable is in the uv set
+        {uv, last} =  if not MapSet.member?(uv, keyatom) do
+                        #If its not, this is the last use of that variable
+                        uv = MapSet.put(uv, keyatom)
+                        {uv, true}
+                      else
+                        #If it is, it was already used before this
+                        {uv, false}
+                      end
 
-        #Check if variable is in set
-        if not MapSet.member?(uv, keyatom) do
-          #If its not, this is the last use of that variable
-          segment = {var, Keyword.put(meta, :last, true), context}
-          uv = MapSet.put(uv, keyatom)
-          {segment, uv}
-        else
-          #If it is, it was already used before this
-          segment = {var, Keyword.put(meta, :last, false), context}
-          {segment, uv}
-        end
+        #Add the last_use and used variables information into the variable
+        meta = Keyword.put(meta, :uv, uv)
+        segment = {var, Keyword.put(meta, :last, last), context}
+        {segment, uv}
 
       else
-        #If you are a method that can keep meta data
+        #If you are a segment that can keep meta data
         if(match?({_form, _meta, _args}, segment)) do
           {form, meta, args} = segment
-          #Keep the used variables from here on out
+          #Add the used variables information into the segment
           segment = {form, Keyword.put(meta, :uv, uv), args}
           {segment, uv}
-        else
-          #Segment can't keep meta data so it's returned as is
+        else #Segment can't keep meta data so it's returned as is
           {segment, uv}
         end
       end
@@ -51,14 +50,20 @@ defmodule Honey.Analyze do
 
         #Get info from segment
         {var, meta, context} = segment
-        ver = Keyword.get(meta, :version)
-
-        #Transform info to unique key
-        keystring = to_string(var) <> "_" <> to_string(ver) <> "_" <> to_string(context)
-        keyatom = String.to_atom(keystring)
+        #Get variable unique key
+        keyatom = var_to_key(var, meta, context)
 
         #Add the variable to it's own scope
         sv = MapSet.put(sv, keyatom)
+        #Adds variables in your scope to your meta data.
+        meta = Keyword.put(meta, :sv, sv)
+        #luv == local used variables
+        luv = Keyword.get(meta, :uv)
+        #Calculates dead variables with the intersection of the non-used variables and those in scope
+        dv = MapSet.intersection(MapSet.difference(uv ,luv), sv)
+        #Adds that to the segment
+        segment = {var, Keyword.put(meta, :dv, dv), context}
+
         {segment, sv}
 
       else
@@ -68,7 +73,7 @@ defmodule Honey.Analyze do
           {form, meta, args} = segment
           #luv == local used variables
           luv = Keyword.get(meta, :uv)
-          #Adds variables in your scope to you meta data.
+          #Adds variables in your scope to your meta data.
           meta = Keyword.put(meta, :sv, sv)
           #Calculates dead variables with the intersection of the non-used variables and those in scope
           dv = MapSet.intersection(MapSet.difference(uv ,luv), sv)
@@ -83,6 +88,18 @@ defmodule Honey.Analyze do
     end)
 
     ast
+
+  end
+
+  #Gets the information of a variable and returns an unique identifier to it.
+  #Calculated based on variable name, version and context.
+  defp var_to_key(var, meta, context) do
+    #Get version from meta.
+    ver = Keyword.get(meta, :version)
+
+    #Transform info to unique key
+    keystring = to_string(var) <> "_" <> to_string(ver) <> "_" <> to_string(context)
+    String.to_atom(keystring)
 
   end
 
@@ -173,6 +190,11 @@ defmodule Honey.Analyze do
     post.({form, meta, args}, acc)
   end
 
+  defp do_cond_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) and (form == :=) do
+    {args, acc} = do_cond_traverse_args_equals(args, acc, pre, post, false, true)
+    post.({form, meta, args}, acc)
+  end
+
   defp do_cond_traverse_r({form, meta, args}, acc, pre, post, _casecondFather) when is_atom(form) do
     {args, acc} = do_cond_traverse_args_r(args, acc, pre, post, false, true)
     post.({form, meta, args}, acc)
@@ -234,6 +256,26 @@ defmodule Honey.Analyze do
       )
     end
 
+  end
+
+  #In the case of a =, the RHS is calculated first, so we need to visit the left first in a backwards travel.
+  defp do_cond_traverse_args_equals(args, acc, pre, post, _casecondFather, _sharedAccumulator) when is_list(args) do
+
+    traverse = &do_cond_traverse_r/5
+
+    :lists.mapfoldl(
+      fn x, acc ->
+        {x, acc} = pre.(x, acc)
+        traverse.(x, acc, pre, post, false)
+      end,
+      acc,
+      args
+    )
+
+  end
+
+  defp do_cond_traverse_args_equals(args, acc, _pre, _post, _casecondFather, _sharedAccumulator) when is_atom(args) do
+    {args, acc}
   end
 
 end
