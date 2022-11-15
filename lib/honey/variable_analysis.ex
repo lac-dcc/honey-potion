@@ -1,5 +1,5 @@
 defmodule Honey.Analyze do
-  import Honey.Utils, only: [is_var: 1]
+  import Honey.Utils, only: [is_var: 1, var_to_string: 1]
 
   def run(ast) do
 
@@ -94,11 +94,8 @@ defmodule Honey.Analyze do
   #Gets the information of a variable and returns an unique identifier to it.
   #Calculated based on variable name, version and context.
   defp var_to_key(var, meta, context) do
-    #Get version from meta.
-    ver = Keyword.get(meta, :version)
-
-    #Transform info to unique key
-    keystring = to_string(var) <> "_" <> to_string(ver) <> "_" <> to_string(context)
+    #Gets string key and transforms to an atom.
+    keystring = var_to_string({var, meta, context})
     String.to_atom(keystring)
 
   end

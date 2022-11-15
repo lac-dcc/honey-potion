@@ -15,7 +15,7 @@ defmodule Honey.Utils do
   end
 
   def var_to_string({var_name, meta, var_context}) do
-    "#{var_name}#{inspect_no_limit(meta[:version])}#{var_context}"
+    "#{var_name}_#{inspect_no_limit(meta[:version])}_#{var_context}"
   end
 
   defp inspect_no_limit(value) do
