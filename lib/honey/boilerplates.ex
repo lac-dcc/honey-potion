@@ -2,7 +2,7 @@ defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
 
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
-
+  #Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
   def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code) do
     %__MODULE__{
       libbpf_prog_type: libbpf_prog_type,
@@ -36,18 +36,18 @@ defmodule Honey.Boilerplates do
       include <> includes
     end) <> "\n"
   end
-
+  #Includes needed for eBPF.
   def default_includes() do
     gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
     """)
   end
-
+  #Adds the default includes to the ones specified in config.
   def generate_includes(config) do
     default_includes() <> requires_to_includes(config.requires)
   end
-
+  #Adds definitions used by Honey-Potion.
   def generate_defines(_config) do
     gen("""
     #ifndef __inline
@@ -85,7 +85,7 @@ defmodule Honey.Boilerplates do
     #define QUOTE(expr) QUOTE_HELPER(expr)
     """)
   end
-
+  #Generates structs used by Honey-Potion to imitate Elixir datatypes in eBPF.
   def generate_structs(_config) do
     gen("""
     typedef struct Generic Generic;
@@ -252,7 +252,7 @@ defmodule Honey.Boilerplates do
   def generate_maps(config) do
     default_maps() <> create_c_maps(config.elixir_maps)
   end
-
+  #Creates the method to access a member of the Generic struct.
   def generate_getMember(config) do
     gen("""
     static void getMember(OpResult *result, Generic *elixir_struct, char member_name[20], Generic *member)
@@ -308,13 +308,13 @@ defmodule Honey.Boilerplates do
     }
     """)
   end
-
+  #Adds the functions that replicate the behavior of Elixirs methods.
   def generate_runtime_functions(config) do
     path = Path.join(:code.priv_dir(:honey), "c_boilerplates/runtime_functions.c")
     # :code.generate_path()
     File.read!(path) <> generate_getMember(config) <> "\n\n"
   end
-
+  #Prepares the main method to operate normally.
   def beginning_main_code do
     gen("""
     StrFormatSpec str_param1;
@@ -357,7 +357,8 @@ defmodule Honey.Boilerplates do
     }
     """)
   end
-
+  #Takes the libbpf program type from the @sec before the main method and transforms it into boilerplate.
+  #Currently only supports tracepoint/syscalls/sys_enter_kill
   def generate_middle_main_code(config) do
     case config.libbpf_prog_type do
       "tracepoint/syscalls/sys_enter_kill" ->
@@ -386,7 +387,7 @@ defmodule Honey.Boilerplates do
         """)
     end
   end
-
+  #Returns if the value is an integer or goes to the CATCH error otherwise.
   def generate_ending_main_code(return_var_name) do
     gen("""
     if (#{return_var_name}.type != INTEGER) {
@@ -400,7 +401,7 @@ defmodule Honey.Boilerplates do
       return 0;
     """)
   end
-
+  #Adds the license of the eBPF program.
   def generate_license(config) do
     gen("""
     char LICENSE[] SEC("license") = "#{config.license}";
@@ -408,7 +409,8 @@ defmodule Honey.Boilerplates do
 
     """)
   end
-
+  #Adds the arguments of the main function.
+  #Currently only ctx for tracepoint/syscalls/sys_enter_kill
   def generate_main_arguments(config) do
     case config.libbpf_prog_type do
       "tracepoint/syscalls/sys_enter_kill" ->
@@ -418,7 +420,7 @@ defmodule Honey.Boilerplates do
         ""
     end
   end
-
+  #Puts together all main generating methods.
   def generate_main(config) do
     gen("""
     SEC("#{config.libbpf_prog_type}")
@@ -432,7 +434,7 @@ defmodule Honey.Boilerplates do
     }
     """)
   end
-
+  #Calls the methods necessary to create the translated version.
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>

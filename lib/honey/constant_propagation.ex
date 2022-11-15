@@ -10,13 +10,16 @@ defmodule Honey.ConstantPropagation do
                   is_nil(item)
 
   def run(ast) do
+    #Does a postwalk substituting known values for their constants.
     Macro.postwalk(ast, [], fn segment, constants ->
       case segment do
+        #An atribution with a constant right hand side has a constant left side. Add the LHS variable as a constant.
         {:=, _meta, [lhs, rhs]} when is_constant(rhs) ->
           var_version = String.to_atom(var_to_string(lhs))
           constants = Keyword.put(constants, var_version, rhs)
           {rhs, constants}
 
+        #A binary operation with two constants is a constant.
         {{:., _, [:erlang, :+]}, _, [lhs, rhs]} when is_constant(lhs) and is_constant(rhs) ->
           {lhs + rhs, constants}
 
@@ -32,6 +35,7 @@ defmodule Honey.ConstantPropagation do
         {{:., _, [:erlang, :==]}, _, [lhs, rhs]} when is_constant(lhs) and is_constant(rhs) ->
           {lhs == rhs, constants}
 
+        #A variable that has been kept as a constant (from the := case) can be substituted by its value.
         var when is_var(var) ->
           var_version = String.to_atom(var_to_string(var))
 
@@ -42,11 +46,11 @@ defmodule Honey.ConstantPropagation do
             :error ->
               {segment, constants}
           end
-
+        #In any other case, keep segment and accumulator untouched.
         _ ->
           {segment, constants}
       end
     end)
-    |> elem(0)
+    |> elem(0) #Return the ast without the accumulator.
   end
 end

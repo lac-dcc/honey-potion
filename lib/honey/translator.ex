@@ -3,7 +3,7 @@ defmodule Honey.Translator do
   alias Honey.TranslatedCode
 
   import Honey.Utils, only: [gen: 1, var_to_string: 1]
-
+  #Gets a new helper_var_<UniqueNumber>
   def unique_helper_var() do
     "helper_var_#{:erlang.unique_integer([:positive])}"
   end
@@ -254,7 +254,7 @@ defmodule Honey.Translator do
         raise "We cannot convert this structure yet."
     end
   end
-
+  #Changes constants into Generic C datatypes.
   def constant_to_code(item) do
     var_name_in_c = unique_helper_var()
 
@@ -333,11 +333,11 @@ defmodule Honey.Translator do
         :error
     end
   end
-
+  #Creates a situation for when all conditions are exhausted from the method below.
   def cond_statments_to_c([], cond_var_name_in_c) do
     "#{cond_var_name_in_c} = (Generic){.type = ATOM, .value.string = (String){0, 2}};"
   end
-
+  #Transforms conditional statements to C one condition at a time.
   def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c) do
     {:->, _, [[condition] | [block]]} = cond_stat
     condition_in_c = to_c(condition)
@@ -365,7 +365,7 @@ defmodule Honey.Translator do
       }
     end)
   end
-
+  #Guarantees we have a valid type of eBPF program. Only one type in alpha.
   @supported_types ~w[tracepoint/syscalls/sys_enter_kill]
   defp ensure_right_type(type) do
     case type do
@@ -379,7 +379,7 @@ defmodule Honey.Translator do
         raise "We cannot convert this Program Type yet: #{type}"
     end
   end
-
+  #Translates the main method.
   def translate(func_name, ast, sec, license, requires, elixir_maps) do
     case func_name do
       "main" ->
