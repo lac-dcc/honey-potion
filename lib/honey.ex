@@ -1,6 +1,18 @@
 defmodule Honey do
   alias Honey.{Translator, Utils, Fuel, Optimizer}
-  #Makes sure the use keyword is inside a valid module to operate in and imports the modules that will be needed.
+
+  @moduledoc """
+  Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
+  Users can write Elixir code that will be transformed into eBPF bytecodes.
+  Many high-level features of Elixir are available and more will be added soon.
+  In this alpha version, the framework translates the code to a subset of C that uses libbpf's features.
+  Then it's possible to use clang to obtain the bytecodes and load it into the Kernel.
+  """
+
+  @doc """
+  Makes sure the "use" keyword is inside a valid module to operate in and imports the modules that will be needed.
+  """
+
   defmacro __using__(options) do
     with :error <- Keyword.fetch(options, :license) do
       raise "License is required when using the module Honey. Try 'use Honey, license: \"License type\"'."
@@ -32,7 +44,12 @@ defmodule Honey do
 
     :ok
   end
-  #Writes c_code into a file in proj_path with module_name with optional clang_format.
+
+  @doc """
+  Writes c_code into a file in proj_path with module_name.
+  This can use an optional clang_format with the last parameter.
+  """
+
   def write_c_file(c_code, proj_path, module_name, clang_format) do
     "Elixir." <> module_name = "#{module_name}"
 
@@ -50,7 +67,21 @@ defmodule Honey do
 
     true
   end
-  #Macro that allows users to define maps in eBPF through elixir. Check README.md for more.
+
+  @doc """
+  Macro that allows users to define maps in eBPF through elixir.
+  Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
+
+  ```
+  defmap(:my_map,
+      %{type: BPF_MAP_TYPE_ARRAY,
+      max_entries: 10}
+  )
+  ```
+
+  In the Alpha version, just the map type BPF_MAP_TYPE_ARRAY is available, but you only need to specify the number of entries and the map is ready to use.
+  """
+
   defmacro defmap(ebpf_map_name, ebpf_map) do
     quote do
       ebpf_map_name = unquote(ebpf_map_name)
@@ -58,7 +89,11 @@ defmodule Honey do
       @ebpf_maps %{name: ebpf_map_name, content: ebpf_map_content}
     end
   end
-  #Honey-Potion runs using the __before_compile__ macro.
+
+  @doc """
+  Honey-Potion runs using the __before_compile__ macro. This macro starts up the execution.
+  """
+
   defmacro __before_compile__(env) do
     target_func = :main
     target_arity = 1
@@ -104,6 +139,7 @@ defmodule Honey do
     end
   end
 
+  @doc false
   def print_ast(ast) do
     IO.puts("\nFinal code of main/1 after all fuel burned:")
     IO.puts(Macro.to_string(ast) <> "\n")

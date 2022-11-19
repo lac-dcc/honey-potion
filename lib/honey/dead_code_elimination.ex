@@ -1,6 +1,14 @@
 defmodule Honey.DCE do
   import Honey.Utils, only: [is_var: 1, is_constant: 1]
-  #Calculates the used variables within a segment.
+
+  @moduledoc """
+  Executes Dead Code Elimination in the elixir AST of the source program.
+  """
+
+  @doc """
+  Calculates the used variables within a segment.
+  """
+
   def get_uses(segment, uses \\ []) do
     cond do
       is_constant(segment) ->
@@ -44,12 +52,17 @@ defmodule Honey.DCE do
   def check_params(_, def_use) do
     def_use
   end
+
   #Returns an atom with the variable name, version and context.
   defp get_var_version(var) do
     {var_name, meta, context} = var
     String.to_atom(Atom.to_string(var_name) <> to_string(meta[:version]) <> to_string(context))
   end
-  #Removes constant values that aren't the result from a sequence of instructions.
+
+  @doc """
+  Removes constant values that aren't the result from a sequence of instructions.
+  """
+
   def eliminate_constants_in_code(block) do
     [return | reversed_block] = Enum.reverse(block)
 
@@ -66,7 +79,11 @@ defmodule Honey.DCE do
 
     new_block
   end
-  #Joins recursive blocks into one big block.
+
+  @doc """
+  Joins recursive blocks into one big block.
+  """
+
   def expand_blocks(block_insts) do
     reversed_block_insts = Enum.reverse(block_insts)
 
@@ -90,7 +107,11 @@ defmodule Honey.DCE do
 
     new_block_insts
   end
-  #If the case parameter is a constant, find the match and replace the block.
+
+  @doc """
+  Analyzes a case block. If the case parameter is a constant, find the match and replace the block.
+  """
+
   def analyze_case(case_block) do
     {:case, _, [var | [[do: cases]]]} = case_block
 
@@ -115,7 +136,11 @@ defmodule Honey.DCE do
       case_block
     end
   end
-  #Removes trivial conditions.
+
+  @doc """
+  Removes trivial conditions from cond blocks.
+  """
+
   def analyze_cond(cond_block) do
     {:cond, meta, [[do: conds]]} = cond_block
 
@@ -152,6 +177,10 @@ defmodule Honey.DCE do
       {:cond, meta, [[do: new_conds]]}
     end
   end
+
+  @doc """
+  Runs Dead Code Elimination given an elixir AST.
+  """
 
   def run(fun_def) do
     new_ast =

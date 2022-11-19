@@ -1,4 +1,13 @@
 defmodule Honey.Analyze do
+
+  @moduledoc """
+  Runs analysis on the elixir AST. Currently does liveness, last use, scope and reusable variables analysis.
+  """
+
+  @doc """
+  Runs the analysis given an elixir AST.
+  """
+
   def run(ast) do
     import Honey.Utils, only: [is_var: 1]
 

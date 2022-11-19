@@ -1,6 +1,15 @@
 defmodule Honey.ConstantPropagation do
   import Honey.Utils, only: [var_to_string: 1, is_var: 1]
 
+  @moduledoc """
+  Executes Constant Propagation optimization in the elixir AST of the source program.
+  """
+
+  @doc """
+  Guard for constant values.
+  More specifically: Numbers, bitstrings, atoms, binaries, booleans or nil.
+  """
+
   defguard is_constant(item)
            when is_number(item) or
                   is_bitstring(item) or
@@ -8,6 +17,10 @@ defmodule Honey.ConstantPropagation do
                   is_binary(item) or
                   is_boolean(item) or
                   is_nil(item)
+
+  @doc """
+  Runs the constant propagation optimization given an elixir AST.
+  """
 
   def run(ast) do
     #Does a postwalk substituting known values for their constants.

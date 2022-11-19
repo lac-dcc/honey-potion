@@ -1,7 +1,14 @@
 defmodule Honey.Utils do
-  # So this macro basically prefixes every string with info about a place
-  # where it was generated. Extremely useful for debugging generated code
-  #
+
+  @moduledoc """
+  Contains utility functions used across Honey-Potion.
+  """
+
+  @doc """
+  Prefixes every string with info about the place where it was generated.
+  Extremely useful for debugging generated code.
+  """
+
   # PS
   # I just don't like sigils, because macro can have an english name
   # while sigil is just one char, which makes no sense for readers
@@ -13,34 +20,49 @@ defmodule Honey.Utils do
       "// Generated at #{unquote(file)}:#{unquote(line)}\n" <> unquote(text)
     end
   end
-  #Transforms a variable into an unique string.
+
+  @doc """
+  Transforms a variable into an unique string.
+  """
   def var_to_string({var_name, meta, var_context}) do
     "#{var_name}#{inspect_no_limit(meta[:version])}#{var_context}"
   end
+
   #Gets the value without limits in size or printing.
   defp inspect_no_limit(value) do
     inspect(value, limit: :infinity, printable_limit: :infinity)
   end
-  #Raises a compilation error in a standard format.
+
+  @doc """
+  Raises a compilation error in a standard format.
+  """
+
   def compile_error!(%Macro.Env{line: line, file: file}, description) do
     raise CompileError, line: line, file: file, description: description
   end
-  #Guards to filter elements from Elixir AST.
-  #Function calls.
+
+  #Guards to filter elements from the Elixir AST.
+  @doc """
+  Guard for Function calls.
+  """
   defguard is_call(t)
            when is_tuple(t) and
                   tuple_size(t) == 3 and
                   is_atom(:erlang.element(1, t)) and
                   is_list(:erlang.element(2, t)) and
                   is_list(:erlang.element(3, t))
-  #Variables.
+  @doc """
+  Guard for Variables.
+  """
   defguard is_var(t)
            when is_tuple(t) and
                   tuple_size(t) == 3 and
                   is_atom(:erlang.element(1, t)) and
                   is_list(:erlang.element(2, t)) and
                   is_atom(:erlang.element(3, t))
-  #Constants.
+  @doc """
+  Guard for Constants.
+  """
   defguard is_constant(item)
            when is_number(item) or
                   is_bitstring(item) or

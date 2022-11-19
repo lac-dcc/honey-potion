@@ -1,20 +1,31 @@
 defmodule Honey.Fuel do
-  # This alpha version contains some limitations:
-  # - Fuel can only be used inside main/1
-  # - The function called inside fuel:
-  #     - Cannot have guards
-  #     - Cannot destructure its arguments
-  #     - Cannot have default arguments
-  #     - Must be in the same module as main/1
-  # - It doesn't expand mutual recursions yet
-
   import Honey.Utils, only: [is_var: 1, is_call: 1, compile_error!: 2]
-  #Defines the macro fuel which adds the fuel ammount into the metadata of a function all.
+
+  @moduledoc """
+  Manages Fuel for function calls.
+  In Honey-Potion, Fuel is the ammount of recursive calls that a function call can generate.
+  When set to a Fixed value it guarantees a non-looping program, a prerequisite for eBPF programs.
+
+  This alpha version contains some limitations:
+  - Fuel can only be used inside main/1
+  - The function called inside fuel:
+      - Cannot have guards
+      - Cannot destructure its arguments
+      - Cannot have default arguments
+      - Must be in the same module as main/1
+  - It doesn't expand mutual recursions yet
+  """
+
+  @doc """
+  Defines the macro fuel which adds the fuel ammount into the metadata of a function call.
+  """
+
   defmacro fuel(amount, fun_call) do
     ensure_caller(__CALLER__)
 
     add_fuel_metadata(fun_call, amount)
   end
+
   #Makes sure fuel is used inside the main function.
   defp ensure_caller(%Macro.Env{function: {:main, 1}}), do: :ok
 
@@ -22,8 +33,11 @@ defmodule Honey.Fuel do
     compile_error!(env, "fuel can only be called inside main/1")
   end
 
-  # Currently it only accepts calls from the same module
-  #Burns fuel with consecultive passes through the AST until no more changes are made.
+  @doc """
+  Burns fuel with consecultive passes through the AST until no more changes are made.
+  Currently it only accepts calls from the same module.
+  """
+
   def burn_fuel(main_ast, env) do
     {new_ast, modified} =
       Macro.postwalk(main_ast, false, fn
@@ -51,7 +65,11 @@ defmodule Honey.Fuel do
       new_ast
     end
   end
-  #Unrolls one fuel of a specific function call and subtracts the value of its fuel by one.
+
+  @doc """
+  Unrolls one fuel of a specific function call and subtracts the value of its fuel by one.
+  """
+
   def get_def_for_reinjection(fun_call, env, current_fuel) do
     {module, function, arity, actual_args} = decompose_call(fun_call, env)
     fun_def = Module.get_definition(module, {function, arity})
@@ -103,6 +121,7 @@ defmodule Honey.Fuel do
 
     final_ast
   end
+
   #Walks the AST replacing the old context (Third element of variables) with the new_context.
   defp replace_context(ast, new_context) do
     Macro.postwalk(ast, fn
@@ -113,10 +132,12 @@ defmodule Honey.Fuel do
         other
     end)
   end
+
   #Gives or updates the fuel of a function call into the metadata of the call.
   defp add_fuel_metadata(call, fuel) when is_call(call) do
     Macro.update_meta(call, &[{:fuel, fuel} | &1])
   end
+
   #Transforms a function call into parameters that we need.
   defp decompose_call(call, caller_env) do
     case call do
