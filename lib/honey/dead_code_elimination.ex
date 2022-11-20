@@ -1,5 +1,5 @@
 defmodule Honey.DCE do
-  import Honey.Utils, only: [is_var: 1, is_constant: 1]
+  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1]
 
   def get_uses(segment, uses \\ []) do
     cond do
@@ -7,7 +7,7 @@ defmodule Honey.DCE do
         uses
 
       is_var(segment) ->
-        [get_var_version(segment) | uses]
+        [var_to_key(segment) | uses]
 
       true ->
         case segment do
@@ -43,11 +43,6 @@ defmodule Honey.DCE do
 
   def check_params(_, def_use) do
     def_use
-  end
-
-  defp get_var_version(var) do
-    {var_name, meta, context} = var
-    String.to_atom(Atom.to_string(var_name) <> to_string(meta[:version]) <> to_string(context))
   end
 
   def eliminate_constants_in_code(block) do
@@ -197,7 +192,7 @@ defmodule Honey.DCE do
         {segment, def_use} =
           case segment do
             {:=, _meta, [lhs, rhs]} ->
-              var_version = get_var_version(lhs)
+              var_version = var_to_key(lhs)
 
               var_uses = get_uses(rhs)
 

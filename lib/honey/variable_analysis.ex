@@ -1,5 +1,5 @@
 defmodule Honey.Analyze do
-  import Honey.Utils, only: [is_var: 1, var_to_string: 1]
+  import Honey.Utils, only: [is_var: 1, var_to_key: 1]
 
   def run(ast) do
 
@@ -12,7 +12,7 @@ defmodule Honey.Analyze do
         #Get info from segment
         {var, meta, context} = segment
         #Get variable unique key
-        keyatom = var_to_key(var, meta, context)
+        keyatom = var_to_key({var, meta, context})
 
         #Check if variable is in the uv set
         {uv, last} =  if not MapSet.member?(uv, keyatom) do
@@ -51,7 +51,7 @@ defmodule Honey.Analyze do
         #Get info from segment
         {var, meta, context} = segment
         #Get variable unique key
-        keyatom = var_to_key(var, meta, context)
+        keyatom = var_to_key({var, meta, context})
 
         #Add the variable to it's own scope
         sv = MapSet.put(sv, keyatom)
@@ -88,15 +88,6 @@ defmodule Honey.Analyze do
     end)
 
     ast
-
-  end
-
-  #Gets the information of a variable and returns an unique identifier to it.
-  #Calculated based on variable name, version and context.
-  defp var_to_key(var, meta, context) do
-    #Gets string key and transforms to an atom.
-    keystring = var_to_string({var, meta, context})
-    String.to_atom(keystring)
 
   end
 

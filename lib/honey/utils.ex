@@ -18,6 +18,14 @@ defmodule Honey.Utils do
     "#{var_name}_#{inspect_no_limit(meta[:version])}_#{var_context}"
   end
 
+  @doc """
+  Transforms a variable into an unique atom. Mostly used as a key in keywords, maps and other structures with keys.
+  """
+
+  def var_to_key({var_name, meta, var_context}) do
+    String.to_atom(var_to_string({var_name, meta, var_context}))
+  end
+
   defp inspect_no_limit(value) do
     inspect(value, limit: :infinity, printable_limit: :infinity)
   end
