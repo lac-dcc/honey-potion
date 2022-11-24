@@ -243,6 +243,37 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(cond_var)
   end
 
+  def to_c({:{}, _, tuple_values}, _context) when is_list(tuple_values) do
+    tuple_values_to_c = Enum.map(tuple_values, fn element -> to_c(element) end)
+    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(tuple_values_to_c, 0)
+    tuple_values_code = Enum.reduce(tuple_values_to_c, "", fn tuple_to_c, acc -> (acc <> "\n" <> tuple_to_c.code) end)
+
+    tuple_var = unique_helper_var()
+    """
+    #{tuple_values_code}
+    #{heap_allocation_code}
+    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = *tuple_pool_index, .end = (*tuple_pool_index)+#{heap_allocated_size}-1}};
+    """
+    |> gen()
+    |> TranslatedCode.new(tuple_var)
+  end
+
+  def to_c({first_element, second_element}, _context) do
+    first_element_c_code = to_c(first_element)
+    second_element_c_code = to_c(second_element)
+    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap([first_element_c_code, second_element_c_code], 0)
+
+    tuple_var = unique_helper_var()
+    """
+    #{first_element_c_code.code}
+    #{second_element_c_code.code}
+    #{heap_allocation_code}
+    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = *tuple_pool_index, .end = (*tuple_pool_index)+#{heap_allocated_size}-1}};
+    """
+    |> gen()
+    |> TranslatedCode.new(tuple_var)
+  end
+
   # Other structures
   def to_c(other, _context) do
     case constant_to_code(other) do
@@ -288,6 +319,35 @@ defmodule Honey.Translator do
     (pattern_matching_code <> exit_code)
     |> gen()
     |> TranslatedCode.new(rhs_in_c.return_var_name)
+  end
+
+  defp allocate_tuple_in_heap([], index) do
+    code =
+    """
+    *heap_index += #{index};
+    *tuple_pool_index += #{index};
+    """
+    {code, index}
+  end
+
+  defp allocate_tuple_in_heap([translated_code_var | tail], index) do
+    code =
+      """
+      if(*heap_index < (HEAP_SIZE-#{index})) {
+        (*heap)[(*heap_index)+#{index}] = #{translated_code_var.return_var_name};
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+        goto CATCH;
+      }
+      if(*tuple_pool_index < (TUPLE_POOL_SIZE-#{index})) {
+        (*tuple_pool)[(*tuple_pool_index)+#{index}] = (*heap_index)+#{index};
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+        goto CATCH;
+      }
+      """
+    {next_code, allocated_size} = allocate_tuple_in_heap(tail, index+1)
+    {code <> next_code, allocated_size}
   end
 
   defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var), do: ""
