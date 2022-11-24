@@ -252,7 +252,7 @@ defmodule Honey.Translator do
     """
     #{tuple_values_code}
     #{heap_allocation_code}
-    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = *tuple_pool_index, .end = (*tuple_pool_index)+#{heap_allocated_size}-1}};
+    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
     """
     |> gen()
     |> TranslatedCode.new(tuple_var)
@@ -268,7 +268,7 @@ defmodule Honey.Translator do
     #{first_element_c_code.code}
     #{second_element_c_code.code}
     #{heap_allocation_code}
-    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = *tuple_pool_index, .end = (*tuple_pool_index)+#{heap_allocated_size}-1}};
+    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
     """
     |> gen()
     |> TranslatedCode.new(tuple_var)
@@ -350,7 +350,55 @@ defmodule Honey.Translator do
     {code <> next_code, allocated_size}
   end
 
+  defp get_tuple_element_from_heap(_tuple_var_name, [], _index, _exit_label), do: ""
+
+  defp get_tuple_element_from_heap(tuple_var_name, [first_tuple_elm | tail], index, exit_label) do
+    first_tuple_elm_name = unique_helper_var()
+    heap_index_var_name = unique_helper_var()
+    """
+    Generic #{first_tuple_elm_name};
+    if(#{tuple_var_name}.value.tuple.start + #{index} < TUPLE_POOL_SIZE && #{tuple_var_name}.value.tuple.start + #{index}>= 0) {
+      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{tuple_var_name}.value.tuple.start + #{index}));
+      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
+        #{first_tuple_elm_name} = *(*(heap)+(#{heap_index_var_name}));
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "HEAP(MatchError) No match of right hand side value."};
+        goto #{exit_label};
+      }
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "TUPLE(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+      <>
+    pattern_matching(first_tuple_elm, first_tuple_elm_name, exit_label)
+      <>
+    get_tuple_element_from_heap(tuple_var_name, tail, index+1, exit_label)
+  end
+
   defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var), do: ""
+
+  defp pattern_matching({:{}, _meta, tuple_elements}, helper_var_name, exit_label) when is_list(tuple_elements) do
+    """
+    if(#{helper_var_name}.type != TUPLE){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    get_tuple_element_from_heap(helper_var_name, tuple_elements, 0, exit_label)
+  end
+
+  defp pattern_matching({first, second}, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != TUPLE){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    get_tuple_element_from_heap(helper_var_name, [first, second], 0, exit_label)
+  end
 
   defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
     c_var_name = var_to_string(var)
