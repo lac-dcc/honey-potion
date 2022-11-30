@@ -1,4 +1,5 @@
 defmodule Honey do
+  alias Honey.Boilerplates
   alias Honey.{Translator, Utils, Fuel, Optimizer}
 
   @moduledoc """
@@ -68,6 +69,36 @@ defmodule Honey do
     true
   end
 
+  def run_makefile(proj_path, module_name) do
+
+    mod_name = Atom.to_string(module_name)
+    mod_name = String.slice(mod_name, 7, String.length(mod_name) - 7)
+
+    libsdir = __ENV__.file |> Path.dirname
+    libsdir = Path.absname("./../benchmarks/libs/libbpf/src", libsdir) |> Path.expand
+
+    bpfincludedir = Path.absname("./root/usr/include/", libsdir)
+
+    bpfheaderdir = Path.absname("./headers", libsdir)
+
+    userdir = proj_path |> Path.dirname()
+
+    boilerdir = __ENV__.file |> Path.dirname
+    boilerdir = Path.absname("./../priv/BPF_Boilerplates/", boilerdir)
+    makedir = Path.absname("./Makefile", boilerdir)
+
+    File.cp_r(makedir, userdir |> Path.join("Makefile"))
+
+    frontend = Boilerplates.generate_frontend_code(mod_name)
+
+    File.write(userdir |> Path.join("#{mod_name}.c"), frontend)
+
+    #IO.inspect([r, libsdir, bpfincludedir, bpfheaderdir, makedir, userdir, userdir |> Path.join("Makefile"), mod_name])
+    IO.inspect("#{mod_name}, #{libsdir}")
+    System.cmd("make", ["TARGET := #{mod_name}", "LIBBPF_DIR := #{libsdir}"], cd: userdir)
+
+  end
+
   @doc """
   Macro that allows users to define maps in eBPF through elixir.
   Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
@@ -131,7 +162,8 @@ defmodule Honey do
     write_c_file(c_code, env.file, env.module, clang_format)
 
     Module.delete_definition(env.module, {target_func, target_arity})
-
+    #IO.inspect(env.file)
+    run_makefile(env.file, env.module)
     quote do
       def main(unquote(arguments)) do
         unquote(final_ast)

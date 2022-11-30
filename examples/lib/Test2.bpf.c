@@ -611,22 +611,18 @@ if (ctx0nil.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
 }
 
   // =============== beginning of user code ===============
-  
-
-// Generated at /media/kaelsa/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/translator.ex:123
-Generic helper_var_67 = ATOM_NIL;
-bpf_printk("Hello world!", helper_var_67.value.integer);
-Generic helper_var_99 = {.type = INTEGER, .value.integer = 0};
-
-Generic helper_var_131 = {.type = INTEGER, .value.integer = 5};
+  // Generated at /media/kaelsa/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/translator.ex:123
+Generic helper_var_3 = ATOM_NIL;
+bpf_printk("Goodbye world!", helper_var_3.value.integer);
+Generic helper_var_35 = {.type = INTEGER, .value.integer = 0};
 
   // =============== end of user code ==============
   // Generated at /media/kaelsa/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:435
-if (helper_var_131.type != INTEGER) {
+if (helper_var_35.type != INTEGER) {
   op_result = (OpResult){.exception = 1, .exception_msg = "(IncorrectReturn) eBPF function is not returning an integer."};
   goto CATCH;
 }
-return helper_var_131.value.integer;
+return helper_var_35.value.integer;
 
 CATCH:
   bpf_printk("** %s\n", op_result.exception_msg);
