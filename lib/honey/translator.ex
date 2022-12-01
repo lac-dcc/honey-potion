@@ -278,8 +278,8 @@ defmodule Honey.Translator do
     list_var = unique_helper_var()
     """
     Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
-    if((*heap_index) + 1 < HEAP_SIZE && (*heap_index) >= 0) {
-      (*heap)[(*heap_index)+1] = #{list_var};
+    if((*heap_index) < HEAP_SIZE && (*heap_index) >= 0) {
+      (*heap)[(*heap_index)] = #{list_var};
     } else {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
       goto CATCH;
@@ -315,7 +315,7 @@ defmodule Honey.Translator do
     }
     ++(*tuple_pool_index);
 
-    Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index), .end = (*tuple_pool_index)+1}};
+    Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
     if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
       (*heap)[(*heap_index)] = #{list_element_in_c.return_var_name};
     } else {
@@ -412,6 +412,50 @@ defmodule Honey.Translator do
     {code <> next_code, allocated_size}
   end
 
+
+  defp get_list_elements_from_heap(list_head_var_name, [], exit_label) do
+    ""
+  end
+
+  defp get_list_elements_from_heap(list_head_var_name, [assignment_head | assignments_tail], exit_label) do
+    head_element_var_name = unique_helper_var()
+    next_list_head_var_name = unique_helper_label()
+    heap_index_var_name = unique_helper_var()
+    """
+    Generic #{head_element_var_name};
+    if(#{list_head_var_name}.value.tuple.start < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start >= 0) {
+      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start));
+      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
+        #{head_element_var_name} = *(*(heap)+(#{heap_index_var_name}));
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+        goto #{exit_label};
+      }
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+
+    Generic #{next_list_head_var_name};
+    if(#{list_head_var_name}.value.tuple.start+1 < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start+1 >= 0) {
+      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start+1));
+      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
+        #{next_list_head_var_name} = *(*(heap)+(#{heap_index_var_name}));
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+        goto #{exit_label};
+      }
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    pattern_matching(assignment_head, head_element_var_name, exit_label)
+    <>
+    get_list_elements_from_heap(next_list_head_var_name, assignments_tail, exit_label)
+  end
+
   defp get_tuple_element_from_heap(_tuple_var_name, [], _index, _exit_label), do: ""
 
   defp get_tuple_element_from_heap(tuple_var_name, [first_tuple_elm | tail], index, exit_label) do
@@ -460,6 +504,17 @@ defmodule Honey.Translator do
     """
     <>
     get_tuple_element_from_heap(helper_var_name, [first, second], 0, exit_label)
+  end
+
+  defp pattern_matching(list_handlers, helper_var_name, exit_label) when is_list(list_handlers) do
+    """
+    if(#{helper_var_name}.type != LIST){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    get_list_elements_from_heap(helper_var_name, list_handlers, exit_label)
   end
 
   defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
