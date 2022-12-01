@@ -274,6 +274,68 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(tuple_var)
   end
 
+  def to_c([], _context) do
+    list_var = unique_helper_var()
+    """
+    Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
+    if((*heap_index) + 1 < HEAP_SIZE && (*heap_index) >= 0) {
+      (*heap)[(*heap_index)+1] = #{list_var};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+      goto CATCH;
+    }
+    ++(*heap_index);
+    """
+    |> gen()
+    |> TranslatedCode.new(list_var)
+    end
+
+  def to_c([first_element | tail], context) do
+    list_tail_in_c = to_c(tail, context)
+    list_element_in_c = to_c(first_element)
+    list_var = unique_helper_var()
+
+    list_tail_in_c.code
+    <>
+    list_element_in_c.code
+    <>
+    """
+    if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
+      (*tuple_pool)[(*tuple_pool_index)] = (*heap_index);
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+      goto CATCH;
+    }
+    ++(*tuple_pool_index);
+    if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
+      (*tuple_pool)[(*tuple_pool_index)] = (*heap_index)-1;
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+      goto CATCH;
+    }
+    ++(*tuple_pool_index);
+
+    Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index), .end = (*tuple_pool_index)+1}};
+    if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
+      (*heap)[(*heap_index)] = #{list_element_in_c.return_var_name};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+      goto CATCH;
+    }
+    ++(*heap_index);
+    if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
+      (*heap)[(*heap_index)] = #{list_var};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+      goto CATCH;
+    }
+    ++(*heap_index);
+    """
+    |> gen()
+    |> TranslatedCode.new(list_var)
+  end
+
+
   # Other structures
   def to_c(other, _context) do
     case constant_to_code(other) do
