@@ -275,6 +275,9 @@ defmodule Honey.Translator do
   end
 
   def to_c([], _context) do
+    IO.puts("======= 4 =========")
+    IO.inspect([])
+    IO.puts("==================")
     list_var = unique_helper_var()
     """
     Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
@@ -290,7 +293,26 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(list_var)
   end
 
-  def to_c({:|, _meta, [head_element, tail_assignments]}, context) do
+  # def to_c({:|, _meta, [head_element, [{:|, _, _} = tail_assignments]]}, context) do
+  #   IO.puts("======= 1 =========")
+  #   IO.inspect(head_element)
+  #   IO.inspect(tail_assignments)
+  #   IO.puts("==================")
+  #   list_tail_in_c = to_c(tail_assignments, context)
+  #   list_header_in_c = allocate_list_header_into_heap(head_element)
+
+  #   list_tail_in_c.code
+  #   <>
+  #   list_header_in_c.code
+  #   |> gen()
+  #   |> TranslatedCode.new(list_header_in_c.return_var_name)
+  # end
+
+  def to_c([{:|, _meta, [head_element, tail_assignments]}], context) do
+    IO.puts("======= 2 =========")
+    IO.inspect(head_element)
+    IO.inspect(tail_assignments)
+    IO.puts("==================")
     list_tail_in_c = to_c(tail_assignments, context)
     list_header_in_c = allocate_list_header_into_heap(head_element)
 
@@ -302,6 +324,10 @@ defmodule Honey.Translator do
   end
 
   def to_c([first_element | tail], context) do
+    IO.puts("======= 3 =========")
+    IO.inspect(first_element)
+    IO.inspect(tail)
+    IO.puts("==================")
     list_tail_in_c = to_c(tail, context)
     list_header_in_c = allocate_list_header_into_heap(first_element)
 
@@ -310,9 +336,7 @@ defmodule Honey.Translator do
     list_header_in_c.code
     |> gen()
     |> TranslatedCode.new(list_header_in_c.return_var_name)
-
   end
-
 
   # Other structures
   def to_c(other, _context) do
@@ -432,14 +456,8 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(list_var)
   end
 
-
-  defp get_list_elements_from_heap(_list_head_var_name, [], _exit_label) do
-    ""
-  end
-
-  defp get_list_elements_from_heap(list_head_var_name, [assignment_head | assignments_tail], exit_label) do
+  defp generate_code_for_list_head_element_assignment(list_head_var_name, assignment_head, exit_label) do
     head_element_var_name = unique_helper_var()
-    next_list_head_var_name = unique_helper_label()
     heap_index_var_name = unique_helper_var()
     """
     Generic #{head_element_var_name};
@@ -455,7 +473,15 @@ defmodule Honey.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
+    """
+    <>
+    pattern_matching(assignment_head, head_element_var_name, exit_label)
+  end
 
+  defp generate_code_for_get_next_list_head(list_head_var_name, exit_label) do
+    next_list_head_var_name = unique_helper_label()
+    heap_index_var_name = unique_helper_var()
+    """
     Generic #{next_list_head_var_name};
     if(#{list_head_var_name}.value.tuple.start+1 < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start+1 >= 0) {
       unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start+1));
@@ -470,10 +496,28 @@ defmodule Honey.Translator do
       goto #{exit_label};
     }
     """
+    |> gen()
+    |> TranslatedCode.new(next_list_head_var_name)
+  end
+
+  defp get_list_elements_from_heap(list_head_var_name, [], exit_label) do
+    """
+    if(#{list_head_var_name}.value.tuple.start != -1 || #{list_head_var_name}.value.tuple.end != -1) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp get_list_elements_from_heap(list_head_var_name, [assignment_head | assignments_tail], exit_label) do
+    head_element_code = generate_code_for_list_head_element_assignment(list_head_var_name, assignment_head, exit_label)
+    next_list_header = generate_code_for_get_next_list_head(list_head_var_name, exit_label)
+
+    head_element_code
     <>
-    pattern_matching(assignment_head, head_element_var_name, exit_label)
+    next_list_header.code
     <>
-    get_list_elements_from_heap(next_list_head_var_name, assignments_tail, exit_label)
+    get_list_elements_from_heap(next_list_header.return_var_name, assignments_tail, exit_label)
   end
 
   defp get_tuple_element_from_heap(_tuple_var_name, [], _index, _exit_label), do: ""
@@ -524,6 +568,24 @@ defmodule Honey.Translator do
     """
     <>
     get_tuple_element_from_heap(helper_var_name, [first, second], 0, exit_label)
+  end
+
+  defp pattern_matching([{:|, _meta, [header_assignment, tail_assignments]}], helper_var_name, exit_label) do
+    head_element_code = generate_code_for_list_head_element_assignment(helper_var_name, header_assignment, exit_label)
+    next_list_header = generate_code_for_get_next_list_head(helper_var_name, exit_label)
+
+    """
+    if(#{helper_var_name}.type != LIST){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    head_element_code
+    <>
+    next_list_header.code
+    <>
+    pattern_matching(tail_assignments, next_list_header.return_var_name, exit_label)
   end
 
   defp pattern_matching(list_handlers, helper_var_name, exit_label) when is_list(list_handlers) do
