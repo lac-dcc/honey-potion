@@ -54,10 +54,12 @@ defmodule Honey do
   def write_c_file(c_code, proj_path, module_name, clang_format) do
     "Elixir." <> module_name = "#{module_name}"
 
+    System.cmd("mkdir", ["-p", "src"], cd: proj_path |> Path.dirname())
+
     c_path =
       proj_path
       |> Path.dirname()
-      |> Path.join("#{module_name}.bpf.c")
+      |> Path.join("src/#{module_name}.bpf.c")
 
     {:ok, file} = File.open(c_path, [:write])
     IO.binwrite(file, c_code)
@@ -69,32 +71,27 @@ defmodule Honey do
     true
   end
 
-  def run_makefile(proj_path, module_name) do
+  @doc """
+  Prepares a generic makefile in the directory of the user, writes a generic front-end for eBPF and compiles everything.
+  This uses the LibBPF located in /benchmarks/libs/
+  """
+
+  def compile_eBPF(proj_path, module_name) do
+
+    userdir = proj_path |> Path.dirname()
+
+    makedir = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/Makefile")
+    File.cp_r(makedir, userdir |> Path.join("Makefile"))
 
     mod_name = Atom.to_string(module_name)
     mod_name = String.slice(mod_name, 7, String.length(mod_name) - 7)
 
+    frontend = Boilerplates.generate_frontend_code(mod_name)
+    File.write(userdir |> Path.join("./src/#{mod_name}.c"), frontend)
+
     libsdir = __ENV__.file |> Path.dirname
     libsdir = Path.absname("./../benchmarks/libs/libbpf/src", libsdir) |> Path.expand
 
-    bpfincludedir = Path.absname("./root/usr/include/", libsdir)
-
-    bpfheaderdir = Path.absname("./headers", libsdir)
-
-    userdir = proj_path |> Path.dirname()
-
-    boilerdir = __ENV__.file |> Path.dirname
-    boilerdir = Path.absname("./../priv/BPF_Boilerplates/", boilerdir)
-    makedir = Path.absname("./Makefile", boilerdir)
-
-    File.cp_r(makedir, userdir |> Path.join("Makefile"))
-
-    frontend = Boilerplates.generate_frontend_code(mod_name)
-
-    File.write(userdir |> Path.join("#{mod_name}.c"), frontend)
-
-    #IO.inspect([r, libsdir, bpfincludedir, bpfheaderdir, makedir, userdir, userdir |> Path.join("Makefile"), mod_name])
-    IO.inspect("#{mod_name}, #{libsdir}")
     System.cmd("make", ["TARGET := #{mod_name}", "LIBBPF_DIR := #{libsdir}"], cd: userdir)
 
   end
@@ -162,8 +159,9 @@ defmodule Honey do
     write_c_file(c_code, env.file, env.module, clang_format)
 
     Module.delete_definition(env.module, {target_func, target_arity})
-    #IO.inspect(env.file)
-    run_makefile(env.file, env.module)
+
+    #Does the compilation to a eBPF executable
+    compile_eBPF(env.file, env.module)
     quote do
       def main(unquote(arguments)) do
         unquote(final_ast)

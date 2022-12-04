@@ -25,5 +25,10 @@ ebpf_translator-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
+#Object, Source and Binary files from examples
+/examples/lib/bin/
+/examples/lib/obj/
+/examples/lib/src/
+
 examples/*.c
 /.vscode

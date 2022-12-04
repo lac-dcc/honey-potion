@@ -500,7 +500,7 @@ defmodule Honey.Boilerplates do
 
     static char PROGNAME[] = "main_func";
     """
-    middle = "static char FILENAME[] = \"#{module_name}.bpf.o\";\n\n"
+    middle = "static char FILENAME[] = \"./../obj/#{module_name}.bpf.o\";\n\n"
     path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/FrontEnd.c")
     finish = File.read!(path)
 
