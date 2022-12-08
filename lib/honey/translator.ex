@@ -275,9 +275,6 @@ defmodule Honey.Translator do
   end
 
   def to_c([], _context) do
-    IO.puts("======= 4 =========")
-    IO.inspect([])
-    IO.puts("==================")
     list_var = unique_helper_var()
     """
     Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
@@ -293,26 +290,7 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(list_var)
   end
 
-  # def to_c({:|, _meta, [head_element, [{:|, _, _} = tail_assignments]]}, context) do
-  #   IO.puts("======= 1 =========")
-  #   IO.inspect(head_element)
-  #   IO.inspect(tail_assignments)
-  #   IO.puts("==================")
-  #   list_tail_in_c = to_c(tail_assignments, context)
-  #   list_header_in_c = allocate_list_header_into_heap(head_element)
-
-  #   list_tail_in_c.code
-  #   <>
-  #   list_header_in_c.code
-  #   |> gen()
-  #   |> TranslatedCode.new(list_header_in_c.return_var_name)
-  # end
-
   def to_c([{:|, _meta, [head_element, tail_assignments]}], context) do
-    IO.puts("======= 2 =========")
-    IO.inspect(head_element)
-    IO.inspect(tail_assignments)
-    IO.puts("==================")
     list_tail_in_c = to_c(tail_assignments, context)
     list_header_in_c = allocate_list_header_into_heap(head_element)
 
@@ -324,10 +302,6 @@ defmodule Honey.Translator do
   end
 
   def to_c([first_element | tail], context) do
-    IO.puts("======= 3 =========")
-    IO.inspect(first_element)
-    IO.inspect(tail)
-    IO.puts("==================")
     list_tail_in_c = to_c(tail, context)
     list_header_in_c = allocate_list_header_into_heap(first_element)
 
