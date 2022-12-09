@@ -50,3 +50,7 @@ Translates the elixir code into C that uses methods defined in Priv/C_boilerplat
 ## Utils
 
 Defines utilities for Honey, including but not limited to var_to_string, a function that transforms variables into strings, a function to map lines of original code to generated code and guards for AST segments.
+
+## Directories
+
+Creates the directories in the user directory to keep the source files, the compilation objects and the final binary.

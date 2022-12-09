@@ -55,7 +55,6 @@ defmodule Honey do
   def write_c_file(c_code, proj_path, module_name, clang_format) do
     "Elixir." <> module_name = "#{module_name}"
 
-
     c_path =
       proj_path
       |> Path.dirname()
