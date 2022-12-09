@@ -1,4 +1,5 @@
 defmodule Honey do
+  alias Honey.Directories
   alias Honey.Boilerplates
   alias Honey.{Translator, Utils, Fuel, Optimizer}
 
@@ -54,7 +55,6 @@ defmodule Honey do
   def write_c_file(c_code, proj_path, module_name, clang_format) do
     "Elixir." <> module_name = "#{module_name}"
 
-    System.cmd("mkdir", ["-p", "src"], cd: proj_path |> Path.dirname())
 
     c_path =
       proj_path
@@ -154,14 +154,19 @@ defmodule Honey do
 
     #Calls the code translator.
     c_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
+
+    #Creates the directories for the file and compilation.
+    Directories.create_all(env.file)
+
     #Writes the file.
     clang_format = Keyword.get(ebpf_options, :clang_format)
     write_c_file(c_code, env.file, env.module, clang_format)
 
     Module.delete_definition(env.module, {target_func, target_arity})
 
-    #Does the compilation to a eBPF executable
+    #Does the compilation to an eBPF executable
     compile_eBPF(env.file, env.module)
+
     quote do
       def main(unquote(arguments)) do
         unquote(final_ast)

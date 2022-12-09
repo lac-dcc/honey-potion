@@ -28,8 +28,6 @@ skel: ./obj/$(TARGET).bpf.o ;
 
 # src directory is created during honey-potion execution, so only obj and bin are attempted here
 ./obj/$(TARGET).bpf.o: ./src/$(TARGET).bpf.c
-	mkdir -p obj
-	mkdir -p bin
 	${LLVM13}/clang -S \
 	    -target bpf \
 	    -D__BPF_TRACING__ \
