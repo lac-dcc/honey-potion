@@ -1,8 +1,16 @@
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
-
+  
   import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
+
+  @moduledoc """
+  Translates the elixir AST into eBPF readable C code.
+  """
+
+  @doc """
+  Generates a string with the format "helper_var_<UniqueNumber>" to be used as an unique variable.
+  """
 
   def unique_helper_var() do
     "helper_var_#{:erlang.unique_integer([:positive])}"
@@ -12,6 +20,9 @@ defmodule Honey.Translator do
     "label_#{:erlang.unique_integer([:positive])}"
   end
 
+  @doc """
+  Translates specific segments of the AST to C.
+  """
   def to_c(tree, context \\ {})
 
   # Variables
@@ -416,6 +427,10 @@ defmodule Honey.Translator do
     """
   end
 
+  @doc """
+  Translates constants into a Generic C datatype.
+  Generic being a struct used to represent many different datatypes with the same type.
+  """
   def constant_to_code(item) do
     var_name_in_c = unique_helper_var()
 
@@ -495,10 +510,16 @@ defmodule Honey.Translator do
     end
   end
 
+  @doc """
+  Transforms conditional statements to C.
+  """
+
+  #Creates a situation for when all conditions are exhausted from the method below.
   def cond_statments_to_c([], cond_var_name_in_c) do
     "#{cond_var_name_in_c} = (Generic){.type = ATOM, .value.string = (String){0, 2}};"
   end
 
+  #Transforms conditional statements to C one condition at a time.
   def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c) do
     {:->, _, [[condition] | [block]]} = cond_stat
     condition_in_c = to_c(condition)
@@ -516,6 +537,8 @@ defmodule Honey.Translator do
     """)
   end
 
+
+  #Translates a block of code by calling to_c for each element in that block.
   defp block_to_c({:__block__, _, exprs}, context) do
     Enum.reduce(exprs, Honey.TranslatedCode.new(), fn expr, translated_so_far ->
       translated_expr = to_c(expr, context)
@@ -527,6 +550,7 @@ defmodule Honey.Translator do
     end)
   end
 
+  #Guarantees we have a valid type of eBPF program. Only one type in alpha.
   @supported_types ~w[tracepoint/syscalls/sys_enter_kill]
   defp ensure_right_type(type) do
     case type do
@@ -541,6 +565,7 @@ defmodule Honey.Translator do
     end
   end
 
+  #Translates the main method.
   def translate(func_name, ast, sec, license, requires, elixir_maps) do
     case func_name do
       "main" ->
