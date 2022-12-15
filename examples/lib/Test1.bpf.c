@@ -1,9 +1,9 @@
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:437
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:41
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:437
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:41
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:52
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:52
 #ifndef __inline
 #define __inline \
   inline __attribute__((always_inline))
@@ -37,7 +37,7 @@
 
 #define QUOTE_HELPER(expr) #expr
 #define QUOTE(expr) QUOTE_HELPER(expr)
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:90
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:90
 typedef struct Generic Generic;
 typedef enum Operation Operation;
 typedef enum Type Type;
@@ -125,7 +125,7 @@ struct syscalls_enter_kill_args
   long sig;
 };
 
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:182
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:182
 // String pool
 struct
 {
@@ -160,7 +160,7 @@ struct
   __uint(value_size, sizeof(int));
 } heap_index_map SEC(".maps");
 
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:405
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:405
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 
@@ -495,7 +495,7 @@ static void Equals(OpResult *result, Generic *var1, Generic *var2) {
       .exception_msg =
           "(AplhaVersion) Currently, we can only compare integers with the '==' operator."};
   return;  
-}// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:257
+}// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:257
 static void getMember(OpResult *result, Generic *elixir_struct, char member_name[20], Generic *member)
 {
   *result = (OpResult){.exception = 0};
@@ -506,7 +506,7 @@ static void getMember(OpResult *result, Generic *elixir_struct, char member_name
     *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, getMember function)."};
     return;
   }
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:268
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:268
 if (elixir_struct->type == TYPE_Syscalls_enter_kill_arg)
             {
               if (__builtin_memcmp(member_name, "pad", 4) == 0)
@@ -547,10 +547,10 @@ if (elixir_struct->type == TYPE_Syscalls_enter_kill_arg)
 }
 
 
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:423
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:423
 SEC("tracepoint/syscalls/sys_enter_kill")
 int main_func(struct syscalls_enter_kill_args *ctx_arg) {
-  // Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:319
+  // Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:319
 StrFormatSpec str_param1;
 StrFormatSpec str_param2;
 StrFormatSpec str_param3;
@@ -590,7 +590,7 @@ if (!heap_index)
   goto CATCH;
 }
 
-  // Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:367
+  // Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:367
 Generic ctx0nil = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*heap_index)++, (*heap_index)++, (*heap_index)++, (*heap_index)++}};
 unsigned last_index = ctx0nil.value.syscalls_enter_kill_args.pos_sig;
 if (ctx0nil.value.syscalls_enter_kill_args.pos_pad < HEAP_SIZE)
@@ -613,27 +613,27 @@ if (ctx0nil.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
   // =============== beginning of user code ===============
   
 
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/translator.ex:241
-Generic helper_var_196 = {.type = INTEGER, .value.integer = 0};
-// Generated at /home/kpop/GitHub/honey-potion/lib/honey/translator.ex:347
-Generic helper_var_260 = ATOM_TRUE;
-if (to_bool(&helper_var_260)) {
-  Generic helper_var_324 = {.type = INTEGER, .value.integer = 4};
-  helper_var_196 = helper_var_324;
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/translator.ex:241
+Generic helper_var_930 = {.type = INTEGER, .value.integer = 0};
+// Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/translator.ex:347
+Generic helper_var_962 = ATOM_TRUE;
+if (to_bool(&helper_var_962)) {
+  Generic helper_var_994 = {.type = INTEGER, .value.integer = 4};
+  helper_var_930 = helper_var_994;
 } else {
-  helper_var_196 = (Generic){.type = ATOM, .value.string = (String){0, 2}};
+  helper_var_930 = (Generic){.type = ATOM, .value.string = (String){0, 2}};
 }
 
 
-Generic helper_var_388 = {.type = INTEGER, .value.integer = 2};
+Generic helper_var_1026 = {.type = INTEGER, .value.integer = 2};
 
   // =============== end of user code ==============
-  // Generated at /home/kpop/GitHub/honey-potion/lib/honey/boilerplates.ex:391
-if (helper_var_388.type != INTEGER) {
+  // Generated at /mnt/1tera/Kael media/kPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:391
+if (helper_var_1026.type != INTEGER) {
   op_result = (OpResult){.exception = 1, .exception_msg = "(IncorrectReturn) eBPF function is not returning an integer."};
   goto CATCH;
 }
-return helper_var_388.value.integer;
+return helper_var_1026.value.integer;
 
 CATCH:
   bpf_printk("** %s\n", op_result.exception_msg);

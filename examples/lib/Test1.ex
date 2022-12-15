@@ -7,6 +7,7 @@ defmodule Test1 do
     b = a
     c = a
     a = b
+
     cond do
       a == 10 -> a
       true -> (cond do

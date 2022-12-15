@@ -1,5 +1,5 @@
 defmodule Honey.DCE do
-  import Honey.Utils, only: [is_var: 1, is_constant: 1]
+  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1]
 
   @moduledoc """
   Executes Dead Code Elimination in the elixir AST of the source program.
@@ -15,7 +15,7 @@ defmodule Honey.DCE do
         uses
 
       is_var(segment) ->
-        [get_var_version(segment) | uses]
+        [var_to_key(segment) | uses]
 
       true ->
         case segment do
@@ -226,7 +226,7 @@ defmodule Honey.DCE do
         {segment, def_use} =
           case segment do
             {:=, _meta, [lhs, rhs]} ->
-              var_version = get_var_version(lhs)
+              var_version = var_to_key(lhs)
 
               var_uses = get_uses(rhs)
 
