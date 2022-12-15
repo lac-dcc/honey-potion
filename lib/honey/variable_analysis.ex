@@ -1,6 +1,13 @@
 defmodule Honey.Analyze do
   import Honey.Utils, only: [is_var: 1, var_to_key: 1]
 
+  @moduledoc """
+  Runs analysis on the elixir AST. Currently does liveness, last use, scope and reusable variables analysis.
+  """
+
+  @doc """
+  Runs the analysis given an elixir AST.
+  """
   def run(ast) do
 
     #Does a right to left traverse to check what variables have uses from a point on. Considers case/cond branches

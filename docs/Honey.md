@@ -21,7 +21,7 @@ Defines the optimization pipeline for Honey, as in, what modules are called in w
 
 ### variable_analysis
 
-Checks if a variable is in it's last use or not. Adds the information to the ast.
+Analyzes the last use of variables, propagates that information upwards (liveness analysis) into the AST and verifies where a variable can be reutilized.
 
 ### constant_propagation
 
@@ -49,4 +49,4 @@ Translates the elixir code into C that uses methods defined in Priv/C_boilerplat
 
 ## Utils
 
-Defines utilities for Honey, including but not limited to var_to_string and a function to map lines of original code to generated code.
+Defines utilities for Honey, including but not limited to var_to_string, a function that transforms variables into strings, a function to map lines of original code to generated code and guards for AST segments.

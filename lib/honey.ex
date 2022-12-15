@@ -1,6 +1,18 @@
 defmodule Honey do
   alias Honey.{Translator, Utils, Fuel, Optimizer}
 
+  @moduledoc """
+  Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
+  Users can write Elixir code that will be transformed into eBPF bytecodes.
+  Many high-level features of Elixir are available and more will be added soon.
+  In this alpha version, the framework translates the code to a subset of C that uses libbpf's features.
+  Then it's possible to use clang to obtain the bytecodes and load it into the Kernel.
+  """
+
+  @doc """
+  Makes sure the "use" keyword is inside a valid module to operate in and imports the modules that will be needed.
+  """
+
   defmacro __using__(options) do
     with :error <- Keyword.fetch(options, :license) do
       raise "License is required when using the module Honey. Try 'use Honey, license: \"License type\"'."
@@ -33,6 +45,11 @@ defmodule Honey do
     :ok
   end
 
+  @doc """
+  Writes c_code into a file in proj_path with module_name.
+  This can use an optional clang_format with the last parameter.
+  """
+
   def write_c_file(c_code, proj_path, module_name, clang_format) do
     "Elixir." <> module_name = "#{module_name}"
 
@@ -51,6 +68,20 @@ defmodule Honey do
     true
   end
 
+  @doc """
+  Macro that allows users to define maps in eBPF through elixir.
+  Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
+
+  ```
+  defmap(:my_map,
+      %{type: BPF_MAP_TYPE_ARRAY,
+      max_entries: 10}
+  )
+  ```
+
+  In the Alpha version, just the map type BPF_MAP_TYPE_ARRAY is available, but you only need to specify the number of entries and the map is ready to use.
+  """
+
   defmacro defmap(ebpf_map_name, ebpf_map) do
     quote do
       ebpf_map_name = unquote(ebpf_map_name)
@@ -59,10 +90,14 @@ defmodule Honey do
     end
   end
 
+  @doc """
+  Honey-Potion runs using the __before_compile__ macro. This macro starts up the execution.
+  """
+
   defmacro __before_compile__(env) do
     target_func = :main
     target_arity = 1
-
+    #If the main function isn't defined raise an error.
     if !(main_def = Module.get_definition(env.module, {target_func, target_arity})) do
       Utils.compile_error!(
         env,
@@ -73,23 +108,25 @@ defmodule Honey do
     # TODO: evaluate all clauses
     {:v1, _kind, _metadata, [first_clause | _other_clauses]} = main_def
     {_metadata, arguments, _guards, func_ast} = first_clause
-
+    #Burns Fuel (expands recursive calls into repetitions) and runs the optimizer on the AST.
     final_ast =
       func_ast
       |> Fuel.burn_fuel(env)
-      |> Optimizer.run()
+      # |> Optimizer.run()
 
     # print_ast(final_ast)
 
     ebpf_options = Module.get_attribute(env.module, :ebpf_options)
-
+    #Gets values required to translate the AST to eBPF readable C.
     sections = Module.get_attribute(env.module, :sections)
     sec = Map.get(sections, {:def, target_func, target_arity})
     license = Keyword.fetch!(ebpf_options, :license)
     maps = Module.get_attribute(env.module, :ebpf_maps)
     # TODO: env.requires stores the requires in alphabetical order. This might be a problem.
-    c_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
 
+    #Calls the code translator.
+    c_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
+    #Writes the file.
     clang_format = Keyword.get(ebpf_options, :clang_format)
     write_c_file(c_code, env.file, env.module, clang_format)
 
@@ -102,6 +139,7 @@ defmodule Honey do
     end
   end
 
+  @doc false
   def print_ast(ast) do
     IO.puts("\nFinal code of main/1 after all fuel burned:")
     IO.puts(Macro.to_string(ast) <> "\n")
