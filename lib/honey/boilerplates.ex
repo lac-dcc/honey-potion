@@ -490,6 +490,22 @@ defmodule Honey.Boilerplates do
     """)
   end
 
+
+  def generate_frontend_code(module_name) do
+    start = """
+    #include <bpf/libbpf.h>
+    #include <bpf/bpf.h>
+    #include <stdio.h>
+    #include <unistd.h>
+
+    static char PROGNAME[] = "main_func";
+    """
+    middle = "static char FILENAME[] = \"./../obj/#{module_name}.bpf.o\";\n\n"
+    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/FrontEnd.c")
+    finish = File.read!(path)
+
+    start <> middle <> finish
+  end
   @doc """
   Calls the methods necessary to create the boilerplates and add the translated version.
   """

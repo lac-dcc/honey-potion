@@ -37,7 +37,13 @@ defmodule Minimal do
 end
 ```
 
-Will generate `Minimal.bpf.c` in the same folder as the module.
+Will generate a few new sub-directories for you:
+
+- src : Where the C code is kept, `Minimal.bpf.c` for example
+- obj : Where compilation objects is be kept, `Minimal.o` for example
+- bin : Where the executable is kept, `Minimal` for example
+
+To run your program, just go into the bin directory and run the executable with privileges.
 
 Notice the `license` option: as eBPF demands, we need to specify a license to our program.
 Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the C file generated.
@@ -129,6 +135,7 @@ This framework is still Alpha, and we have lots of features to add, improve and 
 - We do not support function guards nor default arguments.
 - We do not support mutual recursive functions.
 - We do not support user-defined structs.
+-  To run the executable currently, executable has to be in bin folder and object in obj folder.
 
 There are more, and we are actively working to improve it.
 

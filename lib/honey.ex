@@ -1,4 +1,6 @@
 defmodule Honey do
+  alias Honey.Directories
+  alias Honey.Boilerplates
   alias Honey.{Translator, Utils, Fuel, Optimizer}
 
   @moduledoc """
@@ -56,7 +58,7 @@ defmodule Honey do
     c_path =
       proj_path
       |> Path.dirname()
-      |> Path.join("#{module_name}.bpf.c")
+      |> Path.join("src/#{module_name}.bpf.c")
 
     {:ok, file} = File.open(c_path, [:write])
     IO.binwrite(file, c_code)
@@ -66,6 +68,31 @@ defmodule Honey do
     clang_format && System.cmd(clang_format, ["-i", c_path])
 
     true
+  end
+
+  @doc """
+  Prepares a generic makefile in the directory of the user, writes a generic front-end for eBPF and compiles everything.
+  This uses the LibBPF located in /benchmarks/libs/
+  """
+
+  def compile_eBPF(proj_path, module_name) do
+
+    userdir = proj_path |> Path.dirname()
+
+    makedir = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/Makefile")
+    File.cp_r(makedir, userdir |> Path.join("Makefile"))
+
+    mod_name = Atom.to_string(module_name)
+    mod_name = String.slice(mod_name, 7, String.length(mod_name) - 7)
+
+    frontend = Boilerplates.generate_frontend_code(mod_name)
+    File.write(userdir |> Path.join("./src/#{mod_name}.c"), frontend)
+
+    libsdir = __ENV__.file |> Path.dirname
+    libsdir = Path.absname("./../benchmarks/libs/libbpf/src", libsdir) |> Path.expand
+
+    System.cmd("make", ["TARGET := #{mod_name}", "LIBBPF_DIR := #{libsdir}"], cd: userdir)
+
   end
 
   @doc """
@@ -126,11 +153,18 @@ defmodule Honey do
 
     #Calls the code translator.
     c_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
+
+    #Creates the directories for the file and compilation.
+    Directories.create_all(env.file)
+
     #Writes the file.
     clang_format = Keyword.get(ebpf_options, :clang_format)
     write_c_file(c_code, env.file, env.module, clang_format)
 
     Module.delete_definition(env.module, {target_func, target_arity})
+
+    #Does the compilation to an eBPF executable
+    compile_eBPF(env.file, env.module)
 
     quote do
       def main(unquote(arguments)) do
