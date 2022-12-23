@@ -1,7 +1,8 @@
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
-  import Honey.Utils, only: [gen: 1, var_to_string: 1]
+  
+  import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
 
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
@@ -15,10 +16,13 @@ defmodule Honey.Translator do
     "helper_var_#{:erlang.unique_integer([:positive])}"
   end
 
+  def unique_helper_label() do
+    "label_#{:erlang.unique_integer([:positive])}"
+  end
+
   @doc """
   Translates specific segments of the AST to C.
   """
-
   def to_c(tree, context \\ {})
 
   # Variables
@@ -38,6 +42,14 @@ defmodule Honey.Translator do
   end
 
   # Erlang functions
+  def to_c(ast = {{:., _, [:erlang, function]}, _, [constant]}, _context) when is_integer(constant) do
+    IO.inspect(ast)
+    case function do
+      :- -> {:ok, code} = constant_to_code(0-constant); code
+      _ -> raise "Erlang function not supported: \"#{Atom.to_string(function)}#{constant}\""
+    end
+  end
+
   def to_c({{:., _, [:erlang, function]}, _, [lhs, rhs]}, _context) do
     func_string =
       case function do
@@ -108,8 +120,7 @@ defmodule Honey.Translator do
 
         vars =
           Enum.reduce(code_vars, "", fn translated, so_far ->
-            so_far = if so_far != "", do: so_far <> ", ", else: ""
-            so_far <> translated.return_var_name <> ".value.integer"
+            so_far<>", "<>translated.return_var_name <> ".value.integer"
           end)
 
         result_var = unique_helper_var()
@@ -117,7 +128,7 @@ defmodule Honey.Translator do
         # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
         """
         #{code}
-        bpf_printk(\"#{string}\", #{vars});
+        bpf_printk(\"#{string}\"#{vars});
         Generic #{result_var} = {.type = INTEGER, .value.integer = 0};
         """
         |> gen()
@@ -226,18 +237,8 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(new_var_name)
   end
 
-  # Match operator, not complete
-  def to_c({:=, _, [lhs, rhs]}, _context) do
-    rhs_in_c = to_c(rhs)
-    c_var_name = var_to_string(lhs)
-
-    """
-    #{rhs_in_c.code}
-    Generic #{c_var_name} = #{rhs_in_c.return_var_name};
-    """
-    |> gen()
-    |> TranslatedCode.new(c_var_name)
-  end
+  # Match
+  def to_c(pm_operation = {:=, _, [_lhs, _rhs]}, context), do: to_c(pm_operation, context, true)
 
   # Cond
   def to_c({:cond, _, [[do: conds]]}, _context) do
@@ -253,6 +254,24 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(cond_var)
   end
 
+  # Case
+  def to_c({:case, _, [case_input, [do: cases]]} = case_exp, _context) do
+    case_input_translated = to_c(case_input)
+    case_return_var = unique_helper_var()
+
+    case_code = case_statements_to_c(case_input_translated.return_var_name,
+                                     case_return_var,
+                                     cases)
+
+    """
+    #{case_input_translated.code}
+    Generic #{case_return_var};
+    #{case_code}
+    """
+    |> gen()
+    |> TranslatedCode.new(case_return_var)
+  end
+
   # Other structures
   def to_c(other, _context) do
     case constant_to_code(other) do
@@ -266,11 +285,152 @@ defmodule Honey.Translator do
     end
   end
 
+  # Match operator, not complete
+  def to_c({:=, _, [lhs, rhs]}, _context, raise_exception) do
+    exit_label = unique_helper_label()
+    rhs_in_c = to_c(rhs)
+
+    pattern_matching_code =
+      """
+      #{rhs_in_c.code}
+      op_result.exception = 0;
+      #{pattern_matching(lhs, rhs_in_c.return_var_name, exit_label)}
+      #{exit_label}:
+      """
+
+    # `raise_exception` is a boolean parameter that defines if the pattern
+    # matching operation should report an error or not if it is not possible
+    # to match the expression
+    exit_code =
+      if(raise_exception) do
+        """
+        if(op_result.exception == 1) {
+          goto CATCH;
+        }
+        """
+      else
+        """
+        op_result = (OpResult){};
+        """
+      end
+
+    (pattern_matching_code <> exit_code)
+    |> gen()
+    |> TranslatedCode.new(rhs_in_c.return_var_name)
+  end
+
+  defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var), do: ""
+
+  defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
+    c_var_name = var_to_string(var)
+    """
+    Generic #{c_var_name} = #{helper_var_name};
+    """
+  end
+
+  defp pattern_matching(:true, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 8 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(:false, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 3 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(:nil, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 0 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(constant, helper_var_name, exit_label) when is_integer(constant) do
+    """
+    if(#{helper_var_name}.type != INTEGER || #{constant} != #{helper_var_name}.value.integer) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(constant, helper_var_name, exit_label) when is_bitstring(constant) do
+    string_var_name = unique_helper_var()
+    """
+    if(#{helper_var_name}.type != STRING) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+
+    String #{string_var_name} = #{helper_var_name}.value.string;
+    if(#{String.length(constant)} != (#{string_var_name}.end - #{string_var_name}.start)){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
+  end
+
+  # Compare if a given constant string `constant` is equals to a given variable by checking
+  # chars one by one.
+  defp generate_bitstring_checker_at_position("", _string_var_name, _index, _exit_label), do: ""
+
+  defp generate_bitstring_checker_at_position(constant, string_var_name, index, exit_label) when is_bitstring(constant) do
+    if (String.length(constant) <= index) do
+      ""
+    else
+      """
+      if(#{string_var_name}.start < STRING_POOL_SIZE - #{index} && #{string_var_name}.start >= 0) {
+        if(\'#{String.at(constant, index)}\' != *((*string_pool)+(#{string_var_name}.start + #{index}))) {
+          op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+          goto #{exit_label};
+        }
+      }
+      """
+      <>
+      generate_bitstring_checker_at_position(constant, string_var_name, index+1, exit_label)
+    end
+  end
+
+  defp case_statements_to_c(case_input_var_name, return_var_name, []) do
+    """
+      op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
+      goto CATCH;
+    """
+  end
+
+  defp case_statements_to_c(case_input_var_name, return_var_name, [{:->, _meta, [[lhs_expression], case_code_block]} | further_cases]) do
+    exit_label = unique_helper_label()
+    translated_case_code_block = to_c(case_code_block)
+
+    """
+    op_result.exception = 0;
+    #{pattern_matching(lhs_expression, case_input_var_name, exit_label)}
+    #{exit_label}:
+    if(op_result.exception == 0) {
+      #{translated_case_code_block.code}
+      #{return_var_name} = #{translated_case_code_block.return_var_name};
+    } else {
+      #{case_statements_to_c(case_input_var_name, return_var_name, further_cases)}
+    }
+    """
+  end
+
   @doc """
   Translates constants into a Generic C datatype.
   Generic being a struct used to represent many different datatypes with the same type.
   """
-
   def constant_to_code(item) do
     var_name_in_c = unique_helper_var()
 
