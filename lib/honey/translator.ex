@@ -1,7 +1,7 @@
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
-  
+
   import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
 
   @moduledoc """
@@ -551,7 +551,7 @@ defmodule Honey.Translator do
   end
 
   #Guarantees we have a valid type of eBPF program. Only one type in alpha.
-  @supported_types ~w[tracepoint/syscalls/sys_enter_kill]
+  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter)
   defp ensure_right_type(type) do
     case type do
       type when type in @supported_types ->

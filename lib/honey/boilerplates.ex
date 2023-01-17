@@ -404,6 +404,7 @@ defmodule Honey.Boilerplates do
         [arg | _] = config.func_args
 
         # FIXME: comment in a first clause
+        # TODO: Explain why we need this section
         gen("""
         Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*heap_index)++, (*heap_index)++, (*heap_index)++, (*heap_index)++}};
         unsigned last_index = #{arg}.value.syscalls_enter_kill_args.pos_sig;
@@ -424,6 +425,8 @@ defmodule Honey.Boilerplates do
           (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
         }
         """)
+      "tracepoint/syscalls/sys_enter_write" -> gen("")
+      "tracepoint/raw_syscalls/sys_enter" -> gen("")
     end
   end
 
