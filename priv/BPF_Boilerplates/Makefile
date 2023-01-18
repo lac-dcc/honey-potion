@@ -2,16 +2,17 @@ TARGET ?= prog
 
 
 SRC_DIR = $(shell realpath .)
-LIBBPF_DIR ?= $(SRC_DIR)/../../libs/libbpf/src
+LIBBPF_DIR ?= $(SRC_DIR)/../../benchmarks/libs/libbpf/src
 LIBBPF_INCLUDE ?= $(LIBBPF_DIR)/root/usr/include/
 LIBBPF_HEADERS ?= $(LIBBPF_DIR)/../../headers/
 CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)'
 LDFLAGS ?= -L'$(LIBBPF_DIR)'
 LLVM13 ?= /usr/bin
+BPFTOOL ?= $(SRC_DIR)/../../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf
 
-all: clean ./obj/$(TARGET).bpf.o skel ./bin/$(TARGET)
+all: clean ./obj/$(TARGET).bpf.o ./obj/$(TARGET).skel.h ./bin/$(TARGET)
 
 .PHONY: clean
 
@@ -21,7 +22,8 @@ clean:
 	rm -f ./obj/$(TARGET).bpf.ll
 
 # Empty rule because not all programs need to use a skeleton
-skel: ./obj/$(TARGET).bpf.o ;
+./obj/$(TARGET).skel.h: ./obj/$(TARGET).bpf.o
+	$(BPFTOOL) gen skeleton $< > $@
 
 ./bin/$(TARGET): %: ./src/$(TARGET).c
 	gcc $(CFLAGS) $(LDFLAGS) -o ./bin/$(TARGET) ./src/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
