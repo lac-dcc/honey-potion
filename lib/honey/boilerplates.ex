@@ -500,12 +500,45 @@ defmodule Honey.Boilerplates do
     #include <bpf/bpf.h>
     #include <stdio.h>
     #include <unistd.h>
+    #include "#{module_name}.skel.h"
 
     static char PROGNAME[] = "main_func";
+    static char FILENAME[] = \"./../obj/#{module_name}.bpf.o\";\n\n
     """
-    middle = "static char FILENAME[] = \"./../obj/#{module_name}.bpf.o\";\n\n"
-    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/FrontEnd.c")
-    finish = File.read!(path)
+
+    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
+    middle = File.read!(path)
+
+    finish = """
+    int main(int argc, char **argv) {
+      struct #{module_name}_bpf *skel;
+      int err;
+
+      skel = #{module_name}_bpf__open();
+      if(!skel){
+        fprintf(stderr, "Skeleton failed opening.\\n");
+        return 1;
+      }
+
+      /*If we wish to change global values in the skeleton, this is the correct section to do so.*/
+
+      err = #{module_name}_bpf__load(skel);
+      if(err){
+        fprintf(stderr, "Failed loading or verification of BPF skeleton.\\n");
+        #{module_name}_bpf__destroy(skel);
+        return -err;
+      }
+
+      err = #{module_name}_bpf__attach(skel);
+      if(err){
+        fprintf(stderr, "Failed attaching BPF skeleton.\\n");
+        #{module_name}_bpf__destroy(skel);
+        return -err;
+      }
+
+      output();
+    }
+    """
 
     start <> middle <> finish
   end
