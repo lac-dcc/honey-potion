@@ -1,3 +1,7 @@
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+#include <runtime_structures.bpf.h>
+
 static int to_bool(Generic *var)
 {
   if (var->type == ATOM)
@@ -296,7 +300,7 @@ static void Copy(OpResult *result, Generic *to, Generic *from)
       return;
     }
 
-    __builtin_memcpy(*string_pool[to->value.string.start], *string_pool[from->value.string.start], str_len);
+    __builtin_memcpy(string_pool[to->value.string.start], string_pool[from->value.string.start], str_len);
   }
 }
 

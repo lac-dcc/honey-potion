@@ -51,6 +51,8 @@ defmodule Honey.Boilerplates do
     gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
+    #include <runtime_structures.bpf.h>
+    #include <runtime_functions.bpf.c>
     """)
   end
 
@@ -549,11 +551,11 @@ defmodule Honey.Boilerplates do
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>
-        generate_defines(config) <>
-        generate_structs(config) <>
-        generate_maps(config) <>
+      #  generate_defines(config) <>
+      #  generate_structs(config) <>
+      #  generate_maps(config) <>
         generate_license(config) <>
-        generate_runtime_functions(config) <>
+      #  generate_runtime_functions(config) <>
         generate_main(config)
     )
   end

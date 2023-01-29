@@ -5,15 +5,17 @@ SRC_DIR = $(shell realpath .)
 LIBBPF_DIR ?= $(SRC_DIR)/../../benchmarks/libs/libbpf/src
 LIBBPF_INCLUDE ?= $(LIBBPF_DIR)/root/usr/include/
 LIBBPF_HEADERS ?= $(LIBBPF_DIR)/../../headers/
+PRIV_DIR ?= $(SRC_DIR)/../../priv
+C_BOILERPLATES ?= $(PRIV_DIR)/c_boilerplates/
 OBJ_FOLDER ?= $(SRC_DIR)/obj/
-CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)' -I'$(OBJ_FOLDER)'
+CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)' -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
 LDFLAGS ?= -L'$(LIBBPF_DIR)'
 LLVM13 ?= /usr/bin
 BPFTOOL ?= $(SRC_DIR)/../../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf
 
-all: clean ./obj/$(TARGET).bpf.o ./obj/$(TARGET).skel.h ./bin/$(TARGET)
+all: clean ./obj/$(TARGET).skel.h ./bin/$(TARGET)
 
 .PHONY: clean
 
@@ -22,7 +24,6 @@ clean:
 	rm -f ./obj/$(TARGET).bpf.o
 	rm -f ./obj/$(TARGET).bpf.ll
 
-# Empty rule because not all programs need to use a skeleton
 ./obj/$(TARGET).skel.h: ./obj/$(TARGET).bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
 
@@ -30,7 +31,7 @@ clean:
 	gcc $(CFLAGS) $(LDFLAGS) -o ./bin/$(TARGET) ./src/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
 
 # src directory is created during honey-potion execution, so only obj and bin are attempted here
-./obj/$(TARGET).bpf.o: ./src/$(TARGET).bpf.c
+./obj/$(TARGET).bpf.o: ./src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
 	${LLVM13}/clang -S \
 	    -target bpf \
 	    -D__BPF_TRACING__ \
