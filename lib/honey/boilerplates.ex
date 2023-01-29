@@ -402,31 +402,31 @@ defmodule Honey.Boilerplates do
 
   def generate_middle_main_code(config) do
     case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" ->
-        [arg | _] = config.func_args
+      "tracepoint/syscalls/sys_enter_kill" -> gen("")
+        # [arg | _] = config.func_args
 
-        # FIXME: comment in a first clause
-        # TODO: Explain why we need this section
-        gen("""
-        Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*heap_index)++, (*heap_index)++, (*heap_index)++, (*heap_index)++}};
-        unsigned last_index = #{arg}.value.syscalls_enter_kill_args.pos_sig;
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pad < HEAP_SIZE)
-        {
-          // (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pad] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pad};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr] = (Generic){.type = INTEGER, .value.integer = ctx_arg->syscall_nr};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pid < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pid] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pid};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
-        }
-        """)
+        # # FIXME: comment in a first clause
+        # # TODO: Explain why we need this section
+        # gen("""
+        # Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*heap_index)++, (*heap_index)++, (*heap_index)++, (*heap_index)++}};
+        # unsigned last_index = #{arg}.value.syscalls_enter_kill_args.pos_sig;
+        # if (#{arg}.value.syscalls_enter_kill_args.pos_pad < HEAP_SIZE)
+        # {
+        #   // (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pad] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pad};
+        # }
+        # if (#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr < HEAP_SIZE)
+        # {
+        #   (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr] = (Generic){.type = INTEGER, .value.integer = ctx_arg->syscall_nr};
+        # }
+        # if (#{arg}.value.syscalls_enter_kill_args.pos_pid < HEAP_SIZE)
+        # {
+        #   (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pid] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pid};
+        # }
+        # if (#{arg}.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
+        # {
+        #   (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
+        # }
+        # """)
       "tracepoint/syscalls/sys_enter_write" -> gen("")
       "tracepoint/raw_syscalls/sys_enter" -> gen("")
     end
