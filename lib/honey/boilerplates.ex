@@ -497,21 +497,18 @@ defmodule Honey.Boilerplates do
 
 
   def generate_frontend_code(module_name) do
-    start = """
+    include = """
     #include <bpf/libbpf.h>
     #include <bpf/bpf.h>
     #include <stdio.h>
     #include <unistd.h>
     #include "#{module_name}.skel.h"
-
-    static char PROGNAME[] = "main_func";
-    static char FILENAME[] = \"./../obj/#{module_name}.bpf.o\";\n\n
     """
 
     path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
-    middle = File.read!(path)
+    output_func = File.read!(path)
 
-    finish = """
+    main = """
     int main(int argc, char **argv) {
       struct #{module_name}_bpf *skel;
       int err;
@@ -523,6 +520,7 @@ defmodule Honey.Boilerplates do
       }
 
       /*If we wish to change global values in the skeleton, this is the correct section to do so.*/
+    """ <> "" <> """
 
       err = #{module_name}_bpf__load(skel);
       if(err){
@@ -542,7 +540,7 @@ defmodule Honey.Boilerplates do
     }
     """
 
-    start <> middle <> finish
+    include <> output_func <> main
   end
   @doc """
   Calls the methods necessary to create the boilerplates and add the translated version.

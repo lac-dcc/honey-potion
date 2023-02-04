@@ -208,6 +208,15 @@ defmodule Honey.Translator do
     end
   end
 
+  def to_c({{:., _, [Honey.Bpf.Global, function]}, _, params}, context) do
+    case function do
+      :create -> "" #Creates a global variable in the front end. Translated elsewhere.
+      :set -> "" #Sets the value in the front-end before calling the program, translated elsewhere here.
+      :get -> "" #Gets the value set in the front-end, has to be translated here.
+      func -> raise "Honey.Bpf.Global does not have " <> to_string(func) <> "as a valid function."
+    end
+  end
+
   # General dot operator
   def to_c({{:., _, [var, property]}, _, _}, _context) do
     var_name_in_c = var_to_string(var)
