@@ -106,19 +106,6 @@ typedef struct StrFormatSpec
   char spec[2];
 } StrFormatSpec;
 
-struct syscalls_enter_kill_args
-{
-  /**
-   * This is the tracepoint arguments of the kill functions.
-   * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
-   */
-  long long pad;
-
-  long syscall_nr;
-  long pid;
-  long sig;
-};
-
 // Generated at /run/media/kaelsa/1tera/KaelMedia/KPrograms/GitHub/honey-potion/lib/honey/boilerplates.ex:204
 // String pool
 struct

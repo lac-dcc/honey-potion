@@ -51,6 +51,7 @@ defmodule Honey.Boilerplates do
     gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
+    #include <stdlib.h>
     #include <runtime_structures.bpf.h>
     #include <runtime_functions.bpf.c>
     """)
@@ -451,6 +452,63 @@ defmodule Honey.Boilerplates do
   end
 
   @doc """
+  Creates the struct for the ctx main argument.
+  """
+  def generate_ctx_struct(config) do
+    case config.libbpf_prog_type do
+    "tracepoint/syscalls/sys_enter_kill" -> gen("""
+    typedef struct syscalls_enter_kill_args
+    {
+      /**
+      * This is the tracepoint arguments of the kill functions.
+      * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
+      */
+      long long pad;
+
+      long syscall_nr;
+      long pid;
+      long sig;
+    } syscalls_enter_kill_args;
+    """)
+
+    "tracepoint/raw_syscalls/sys_enter" -> gen("""
+    typedef struct syscalls_enter_args
+    {
+      /**
+       * This is the tracepoint arguments.
+       * Defined at: /sys/kernel/debug/tracing/events/raw_syscalls/sys_enter/format
+       */
+        unsigned short common_type;
+        unsigned char common_flags;
+        unsigned char common_preempt_count;
+        int common_pid;
+        long id;
+        unsigned long args[6];
+    } syscalls_enter_args;
+    """)
+
+    "tracepoint/syscalls/sys_enter_write" -> gen("""
+    typedef struct syscalls_enter_write_args
+    {
+      /**
+       * This is the tracepoint arguments.
+       * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
+       */
+       unsigned short common_type;
+       unsigned char common_flags;
+       unsigned char common_preempt_count;
+       int common_pid;
+       int __syscall_nr;
+       unsigned int fd;
+       const char * buf;
+       size_t count;
+    } syscalls_enter_write_args;
+    """)
+
+    end
+  end
+
+  @doc """
   Adds the license of the eBPF program.
   """
 
@@ -552,6 +610,7 @@ defmodule Honey.Boilerplates do
       #  generate_defines(config) <>
       #  generate_structs(config) <>
       #  generate_maps(config) <>
+        generate_ctx_struct(config) <>
         generate_license(config) <>
       #  generate_runtime_functions(config) <>
         generate_main(config)
