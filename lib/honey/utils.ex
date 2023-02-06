@@ -49,6 +49,11 @@ defmodule Honey.Utils do
     raise CompileError, line: line, file: file, description: description
   end
 
+  def ctx_var_to_generic(element) do
+    var_name = "ctx_arg->#{Atom.to_string(element)}"
+    "{.type = INTEGER, .value.integer = #{var_name}}"
+  end
+
   #Guards to filter elements from the Elixir AST.
   @doc """
   Guard for Function calls.

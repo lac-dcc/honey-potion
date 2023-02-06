@@ -2,7 +2,7 @@ defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
 
-  import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
+  import Honey.Utils, only: [gen: 1, var_to_string: 1, ctx_var_to_generic: 1, is_var: 1]
 
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
@@ -215,6 +215,12 @@ defmodule Honey.Translator do
       :get -> "" #Gets the value set in the front-end, has to be translated here.
       func -> raise "Honey.Bpf.Global does not have " <> to_string(func) <> "as a valid function."
     end
+  end
+
+  # Dot operator to access ctx_arg
+  def to_c({{:., _, [{:ctx, var_meta, var_context}, element]}, _, _}, _context) when is_atom(var_context) do
+    generic_name = ctx_var_to_generic(element)
+    TranslatedCode.new("", generic_name)
   end
 
   # General dot operator
