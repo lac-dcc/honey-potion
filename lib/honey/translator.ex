@@ -566,7 +566,7 @@ defmodule Honey.Translator do
   end
 
   #Guarantees we have a valid type of eBPF program. Only one type in alpha.
-  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter)
+  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_traffic_count)
   defp ensure_right_type(type) do
     case type do
       type when type in @supported_types ->

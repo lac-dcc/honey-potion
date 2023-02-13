@@ -31,7 +31,20 @@ defmodule Honey.Boilerplates do
     #include <stdlib.h>
     #include <runtime_structures.bpf.h>
     #include <runtime_functions.bpf.c>
+
     """)
+  end
+
+  def dependant_includes(config) do
+    case config.libbpf_prog_type do
+      "xdp_traffic_count" ->
+        gen("""
+        #include <linux/if_ether.h>
+        #include <linux/ip.h>
+        #include <linux/icmp.h>
+        """)
+      _ -> ""
+    end
   end
 
   @doc """
@@ -39,7 +52,7 @@ defmodule Honey.Boilerplates do
   """
 
   def generate_includes(config) do
-    default_includes() ## TODO: Add extra optional includes here with <> and a new method.
+    default_includes() <> dependant_includes(config)
   end
 
   @doc """
@@ -221,6 +234,7 @@ defmodule Honey.Boilerplates do
     } syscalls_enter_write_args;
     """)
 
+    _ -> gen("")
     end
   end
 
@@ -252,7 +266,8 @@ defmodule Honey.Boilerplates do
       "tracepoint/syscalls/sys_enter_write" ->
         "syscalls_enter_write_args *ctx_arg"
 
-      _ -> ""
+      "xdp_traffic_count" ->
+        "struct xdp_md *ctx_arg"
     end
   end
 
