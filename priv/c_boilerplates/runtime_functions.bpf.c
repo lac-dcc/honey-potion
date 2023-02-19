@@ -91,14 +91,14 @@ static int values_are_equal(Generic *var1, Generic *var2)
   return 0;
 }
 
-static char get_str_format_specifier(Generic *g, StrFormatSpec *result)
+/*(static char get_str_format_specifier(Generic *g, StrFormatSpec *result)
 {
   // TODO
   if (g->type == INTEGER)
   {
     *result = (StrFormatSpec){"%d"};
   }
-}
+}*/
 
 // Unary operations
 static void negate(Generic *var, Generic *result)
