@@ -1,7 +1,7 @@
 defmodule Cond do
   use Honey, license: "Dual BSD/GPL"
 
-  #Here to show that cond(s) are broken in current version
+  #Here to show that cond(s) are broken in last version.
 
   #Removing one of the two >to_bool< functions in the if clauses of the translation leads to a compiling code.
   #Changing >to_bool< to return 0 or 1 also compiles.

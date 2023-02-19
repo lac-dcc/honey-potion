@@ -3,6 +3,9 @@ defmodule Case do
 
   @sec "tracepoint/raw_syscalls/sys_enter"
   def main(_) do
+
+    #Shows that case is possible.
+
     x = 1
 
     return =
