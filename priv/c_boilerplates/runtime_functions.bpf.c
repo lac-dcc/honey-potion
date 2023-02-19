@@ -10,18 +10,30 @@ static int to_bool(Generic *var)
     unsigned start = var->value.string.start;
     unsigned end = var->value.string.end;
     char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
-    if (!string_pool)
+
+    // Temporary fix to to_bool, remove this and return the rest when fixed properly.
+    if(start == 0 && end == 2)
+    {
+        return 0;
+    }
+    else if (start == 3 && end == 7)
+    {
+      return 0;
+    }
+
+
+    /*if (!string_pool)
     {
       bpf_printk("(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, to_bool function).");
       return 0;
     }
 
-    /*
-      nil = {start: 0, end: 2}
-      false = {start: 3, end: 7}
-      true = {start: 8, end: 11}
-    */
-
+    
+    //  nil = {start: 0, end: 2}
+    //  false = {start: 3, end: 7}
+    //  true = {start: 8, end: 11}
+    
+    
     int str_size = end - start + 1;
     if (str_size == 3)
     {
@@ -53,7 +65,7 @@ static int to_bool(Generic *var)
       {
         return 0;
       }
-    }
+    }*/
   }
 
   return 1;
