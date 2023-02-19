@@ -37,7 +37,7 @@ clean:
 	    -D__BPF_TRACING__ \
 	    $(CFLAGS) \
 	    -O2 -emit-llvm -c -g ./src/$(TARGET).bpf.c -o ./obj/$(TARGET).bpf.ll
-	${LLVM13}/llc -march=bpf -filetype=obj -o ./obj/$(TARGET).bpf.o ./obj/$(TARGET).bpf.ll
+	${LLVM13}/llc -march=bpf -filetype=obj -o $(SRC_DIR)/obj/$(TARGET).bpf.o $(SRC_DIR)/obj/$(TARGET).bpf.ll
 
 .PHONY: compress
 compress:
