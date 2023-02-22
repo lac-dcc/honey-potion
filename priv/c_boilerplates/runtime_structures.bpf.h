@@ -80,7 +80,7 @@ typedef struct struct_Syscalls_enter_kill_args
 
 typedef union ElixirValue
 {
-  int integer;
+  long integer;
   unsigned u_integer;
   double double_precision;
   Tuple tuple;
