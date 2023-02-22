@@ -1,7 +1,7 @@
 defmodule Honey do
   alias Honey.Directories
   alias Honey.Boilerplates
-  alias Honey.{Translator, Utils, Fuel, Optimizer}
+  alias Honey.{Translator, Utils, Fuel}
 
   @moduledoc """
   Honey Potion is a framework that brings the powerful eBPF technology into Elixir.

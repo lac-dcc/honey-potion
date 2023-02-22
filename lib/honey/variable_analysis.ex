@@ -3,6 +3,11 @@ defmodule Honey.Analyze do
 
   @moduledoc """
   Runs analysis on the elixir AST. Currently does liveness, last use, scope and reusable variables analysis.
+  All AST elements will now have uv, sv and dv which are all branch aware.
+    - UV are for variables that have uses left from that point onwards.
+    - SV are for variables in the scope, in other words, that can be accessed from that point.  
+    - DV are for variables that aren't used anymore from that point onwards and are in scope.
+  This way DV are variables that are in scope and aren't being used, this way it can be re-used freely.
   """
 
   @doc """

@@ -207,8 +207,9 @@ defmodule Honey.Translator do
         |> TranslatedCode.new(result_var)
     end
   end
-
-  def to_c({{:., _, [Honey.Bpf.Global, function]}, _, params}, context) do
+  
+  # Here for future possibility of global variables. Incomplete.
+  def to_c({{:., _, [Honey.Bpf.Global, function]}, _, _params}, _context) do
     case function do
       :create -> "" #Creates a global variable in the front end. Translated elsewhere.
       :set -> "" #Sets the value in the front-end before calling the program, translated elsewhere here.
@@ -218,7 +219,7 @@ defmodule Honey.Translator do
   end
 
   # Dot operator to access ctx_arg
-  def to_c({{:., _, [{:ctx, var_meta, var_context}, element]}, _, _}, _context) when is_atom(var_context) do
+  def to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context) when is_atom(var_context) do
     generic_name = ctx_var_to_generic(element)
     TranslatedCode.new("", generic_name)
   end
@@ -270,7 +271,7 @@ defmodule Honey.Translator do
   end
 
   # Case
-  def to_c({:case, _, [case_input, [do: cases]]} = case_exp, _context) do
+  def to_c({:case, _, [case_input, [do: cases]]} = _case_exp, _context) do
     case_input_translated = to_c(case_input)
     case_return_var = unique_helper_var()
 
@@ -418,7 +419,7 @@ defmodule Honey.Translator do
     end
   end
 
-  defp case_statements_to_c(case_input_var_name, return_var_name, []) do
+  defp case_statements_to_c(_case_input_var_name, _return_var_name, []) do
     """
       op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
       goto CATCH;

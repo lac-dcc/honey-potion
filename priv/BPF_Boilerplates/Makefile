@@ -15,35 +15,35 @@ BPFTOOL ?= $(SRC_DIR)/../../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf
 
-all: clean ./obj/$(TARGET).skel.h ./bin/$(TARGET)
+all: clean $(SRC_DIR)/obj/$(TARGET).skel.h $(SRC_DIR)/bin/$(TARGET)
 
 .PHONY: clean
 
 clean:
-	rm -f ./bin/$(TARGET)
-	rm -f ./obj/$(TARGET).bpf.o
-	rm -f ./obj/$(TARGET).bpf.ll
+	rm -f $(SRC_DIR)/bin/$(TARGET)
+	rm -f $(SRC_DIR)/obj/$(TARGET).bpf.o
+	rm -f $(SRC_DIR)/obj/$(TARGET).bpf.ll
 
-./obj/$(TARGET).skel.h: ./obj/$(TARGET).bpf.o
+$(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
 
-./bin/$(TARGET): %: ./src/$(TARGET).c
-	gcc $(CFLAGS) $(LDFLAGS) -o ./bin/$(TARGET) ./src/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
+$(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/src/$(TARGET).c
+	gcc $(CFLAGS) $(LDFLAGS) -o $(SRC_DIR)/bin/$(TARGET) $(SRC_DIR)/src/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
 
 # src directory is created during honey-potion execution, so only obj and bin are attempted here
-./obj/$(TARGET).bpf.o: ./src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
+$(SRC_DIR)/obj/$(TARGET).bpf.o: $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
 	${LLVM13}/clang -S \
 	    -target bpf \
 	    -D__BPF_TRACING__ \
 	    $(CFLAGS) \
-	    -O2 -emit-llvm -c -g ./src/$(TARGET).bpf.c -o ./obj/$(TARGET).bpf.ll
+	    -O2 -emit-llvm -c -g $(SRC_DIR)/src/$(TARGET).bpf.c -o $(SRC_DIR)/obj/$(TARGET).bpf.ll
 	${LLVM13}/llc -march=bpf -filetype=obj -o $(SRC_DIR)/obj/$(TARGET).bpf.o $(SRC_DIR)/obj/$(TARGET).bpf.ll
 
 .PHONY: compress
 compress:
 	@rm -f compress/*.gz
 	@mkdir -p compress
-	@gcc -fpreprocessed -dD -E -P ./src/$(TARGET).bpf.c -o compress/bpf.nocomm.temp.c
+	@gcc -fpreprocessed -dD -E -P $(SRC_DIR)/src/$(TARGET).bpf.c -o compress/bpf.nocomm.temp.c
 	@sed -e 's/\s\s\s*/ /g' compress/bpf.nocomm.temp.c > compress/bpf.nospace.temp.c
 	@gzip -c compress/bpf.nospace.temp.c > compress/bpf.gz
 	@{ echo -n "original," ; stat --format=%s compress/bpf.gz; } > compress/size.txt
