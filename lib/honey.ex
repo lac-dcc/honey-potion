@@ -91,8 +91,9 @@ defmodule Honey do
     libsdir = __ENV__.file |> Path.dirname
     libsdir = Path.absname("./../benchmarks/libs/libbpf/src", libsdir) |> Path.expand
 
-    System.cmd("make", ["TARGET := #{mod_name}", "LIBBPF_DIR := #{libsdir}"], cd: userdir)
+    privdir = :code.priv_dir(:honey)
 
+    System.cmd("make", ["TARGET := #{mod_name}", "LIBBPF_DIR := #{libsdir}", "PRIV_DIR := #{privdir}"], cd: userdir)
   end
 
   @doc """

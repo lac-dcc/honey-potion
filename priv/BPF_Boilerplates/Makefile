@@ -1,17 +1,19 @@
 TARGET ?= prog
 
-
+#This directory represents the user directory, where the user creates .ex files.
 SRC_DIR = $(shell realpath .)
+#In Honey.ex this is changed to the location of the Honey build, so this is the anchor to eBPF compilation files.
 LIBBPF_DIR ?= $(SRC_DIR)/../../benchmarks/libs/libbpf/src
 LIBBPF_INCLUDE ?= $(LIBBPF_DIR)/root/usr/include/
 LIBBPF_HEADERS ?= $(LIBBPF_DIR)/../../headers/
+#This is also redefined in Honey.ex to the priv directory of the honey-files. This is the anchor to honey files.
 PRIV_DIR ?= $(SRC_DIR)/../../priv
 C_BOILERPLATES ?= $(PRIV_DIR)/c_boilerplates/
 OBJ_FOLDER ?= $(SRC_DIR)/obj/
 CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)' -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
 LDFLAGS ?= -L'$(LIBBPF_DIR)'
 LLVM13 ?= /usr/bin
-BPFTOOL ?= $(SRC_DIR)/../../benchmarks/tools/bpftool
+BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf
 
@@ -23,6 +25,7 @@ clean:
 	rm -f $(SRC_DIR)/bin/$(TARGET)
 	rm -f $(SRC_DIR)/obj/$(TARGET).bpf.o
 	rm -f $(SRC_DIR)/obj/$(TARGET).bpf.ll
+	rm -f $(SRC_DIR)/obj/$(TARGET).skel.h
 
 $(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
