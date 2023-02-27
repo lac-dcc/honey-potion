@@ -1,8 +1,16 @@
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
-
+  
   import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
+
+  @moduledoc """
+  Translates the elixir AST into eBPF readable C code.
+  """
+
+  @doc """
+  Generates a string with the format "helper_var_<UniqueNumber>" to be used as an unique variable.
+  """
 
   def unique_helper_var() do
     "helper_var_#{:erlang.unique_integer([:positive])}"
@@ -12,6 +20,9 @@ defmodule Honey.Translator do
     "label_#{:erlang.unique_integer([:positive])}"
   end
 
+  @doc """
+  Translates specific segments of the AST to C.
+  """
   def to_c(tree, context \\ {})
 
   # Variables
@@ -310,6 +321,23 @@ defmodule Honey.Translator do
     list_header_in_c.code
     |> gen()
     |> TranslatedCode.new(list_header_in_c.return_var_name)
+
+  # Case
+  def to_c({:case, _, [case_input, [do: cases]]} = case_exp, _context) do
+    case_input_translated = to_c(case_input)
+    case_return_var = unique_helper_var()
+
+    case_code = case_statements_to_c(case_input_translated.return_var_name,
+                                     case_return_var,
+                                     cases)
+
+    """
+    #{case_input_translated.code}
+    Generic #{case_return_var};
+    #{case_code}
+    """
+    |> gen()
+    |> TranslatedCode.new(case_return_var)
   end
 
   # Other structures
@@ -580,6 +608,33 @@ defmodule Honey.Translator do
     """
   end
 
+  defp pattern_matching(:true, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 8 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(:false, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 3 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp pattern_matching(:nil, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 0 ) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
   defp pattern_matching(constant, helper_var_name, exit_label) when is_integer(constant) do
     """
     if(#{helper_var_name}.type != INTEGER || #{constant} != #{helper_var_name}.value.integer) {
@@ -628,6 +683,34 @@ defmodule Honey.Translator do
     end
   end
 
+  defp case_statements_to_c(case_input_var_name, return_var_name, []) do
+    """
+      op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
+      goto CATCH;
+    """
+  end
+
+  defp case_statements_to_c(case_input_var_name, return_var_name, [{:->, _meta, [[lhs_expression], case_code_block]} | further_cases]) do
+    exit_label = unique_helper_label()
+    translated_case_code_block = to_c(case_code_block)
+
+    """
+    op_result.exception = 0;
+    #{pattern_matching(lhs_expression, case_input_var_name, exit_label)}
+    #{exit_label}:
+    if(op_result.exception == 0) {
+      #{translated_case_code_block.code}
+      #{return_var_name} = #{translated_case_code_block.return_var_name};
+    } else {
+      #{case_statements_to_c(case_input_var_name, return_var_name, further_cases)}
+    }
+    """
+  end
+
+  @doc """
+  Translates constants into a Generic C datatype.
+  Generic being a struct used to represent many different datatypes with the same type.
+  """
   def constant_to_code(item) do
     var_name_in_c = unique_helper_var()
 
@@ -707,10 +790,16 @@ defmodule Honey.Translator do
     end
   end
 
+  @doc """
+  Transforms conditional statements to C.
+  """
+
+  #Creates a situation for when all conditions are exhausted from the method below.
   def cond_statments_to_c([], cond_var_name_in_c) do
     "#{cond_var_name_in_c} = (Generic){.type = ATOM, .value.string = (String){0, 2}};"
   end
 
+  #Transforms conditional statements to C one condition at a time.
   def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c) do
     {:->, _, [[condition] | [block]]} = cond_stat
     condition_in_c = to_c(condition)
@@ -728,6 +817,8 @@ defmodule Honey.Translator do
     """)
   end
 
+
+  #Translates a block of code by calling to_c for each element in that block.
   defp block_to_c({:__block__, _, exprs}, context) do
     Enum.reduce(exprs, Honey.TranslatedCode.new(), fn expr, translated_so_far ->
       translated_expr = to_c(expr, context)
@@ -739,6 +830,7 @@ defmodule Honey.Translator do
     end)
   end
 
+  #Guarantees we have a valid type of eBPF program. Only one type in alpha.
   @supported_types ~w[tracepoint/syscalls/sys_enter_kill]
   defp ensure_right_type(type) do
     case type do
@@ -753,6 +845,7 @@ defmodule Honey.Translator do
     end
   end
 
+  #Translates the main method.
   def translate(func_name, ast, sec, license, requires, elixir_maps) do
     case func_name do
       "main" ->

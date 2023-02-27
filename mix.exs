@@ -13,7 +13,8 @@ defmodule Honey.MixProject do
       start_permanent: Mix.env() == :prod,
       package: package(),
       deps: deps(),
-      docs: docs()
+      docs: docs(),
+      aliases: aliases()
     ]
   end
 
@@ -27,6 +28,12 @@ defmodule Honey.MixProject do
         "GitHub" => @source_url,
         "Changelog" => "https://hexdocs.pm/honey/changelog.html"
       }
+    ]
+  end
+
+  defp aliases do
+    [
+      compile: ["compile", &CompileBPF.run/1]
     ]
   end
 
