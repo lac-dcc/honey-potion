@@ -254,6 +254,74 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(cond_var)
   end
 
+  def to_c({:{}, _, tuple_values}, _context) when is_list(tuple_values) do
+    tuple_values_to_c = Enum.map(tuple_values, fn element -> to_c(element) end)
+    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(tuple_values_to_c, 0)
+    tuple_values_code = Enum.reduce(tuple_values_to_c, "", fn tuple_to_c, acc -> (acc <> "\n" <> tuple_to_c.code) end)
+
+    tuple_var = unique_helper_var()
+    """
+    #{tuple_values_code}
+    #{heap_allocation_code}
+    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
+    """
+    |> gen()
+    |> TranslatedCode.new(tuple_var)
+  end
+
+  def to_c({first_element, second_element}, _context) do
+    first_element_c_code = to_c(first_element)
+    second_element_c_code = to_c(second_element)
+    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap([first_element_c_code, second_element_c_code], 0)
+
+    tuple_var = unique_helper_var()
+    """
+    #{first_element_c_code.code}
+    #{second_element_c_code.code}
+    #{heap_allocation_code}
+    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
+    """
+    |> gen()
+    |> TranslatedCode.new(tuple_var)
+  end
+
+  def to_c([], _context) do
+    list_var = unique_helper_var()
+    """
+    Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
+    if((*heap_index) < HEAP_SIZE && (*heap_index) >= 0) {
+      (*heap)[(*heap_index)] = #{list_var};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+      goto CATCH;
+    }
+    ++(*heap_index);
+    """
+    |> gen()
+    |> TranslatedCode.new(list_var)
+  end
+
+  def to_c([{:|, _meta, [head_element, tail_assignments]}], context) do
+    list_tail_in_c = to_c(tail_assignments, context)
+    list_header_in_c = allocate_list_header_into_heap(head_element)
+
+    list_tail_in_c.code
+    <>
+    list_header_in_c.code
+    |> gen()
+    |> TranslatedCode.new(list_header_in_c.return_var_name)
+  end
+
+  def to_c([first_element | tail], context) do
+    list_tail_in_c = to_c(tail, context)
+    list_header_in_c = allocate_list_header_into_heap(first_element)
+
+    list_tail_in_c.code
+    <>
+    list_header_in_c.code
+    |> gen()
+    |> TranslatedCode.new(list_header_in_c.return_var_name)
+
   # Case
   def to_c({:case, _, [case_input, [do: cases]]} = case_exp, _context) do
     case_input_translated = to_c(case_input)
@@ -319,7 +387,219 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(rhs_in_c.return_var_name)
   end
 
+  defp allocate_tuple_in_heap([], index) do
+    code =
+    """
+    *heap_index += #{index};
+    *tuple_pool_index += #{index};
+    """
+    {code, index}
+  end
+
+  defp allocate_tuple_in_heap([translated_code_var | tail], index) do
+    code =
+      """
+      if(*heap_index < (HEAP_SIZE-#{index})) {
+        (*heap)[(*heap_index)+#{index}] = #{translated_code_var.return_var_name};
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+        goto CATCH;
+      }
+      if(*tuple_pool_index < (TUPLE_POOL_SIZE-#{index})) {
+        (*tuple_pool)[(*tuple_pool_index)+#{index}] = (*heap_index)+#{index};
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+        goto CATCH;
+      }
+      """
+    {next_code, allocated_size} = allocate_tuple_in_heap(tail, index+1)
+    {code <> next_code, allocated_size}
+  end
+
+  def allocate_list_header_into_heap(header_element) do
+    list_element_in_c = to_c(header_element)
+    list_var = unique_helper_var()
+
+    list_element_in_c.code
+    <>
+    """
+    if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
+      (*tuple_pool)[(*tuple_pool_index)] = (*heap_index);
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+      goto CATCH;
+    }
+    ++(*tuple_pool_index);
+    if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
+      (*tuple_pool)[(*tuple_pool_index)] = (*heap_index)-1;
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+      goto CATCH;
+    }
+    ++(*tuple_pool_index);
+
+    Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
+    if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
+      (*heap)[(*heap_index)] = #{list_element_in_c.return_var_name};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+      goto CATCH;
+    }
+    ++(*heap_index);
+    if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
+      (*heap)[(*heap_index)] = #{list_var};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+      goto CATCH;
+    }
+    ++(*heap_index);
+    """
+    |> gen()
+    |> TranslatedCode.new(list_var)
+  end
+
+  defp generate_code_for_list_head_element_assignment(list_head_var_name, assignment_head, exit_label) do
+    head_element_var_name = unique_helper_var()
+    heap_index_var_name = unique_helper_var()
+    """
+    Generic #{head_element_var_name};
+    if(#{list_head_var_name}.value.tuple.start < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start >= 0) {
+      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start));
+      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
+        #{head_element_var_name} = *(*(heap)+(#{heap_index_var_name}));
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+        goto #{exit_label};
+      }
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    pattern_matching(assignment_head, head_element_var_name, exit_label)
+  end
+
+  defp generate_code_for_get_next_list_head(list_head_var_name, exit_label) do
+    next_list_head_var_name = unique_helper_label()
+    heap_index_var_name = unique_helper_var()
+    """
+    Generic #{next_list_head_var_name};
+    if(#{list_head_var_name}.value.tuple.start+1 < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start+1 >= 0) {
+      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start+1));
+      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
+        #{next_list_head_var_name} = *(*(heap)+(#{heap_index_var_name}));
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+        goto #{exit_label};
+      }
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    |> gen()
+    |> TranslatedCode.new(next_list_head_var_name)
+  end
+
+  defp get_list_elements_from_heap(list_head_var_name, [], exit_label) do
+    """
+    if(#{list_head_var_name}.value.tuple.start != -1 || #{list_head_var_name}.value.tuple.end != -1) {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+  end
+
+  defp get_list_elements_from_heap(list_head_var_name, [assignment_head | assignments_tail], exit_label) do
+    head_element_code = generate_code_for_list_head_element_assignment(list_head_var_name, assignment_head, exit_label)
+    next_list_header = generate_code_for_get_next_list_head(list_head_var_name, exit_label)
+
+    head_element_code
+    <>
+    next_list_header.code
+    <>
+    get_list_elements_from_heap(next_list_header.return_var_name, assignments_tail, exit_label)
+  end
+
+  defp get_tuple_element_from_heap(_tuple_var_name, [], _index, _exit_label), do: ""
+
+  defp get_tuple_element_from_heap(tuple_var_name, [first_tuple_elm | tail], index, exit_label) do
+    first_tuple_elm_name = unique_helper_var()
+    heap_index_var_name = unique_helper_var()
+    """
+    Generic #{first_tuple_elm_name};
+    if(#{tuple_var_name}.value.tuple.start + #{index} < TUPLE_POOL_SIZE && #{tuple_var_name}.value.tuple.start + #{index}>= 0) {
+      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{tuple_var_name}.value.tuple.start + #{index}));
+      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
+        #{first_tuple_elm_name} = *(*(heap)+(#{heap_index_var_name}));
+      } else {
+        op_result = (OpResult){.exception = 1, .exception_msg = "HEAP(MatchError) No match of right hand side value."};
+        goto #{exit_label};
+      }
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "TUPLE(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+      <>
+    pattern_matching(first_tuple_elm, first_tuple_elm_name, exit_label)
+      <>
+    get_tuple_element_from_heap(tuple_var_name, tail, index+1, exit_label)
+  end
+
   defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var), do: ""
+
+  defp pattern_matching({:{}, _meta, tuple_elements}, helper_var_name, exit_label) when is_list(tuple_elements) do
+    """
+    if(#{helper_var_name}.type != TUPLE){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    get_tuple_element_from_heap(helper_var_name, tuple_elements, 0, exit_label)
+  end
+
+  defp pattern_matching({first, second}, helper_var_name, exit_label) do
+    """
+    if(#{helper_var_name}.type != TUPLE){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    get_tuple_element_from_heap(helper_var_name, [first, second], 0, exit_label)
+  end
+
+  defp pattern_matching([{:|, _meta, [header_assignment, tail_assignments]}], helper_var_name, exit_label) do
+    head_element_code = generate_code_for_list_head_element_assignment(helper_var_name, header_assignment, exit_label)
+    next_list_header = generate_code_for_get_next_list_head(helper_var_name, exit_label)
+
+    """
+    if(#{helper_var_name}.type != LIST){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    head_element_code
+    <>
+    next_list_header.code
+    <>
+    pattern_matching(tail_assignments, next_list_header.return_var_name, exit_label)
+  end
+
+  defp pattern_matching(list_handlers, helper_var_name, exit_label) when is_list(list_handlers) do
+    """
+    if(#{helper_var_name}.type != LIST){
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+      goto #{exit_label};
+    }
+    """
+    <>
+    get_list_elements_from_heap(helper_var_name, list_handlers, exit_label)
+  end
 
   defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
     c_var_name = var_to_string(var)
