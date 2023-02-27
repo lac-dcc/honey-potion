@@ -3,9 +3,15 @@
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 
+#ifndef __inline
+#define __inline \
+  inline __attribute__((always_inline))
+#endif
+
 #define MAX_ITERATION 100
 #define MAX_STR_SIZE 50
 #define STRING_POOL_SIZE 500
+#define TUPLE_POOL_SIZE 500
 #define HEAP_SIZE 100
 #define MAX_STRUCT_MEMBERS 5
 
@@ -54,9 +60,8 @@ typedef enum Type
 
 typedef struct Tuple
 {
-  int idx;
-  int value_idx;
-  int nextElement_idx;
+  int start;
+  int end;
 } Tuple;
 
 typedef struct String
@@ -123,6 +128,23 @@ struct
   __uint(key_size, sizeof(int));
   __uint(value_size, sizeof(int));
 } string_pool_index_map SEC(".maps");
+
+// Tuple
+struct
+{
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(max_entries, 1);
+  __uint(key_size, sizeof(int));
+  __uint(value_size, sizeof(unsigned[TUPLE_POOL_SIZE]));
+} tuple_pool_map SEC(".maps");
+
+struct
+{
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(max_entries, 1);
+  __uint(key_size, sizeof(int));
+  __uint(value_size, sizeof(unsigned));
+} tuple_pool_index_map SEC(".maps");
 
 // Heap
 struct

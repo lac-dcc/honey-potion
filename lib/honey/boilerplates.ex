@@ -56,6 +56,43 @@ defmodule Honey.Boilerplates do
   end
 
   @doc """
+  Converts the maps created in Elixir into its C version.
+  """
+
+  def create_c_maps(maps) do
+    c_maps =
+      Enum.map(maps, fn elixir_map ->
+        map_name = elixir_map[:name]
+        map_content = elixir_map[:content]
+
+        fields =
+          Enum.map(map_content, fn {key, value} ->
+            value =
+              case key do
+                :type ->
+                  Macro.to_string(value)
+
+                _ ->
+                  Integer.to_string(value)
+              end
+
+            "__uint(#{key}, #{value});"
+          end)
+          |> Enum.join("\n")
+
+        """
+        struct {
+          #{fields}
+          __type(key, int);
+          __uint(value_size, sizeof(Generic));
+        } #{map_name} SEC(".maps")
+        """
+      end)
+
+    Enum.join(c_maps, "\n") <> "\n"
+  end
+
+  @doc """
   Creates the method to access a member of the Generic struct in C.
   """
 
