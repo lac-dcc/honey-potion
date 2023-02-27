@@ -1,8 +1,8 @@
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
-  
-  import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
+
+  import Honey.Utils, only: [gen: 1, var_to_string: 1, ctx_var_to_generic: 1, is_var: 1]
 
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
@@ -207,6 +207,22 @@ defmodule Honey.Translator do
         |> TranslatedCode.new(result_var)
     end
   end
+  
+  # Here for future possibility of global variables. Incomplete.
+  def to_c({{:., _, [Honey.Bpf.Global, function]}, _, _params}, _context) do
+    case function do
+      :create -> "" #Creates a global variable in the front end. Translated elsewhere.
+      :set -> "" #Sets the value in the front-end before calling the program, translated elsewhere here.
+      :get -> "" #Gets the value set in the front-end, has to be translated here.
+      func -> raise "Honey.Bpf.Global does not have " <> to_string(func) <> "as a valid function."
+    end
+  end
+
+  # Dot operator to access ctx_arg
+  def to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context) when is_atom(var_context) do
+    generic_name = ctx_var_to_generic(element)
+    TranslatedCode.new("", generic_name)
+  end
 
   # General dot operator
   def to_c({{:., _, [var, property]}, _, _}, _context) do
@@ -323,7 +339,7 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(list_header_in_c.return_var_name)
 
   # Case
-  def to_c({:case, _, [case_input, [do: cases]]} = case_exp, _context) do
+  def to_c({:case, _, [case_input, [do: cases]]} = _case_exp, _context) do
     case_input_translated = to_c(case_input)
     case_return_var = unique_helper_var()
 
@@ -683,7 +699,7 @@ defmodule Honey.Translator do
     end
   end
 
-  defp case_statements_to_c(case_input_var_name, return_var_name, []) do
+  defp case_statements_to_c(_case_input_var_name, _return_var_name, []) do
     """
       op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
       goto CATCH;
@@ -831,7 +847,7 @@ defmodule Honey.Translator do
   end
 
   #Guarantees we have a valid type of eBPF program. Only one type in alpha.
-  @supported_types ~w[tracepoint/syscalls/sys_enter_kill]
+  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_traffic_count)
   defp ensure_right_type(type) do
     case type do
       type when type in @supported_types ->

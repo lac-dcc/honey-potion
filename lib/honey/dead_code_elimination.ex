@@ -53,12 +53,6 @@ defmodule Honey.DCE do
     def_use
   end
 
-  #Returns an atom with the variable name, version and context.
-  defp get_var_version(var) do
-    {var_name, meta, context} = var
-    String.to_atom(Atom.to_string(var_name) <> to_string(meta[:version]) <> to_string(context))
-  end
-
   @doc """
   Removes constant values that aren't the result from a sequence of instructions.
   """

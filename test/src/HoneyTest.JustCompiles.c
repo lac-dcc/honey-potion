@@ -1,3 +1,11 @@
+#include <bpf/libbpf.h>
+#include <bpf/bpf.h>
+#include <stdio.h>
+#include <unistd.h>
+
+static char PROGNAME[] = "main_func";
+static char FILENAME[] = "./../obj/HoneyTest.JustCompiles.bpf.o";
+
 void output() {
     int maxPoints = 3;
     int points = 0;

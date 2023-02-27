@@ -1,3 +1,7 @@
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+#include <runtime_structures.bpf.h>
+
 static int to_bool(Generic *var)
 {
   if (var->type == ATOM)
@@ -6,49 +10,18 @@ static int to_bool(Generic *var)
     unsigned start = var->value.string.start;
     unsigned end = var->value.string.end;
     char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
-    if (!string_pool)
+
+    //  nil = {start: 0, end: 2}
+    //  false = {start: 3, end: 7}
+    //  true = {start: 8, end: 11}
+
+    if(start == 0 && end == 2)
     {
-      bpf_printk("(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, to_bool function).");
+        return 0;
+    }
+    else if (start == 3 && end == 7)
+    {
       return 0;
-    }
-
-    /*
-      nil = {start: 0, end: 2}
-      false = {start: 3, end: 7}
-      true = {start: 8, end: 11}
-    */
-
-    int str_size = end - start + 1;
-    if (str_size == 3)
-    {
-      if (start + 3 >= STRING_POOL_SIZE)
-      {
-        return 0;
-      }
-
-      if ((*string_pool)[start] == 'n' &&
-          (*string_pool)[start + 1] == 'i' &&
-          (*string_pool)[start + 2] == 'l')
-      {
-        return 0;
-      }
-    }
-
-    else if (str_size == 5)
-    {
-      if (start + 5 >= STRING_POOL_SIZE)
-      {
-        return 0;
-      }
-
-      if ((*string_pool)[start] == 'f' &&
-          (*string_pool)[start + 1] == 'a' &&
-          (*string_pool)[start + 2] == 'l' &&
-          (*string_pool)[start + 3] == 's' &&
-          (*string_pool)[start + 4] == 'e')
-      {
-        return 0;
-      }
     }
   }
 
@@ -75,14 +48,14 @@ static int values_are_equal(Generic *var1, Generic *var2)
   return 0;
 }
 
-static char get_str_format_specifier(Generic *g, StrFormatSpec *result)
+/*(static char get_str_format_specifier(Generic *g, StrFormatSpec *result)
 {
   // TODO
   if (g->type == INTEGER)
   {
     *result = (StrFormatSpec){"%d"};
   }
-}
+}*/
 
 // Unary operations
 static void negate(Generic *var, Generic *result)
@@ -296,7 +269,7 @@ static void Copy(OpResult *result, Generic *to, Generic *from)
       return;
     }
 
-    __builtin_memcpy(*string_pool[to->value.string.start], *string_pool[from->value.string.start], str_len);
+    __builtin_memcpy(string_pool[to->value.string.start], string_pool[from->value.string.start], str_len);
   }
 }
 

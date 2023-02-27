@@ -1,8 +1,11 @@
 defmodule Case do
   use Honey, license: "Dual BSD/GPL"
 
-  @sec "tracepoint/syscalls/sys_enter_kill"
+  @sec "tracepoint/raw_syscalls/sys_enter"
   def main(_) do
+
+    #Shows that case is possible.
+
     x = 1
 
     return =

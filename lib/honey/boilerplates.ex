@@ -20,29 +20,6 @@ defmodule Honey.Boilerplates do
     }
   end
 
-  # I'd suggest not to use `require` because it is used to import macros
-  # I'd suggest using `@include` module attribute, which makes more sense
-  # both in naming and order (which is persisted for attributes)
-  def requires_to_includes(requires) do
-    Enum.reduce(requires, "", fn req, includes ->
-      include =
-        case req do
-          Linux.Bpf ->
-            # Already included
-            ""
-
-          Bpf.Bpf_helpers ->
-            # Already included
-            ""
-
-          _ ->
-            ""
-        end
-
-      include <> includes
-    end) <> "\n"
-  end
-
   @doc """
   Adds the needed includes for eBPF.
   """
@@ -51,7 +28,23 @@ defmodule Honey.Boilerplates do
     gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
+    #include <stdlib.h>
+    #include <runtime_structures.bpf.h>
+    #include <runtime_functions.bpf.c>
+
     """)
+  end
+
+  def dependant_includes(config) do
+    case config.libbpf_prog_type do
+      "xdp_traffic_count" ->
+        gen("""
+        #include <linux/if_ether.h>
+        #include <linux/ip.h>
+        #include <linux/icmp.h>
+        """)
+      _ -> ""
+    end
   end
 
   @doc """
@@ -59,202 +52,12 @@ defmodule Honey.Boilerplates do
   """
 
   def generate_includes(config) do
-    default_includes() <> requires_to_includes(config.requires)
+    default_includes() <> dependant_includes(config)
   end
 
   @doc """
-  Adds definitions used by Honey-Potion.
+  Converts the maps created in Elixir into its C version.
   """
-
-  def generate_defines(_config) do
-    gen("""
-    #ifndef __inline
-    #define __inline \\
-      inline __attribute__((always_inline))
-    #endif
-
-    #define MAX_ITERATION 100
-    #define MAX_STR_SIZE 50
-    #define STRING_POOL_SIZE 500
-    #define TUPLE_POOL_SIZE 500
-    #define HEAP_SIZE 100
-    #define MAX_STRUCT_MEMBERS 5
-
-    #define field_pad 1
-    #define field_syscall_nr 2
-    #define field_pid 3
-    #define field_sig 4
-
-    #define BINARY_OPERATION(generic_result, op, var1, var2) \\
-      op(&op_result, &var1, &var2);                          \\
-      if (op_result.exception)                               \\
-        goto CATCH;                                          \\
-      Generic generic_result;                                \\
-      generic_result.type = op_result.result_var.type;       \\
-      generic_result.value = op_result.result_var.value;
-
-    #define ATOM_NIL (Generic){.type = ATOM, .value.string = {.start = 0, .end = 2}}
-    #define ATOM_FALSE (Generic){.type = ATOM, .value.string = {.start = 3, .end = 7}}
-    #define ATOM_TRUE (Generic){.type = ATOM, .value.string = {.start = 8, .end = 11}}
-
-    #define INT_MAX 2147483647
-    #define INT_MIN -2147483648
-
-    #define QUOTE_HELPER(expr) #expr
-    #define QUOTE(expr) QUOTE_HELPER(expr)
-    """)
-  end
-
-  @doc """
-  Generates structs used by Honey-Potion to imitate Elixir datatypes in eBPF.
-  """
-
-  def generate_structs(_config) do
-    gen("""
-    typedef struct Generic Generic;
-    typedef enum Operation Operation;
-    typedef enum Type Type;
-    typedef struct Tuple Tuple;
-    typedef union ElixirValue ElixirValue;
-
-    typedef enum Type
-    {
-      INVALID_TYPE,
-      PATTERN_M,
-      INTEGER,
-      DOUBLE,
-      STRING,
-      ATOM,
-      TUPLE,
-      LIST,
-      STRUCT,
-      TYPE_Syscalls_enter_kill_arg
-    } Type;
-
-    typedef struct Tuple
-    {
-      int start;
-      int end;
-    } Tuple;
-
-    typedef struct String
-    {
-      int start;
-      int end;
-    } String;
-
-    typedef struct StrToPrint
-    {
-      char str[MAX_STR_SIZE + 6];
-    } StrToPrint;
-
-    typedef struct struct_Syscalls_enter_kill_args
-    {
-      unsigned pos_pad;
-      unsigned pos_syscall_nr;
-      unsigned pos_pid;
-      unsigned pos_sig;
-    } struct_Syscalls_enter_kill_args;
-
-    typedef union ElixirValue
-    {
-      int integer;
-      unsigned u_integer;
-      double double_precision;
-      Tuple tuple;
-      String string;
-      struct_Syscalls_enter_kill_args syscalls_enter_kill_args;
-    } ElixirValue;
-
-    typedef struct Generic
-    {
-      Type type;
-      ElixirValue value;
-    } Generic;
-
-    typedef struct OpResult
-    {
-      Generic result_var;
-      int exception;
-      char exception_msg[150];
-    } OpResult;
-
-    typedef struct StrFormatSpec
-    {
-      char spec[2];
-    } StrFormatSpec;
-
-    struct syscalls_enter_kill_args
-    {
-      /**
-       * This is the tracepoint arguments of the kill functions.
-       * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
-       */
-      long long pad;
-
-      long syscall_nr;
-      long pid;
-      long sig;
-    };
-
-    """)
-  end
-
-  def default_maps do
-    gen("""
-    // String pool
-    struct
-    {
-      __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-      __uint(max_entries, 1);
-      __uint(key_size, sizeof(int));
-      __uint(value_size, sizeof(char[STRING_POOL_SIZE]));
-    } string_pool_map SEC(\".maps\");
-
-    struct
-    {
-      __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-      __uint(max_entries, 1);
-      __uint(key_size, sizeof(int));
-      __uint(value_size, sizeof(int));
-    } string_pool_index_map SEC(\".maps\");
-
-
-    // Tuple
-    struct
-    {
-      __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-      __uint(max_entries, 1);
-      __uint(key_size, sizeof(int));
-      __uint(value_size, sizeof(unsigned[TUPLE_POOL_SIZE]));
-    } tuple_pool_map SEC(\".maps\");
-
-    struct
-    {
-      __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-      __uint(max_entries, 1);
-      __uint(key_size, sizeof(int));
-      __uint(value_size, sizeof(unsigned));
-    } tuple_pool_index_map SEC(\".maps\");
-
-    // Heap
-    struct
-    {
-      __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-      __uint(max_entries, 1);
-      __uint(key_size, sizeof(int));
-      __uint(value_size, sizeof(Generic[HEAP_SIZE]));
-    } heap_map SEC(\".maps\");
-
-    struct
-    {
-      __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-      __uint(max_entries, 1);
-      __uint(key_size, sizeof(int));
-      __uint(value_size, sizeof(int));
-    } heap_index_map SEC(\".maps\");
-    """)
-  end
 
   def create_c_maps(maps) do
     c_maps =
@@ -287,10 +90,6 @@ defmodule Honey.Boilerplates do
       end)
 
     Enum.join(c_maps, "\n") <> "\n"
-  end
-
-  def generate_maps(config) do
-    default_maps() <> create_c_maps(config.elixir_maps)
   end
 
   @doc """
@@ -351,17 +150,6 @@ defmodule Honey.Boilerplates do
       return;
     }
     """)
-  end
-
-  @doc """
-  Adds the functions that replicate the behavior of Elixirs methods.
-  Located in c_boilerplates/runtime_functions.c.
-  """
-
-  def generate_runtime_functions(config) do
-    path = Path.join(:code.priv_dir(:honey), "c_boilerplates/runtime_functions.c")
-    # :code.generate_path()
-    File.read!(path) <> generate_getMember(config) <> "\n\n"
   end
 
   @doc """
@@ -429,40 +217,6 @@ defmodule Honey.Boilerplates do
   end
 
   @doc """
-  Takes the libbpf program type from the @sec before the main method and transforms it into boilerplate.
-  Currently only supports tracepoint/syscalls/sys_enter_kill
-  """
-
-  def generate_middle_main_code(config) do
-    case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" ->
-        [arg | _] = config.func_args
-
-        # FIXME: comment in a first clause
-        gen("""
-        Generic #{arg} = {.type = TYPE_Syscalls_enter_kill_arg, .value.syscalls_enter_kill_args = {(*heap_index)++, (*heap_index)++, (*heap_index)++, (*heap_index)++}};
-        unsigned last_index = #{arg}.value.syscalls_enter_kill_args.pos_sig;
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pad < HEAP_SIZE)
-        {
-          // (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pad] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pad};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_syscall_nr] = (Generic){.type = INTEGER, .value.integer = ctx_arg->syscall_nr};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_pid < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_pid] = (Generic){.type = INTEGER, .value.integer = ctx_arg->pid};
-        }
-        if (#{arg}.value.syscalls_enter_kill_args.pos_sig < HEAP_SIZE)
-        {
-          (*heap)[#{arg}.value.syscalls_enter_kill_args.pos_sig] = (Generic){.type = INTEGER, .value.integer = ctx_arg->sig};
-        }
-        """)
-    end
-  end
-
-  @doc """
   Generates the return of the code. Returns if the value is an integer or goes to the CATCH error otherwise.
   """
 
@@ -478,6 +232,64 @@ defmodule Honey.Boilerplates do
       bpf_printk(\"** %s\\n\", op_result.exception_msg);
       return 0;
     """)
+  end
+
+  @doc """
+  Creates the struct for the ctx main argument.
+  """
+  def generate_ctx_struct(config) do
+    case config.libbpf_prog_type do
+    "tracepoint/syscalls/sys_enter_kill" -> gen("""
+    typedef struct syscalls_enter_kill_args
+    {
+      /**
+      * This is the tracepoint arguments of the kill functions.
+      * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
+      */
+      long long pad;
+
+      long syscall_nr;
+      long pid;
+      long sig;
+    } syscalls_enter_kill_args;
+    """)
+
+    "tracepoint/raw_syscalls/sys_enter" -> gen("""
+    typedef struct syscalls_enter_args
+    {
+      /**
+       * This is the tracepoint arguments.
+       * Defined at: /sys/kernel/debug/tracing/events/raw_syscalls/sys_enter/format
+       */
+        unsigned short common_type;
+        unsigned char common_flags;
+        unsigned char common_preempt_count;
+        int common_pid;
+        long id;
+        unsigned long args[6];
+    } syscalls_enter_args;
+    """)
+
+    "tracepoint/syscalls/sys_enter_write" -> gen("""
+    typedef struct syscalls_enter_write_args
+    {
+      /**
+       * This is the tracepoint arguments.
+       * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
+       */
+       unsigned short common_type;
+       unsigned char common_flags;
+       unsigned char common_preempt_count;
+       int common_pid;
+       int __syscall_nr;
+       unsigned int fd;
+       const char * buf;
+       size_t count;
+    } syscalls_enter_write_args;
+    """)
+
+    _ -> gen("")
+    end
   end
 
   @doc """
@@ -500,10 +312,16 @@ defmodule Honey.Boilerplates do
   def generate_main_arguments(config) do
     case config.libbpf_prog_type do
       "tracepoint/syscalls/sys_enter_kill" ->
-        "struct syscalls_enter_kill_args *ctx_arg"
+        "syscalls_enter_kill_args *ctx_arg"
 
-      _ ->
-        ""
+      "tracepoint/raw_syscalls/sys_enter" ->
+        "syscalls_enter_args *ctx_arg"
+
+      "tracepoint/syscalls/sys_enter_write" ->
+        "syscalls_enter_write_args *ctx_arg"
+
+      "xdp_traffic_count" ->
+        "struct xdp_md *ctx_arg"
     end
   end
 
@@ -516,7 +334,6 @@ defmodule Honey.Boilerplates do
     SEC("#{config.libbpf_prog_type}")
     int main_func(#{generate_main_arguments(config)}) {
       #{beginning_main_code()}
-      #{generate_middle_main_code(config)}
       // =============== beginning of user code ===============
       #{config.translated_code.code}
       // =============== end of user code ==============
@@ -525,22 +342,6 @@ defmodule Honey.Boilerplates do
     """)
   end
 
-
-  def generate_frontend_code(module_name) do
-    start = """
-    #include <bpf/libbpf.h>
-    #include <bpf/bpf.h>
-    #include <stdio.h>
-    #include <unistd.h>
-
-    static char PROGNAME[] = "main_func";
-    """
-    middle = "static char FILENAME[] = \"./../obj/#{module_name}.bpf.o\";\n\n"
-    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/FrontEnd.c")
-    finish = File.read!(path)
-
-    start <> middle <> finish
-  end
   @doc """
   Calls the methods necessary to create the boilerplates and add the translated version.
   """
@@ -548,12 +349,56 @@ defmodule Honey.Boilerplates do
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>
-        generate_defines(config) <>
-        generate_structs(config) <>
-        generate_maps(config) <>
-        generate_license(config) <>
-        generate_runtime_functions(config) <>
-        generate_main(config)
+      generate_ctx_struct(config) <>
+      generate_license(config) <>
+      generate_main(config)
     )
+  end
+
+  def generate_frontend_code(module_name) do
+    include = """
+    #include <bpf/libbpf.h>
+    #include <bpf/bpf.h>
+    #include <stdio.h>
+    #include <unistd.h>
+    #include "#{module_name}.skel.h"
+    """
+
+    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
+    output_func = File.read!(path)
+
+    main = """
+    int main(int argc, char **argv) {
+      struct #{module_name}_bpf *skel;
+      int err;
+
+      skel = #{module_name}_bpf__open();
+      if(!skel){
+        fprintf(stderr, "Skeleton failed opening.\\n");
+        return 1;
+      }
+
+      /*If we wish to change global values in the skeleton, this is the correct section to do so.*/
+    """ <> "" <> """
+
+      err = #{module_name}_bpf__load(skel);
+      if(err){
+        fprintf(stderr, "Failed loading or verification of BPF skeleton.\\n");
+        #{module_name}_bpf__destroy(skel);
+        return -err;
+      }
+
+      err = #{module_name}_bpf__attach(skel);
+      if(err){
+        fprintf(stderr, "Failed attaching BPF skeleton.\\n");
+        #{module_name}_bpf__destroy(skel);
+        return -err;
+      }
+
+      output();
+    }
+    """
+
+    include <> output_func <> main
   end
 end
