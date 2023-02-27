@@ -178,6 +178,7 @@ defmodule Honey.Boilerplates do
       op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool index, main function).\"};
       goto CATCH;
     }
+    *string_pool_index = 0;
 
     __builtin_memcpy(*string_pool, \"nil\", 3);
     __builtin_memcpy(*string_pool + 3, \"false\", 5);
@@ -196,6 +197,22 @@ defmodule Honey.Boilerplates do
       op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access heap map index, main function).\"};
       goto CATCH;
     }
+    *heap_index = 0;
+
+    unsigned (*tuple_pool)[TUPLE_POOL_SIZE] = bpf_map_lookup_elem(&tuple_pool_map, &zero);
+    if (!tuple_pool)
+    {
+      op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, main function).\"};
+      goto CATCH;
+    }
+
+    unsigned *tuple_pool_index = bpf_map_lookup_elem(&tuple_pool_index_map, &zero);
+    if (!tuple_pool_index)
+    {
+      op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool index, main function).\"};
+      goto CATCH;
+    }
+    *tuple_pool_index = 0;
     """)
   end
 
