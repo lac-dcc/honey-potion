@@ -360,6 +360,7 @@ defmodule Honey.Boilerplates do
     __builtin_memcpy(*string_pool, \"nil\", 3);
     __builtin_memcpy(*string_pool + 3, \"false\", 5);
     __builtin_memcpy(*string_pool + 3 + 5, \"true\", 4);
+    *string_pool_index = 12;
 
     Generic(*heap)[HEAP_SIZE] = bpf_map_lookup_elem(&heap_map, &zero);
     if (!heap)

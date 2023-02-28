@@ -438,11 +438,7 @@ defmodule Honey.Translator do
                         op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) String passed to bpf_map_lookup_elem is not long enough for key of size #{key_type[:size]}."};
                         goto CATCH;
                       }
-                      if(#{key.return_var_name}.value.string.start >= STRING_POOL_SIZE) {
-                        op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
-                        goto CATCH;
-                      }
-                      if(#{key.return_var_name}.value.string.start + #{key_type[:size]} >= STRING_POOL_SIZE) {
+                      if(#{key.return_var_name}.value.string.start >= STRING_POOL_SIZE - #{key_type[:size]}) {
                         op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
                         goto CATCH;
                       }
@@ -528,15 +524,11 @@ defmodule Honey.Translator do
                     op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) String passed to bpf_map_lookup_elem is not long enough for key of size #{key_type[:size]}."};
                     goto CATCH;
                   }
-                  if(#{key.return_var_name}.value.string.start >= STRING_POOL_SIZE) {
+                  if(#{key.return_var_name}.value.string.start >= STRING_POOL_SIZE - #{key_type[:size]}) {
                     op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
                     goto CATCH;
                   }
-                  if(#{key.return_var_name}.value.string.start + #{key_type[:size]} >= STRING_POOL_SIZE) {
-                    op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
-                    goto CATCH;
-                  }
-                  int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, (*string_pool) + #{key.return_var_name}.value.string.start), &#{value.return_var_name}, BPF_ANY); // TODO: Allow other flags
+                  int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, (*string_pool) + #{key.return_var_name}.value.string.start, &#{value.return_var_name}, BPF_ANY); // TODO: Allow other flags
 
                   Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
                   """
