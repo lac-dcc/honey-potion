@@ -207,7 +207,7 @@ defmodule Honey.Translator do
         |> TranslatedCode.new(result_var)
     end
   end
-  
+
   # Here for future possibility of global variables. Incomplete.
   def to_c({{:., _, [Honey.Bpf.Global, function]}, _, _params}, _context) do
     case function do
@@ -337,6 +337,7 @@ defmodule Honey.Translator do
     list_header_in_c.code
     |> gen()
     |> TranslatedCode.new(list_header_in_c.return_var_name)
+  end
 
   # Case
   def to_c({:case, _, [case_input, [do: cases]]} = _case_exp, _context) do
