@@ -1,4 +1,4 @@
-defmodule List do
+defmodule Honey_List do
   use Honey, license: "Dual BSD/GPL"
 
   @sec "tracepoint/syscalls/sys_enter_kill"

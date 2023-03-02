@@ -1,4 +1,4 @@
-defmodule Tuple do
+defmodule Honey_Tuple do
   use Honey, license: "Dual BSD/GPL"
 
   @sec "tracepoint/syscalls/sys_enter_kill"
