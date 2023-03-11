@@ -7,8 +7,8 @@ defmodule Honey.Directories do
   Creates the src, obj and bin directories if they don't already exist.
   """
 
-  def create_all(exdir) do
-    userdir = exdir |> Path.dirname()
+  def create_all(env) do
+    userdir = env.file |> Path.dirname()
     create_src(userdir)
     create_obj(userdir)
     create_bin(userdir)

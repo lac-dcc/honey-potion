@@ -1,6 +1,7 @@
 defmodule Honey do
-  alias Honey.{Translator, Utils, Fuel}
+  alias Honey.{Utils, Fuel}
   alias Honey.Write
+  alias Honey.Generator
 
   @moduledoc """
   Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
@@ -80,7 +81,7 @@ defmodule Honey do
     if !(main_def = Module.get_definition(env.module, {target_func, target_arity})) do
       Utils.compile_error!(
         env,
-        "Module #{env.module} is using Ebpf but does not contain #{target_func}/#{target_arity}."
+        "Module #{env.module} is using eBPF but does not contain #{target_func}/#{target_arity}."
       )
     end
 
@@ -96,24 +97,9 @@ defmodule Honey do
       |> Fuel.burn_fuel(env)
       # |> Optimizer.run()
 
-    # print_ast(final_ast)
+    {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 
-    #This can go into Utils as ExtractEnv or into Info.
-    ebpf_options = Module.get_attribute(env.module, :ebpf_options)
-    #Gets values required to translate the AST to eBPF readable C.
-    sections = Module.get_attribute(env.module, :sections)
-    sec = Map.get(sections, {:def, target_func, target_arity})
-    license = Keyword.fetch!(ebpf_options, :license)
-    maps = Module.get_attribute(env.module, :ebpf_maps)
-    # TODO: env.requires stores the requires in alphabetical order. This might be a problem.
-
-    clang_format = Keyword.get(ebpf_options, :clang_format)
-
-    #Calls the code translator.
-    c_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
-
-    #Writes .bpf.c and .c files for each program in the lib folder.
-    Write.write_ouput_files(c_code, env.file, env.module, clang_format)
+    Write.write_ouput_files(backend_code, frontend_code, env)
 
     Module.delete_definition(env.module, {target_func, target_arity})
 

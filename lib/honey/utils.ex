@@ -54,6 +54,24 @@ defmodule Honey.Utils do
     "{.type = INTEGER, .value.integer = #{var_name}}"
   end
 
+  @doc """
+  Returns the name of the module that we are translating.
+  """
+  def module_name(env) do
+    mod_name = env.module
+    mod_name = Atom.to_string(mod_name)
+    "Elixir." <> mod_name = "#{mod_name}"
+    mod_name
+  end
+
+  @doc """
+  Returns the clang format stored in env.module. 
+  """
+  def clang_format(env) do
+    ebpf_options = Module.get_attribute(env.module, :ebpf_options)
+    Keyword.get(ebpf_options, :clang_format)
+  end
+
   #Guards to filter elements from the Elixir AST.
   @doc """
   Guard for Function calls.
