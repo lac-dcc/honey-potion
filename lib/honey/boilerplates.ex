@@ -1,5 +1,6 @@
 defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
+  alias Honey.Utils 
 
   @moduledoc """
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
@@ -355,7 +356,9 @@ defmodule Honey.Boilerplates do
     )
   end
 
-  def generate_frontend_code(module_name) do
+  def generate_frontend_code(env) do
+    module_name = Utils.module_name(env) 
+
     include = """
     #include <bpf/libbpf.h>
     #include <bpf/bpf.h>

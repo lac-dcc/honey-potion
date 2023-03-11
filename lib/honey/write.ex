@@ -14,10 +14,7 @@ defmodule Honey.Write do
     mod_name = Utils.module_name(env) 
     clang_format = Utils.clang_format(env)
     
-    backend_path =
-      env.file
-      |> Path.dirname()
-      |> Path.join("src/#{mod_name}.bpf.c")
+    backend_path = Directories.userdir(env) |> Path.join("src/#{mod_name}.bpf.c")
 
     {:ok, file} = File.open(backend_path, [:write])
     IO.binwrite(file, backend_code)
@@ -30,26 +27,27 @@ defmodule Honey.Write do
   end
   
   @doc """
-  Prepares a generic makefile in the directory of the user, writes a generic front-end for eBPF and compiles everything.
-  This uses the LibBPF located in /benchmarks/libs/
+  Writes the frontend code into the right directory.
   """
 
-  #This goes into compile and write modules.
   def write_frontend_code(env, frontend_code) do
-    
     mod_name = Utils.module_name(env) 
-    userdir = env.file |> Path.dirname()
+    userdir = Directories.userdir(env) 
 
     File.write(userdir |> Path.join("./src/#{mod_name}.c"), frontend_code)
-
   end
+
+  @doc """
+  Writes a makefile into the user directory. Used to compile the bpf program later.
+  """ 
 
   def write_makefile(env) do
-    userdir = env.file |> Path.dirname()
-
+    userdir = Directories.userdir(env)
     makedir = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/Makefile")
+
     File.cp_r(makedir, userdir |> Path.join("Makefile"))
   end
+
   @doc """
   Writes all of the relevant files post-translation, which include module.c and module.bpf.c. Also makes sure write directories exist.
   """ 

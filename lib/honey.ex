@@ -94,10 +94,7 @@ defmodule Honey do
 
     #This can become a one-line call.
     #Burns Fuel (expands recursive calls into repetitions) and runs the optimizer on the AST.
-    final_ast =
-      func_ast
-      |> Fuel.burn_fuel(env)
-      # |> Optimizer.run()
+    final_ast = func_ast |> Fuel.burn_fuel(env) # |> Optimizer.run()
 
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 
