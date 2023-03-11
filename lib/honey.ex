@@ -1,7 +1,9 @@
 defmodule Honey do
+  alias Mix.Task.Compiler
   alias Honey.{Utils, Fuel}
   alias Honey.Write
   alias Honey.Generator
+  alias Honey.Compiler
 
   @moduledoc """
   Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
@@ -100,6 +102,8 @@ defmodule Honey do
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 
     Write.write_ouput_files(backend_code, frontend_code, env)
+
+    Compiler.compile_bpf(env)
 
     Module.delete_definition(env.module, {target_func, target_arity})
 
