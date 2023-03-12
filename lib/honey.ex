@@ -14,6 +14,66 @@ defmodule Honey do
   """
 
   @doc """
+  Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline. 
+  """
+
+  defmacro __before_compile__(env) do
+    #This can go into a new "Guard" module.
+    target_func = :main
+    target_arity = 1
+    #If the main function isn't defined raise an error.
+    if !(main_def = Module.get_definition(env.module, {target_func, target_arity})) do
+      Utils.compile_error!(
+        env,
+        "Module #{env.module} is using eBPF but does not contain #{target_func}/#{target_arity}."
+      )
+    end
+
+    #This can go into Utils as ExtractAst or into Info with same name.
+    # TODO: evaluate all clauses
+    {:v1, _kind, _metadata, [first_clause | _other_clauses]} = main_def
+    {_metadata, arguments, _guards, func_ast} = first_clause
+
+    final_ast = func_ast |> Fuel.burn_fuel(env) # |> Optimizer.run()
+
+    {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
+
+    Write.write_ouput_files(backend_code, frontend_code, env)
+
+    Compiler.compile_bpf(env)
+
+    Module.delete_definition(env.module, {target_func, target_arity})
+
+    quote do
+      def main(unquote(arguments)) do
+        unquote(final_ast)
+      end
+    end
+  end
+
+  @doc """
+  Macro that allows users to define maps in eBPF through elixir.
+  Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
+
+  ```
+  defmap(:my_map,
+      %{type: BPF_MAP_TYPE_ARRAY,
+      max_entries: 10}
+  )
+  ```
+
+  In the Alpha version, just the map type BPF_MAP_TYPE_ARRAY is available, but you only need to specify the number of entries and the map is ready to use.
+  """
+
+  defmacro defmap(ebpf_map_name, ebpf_map) do
+    quote do
+      ebpf_map_name = unquote(ebpf_map_name)
+      ebpf_map_content = unquote(ebpf_map)
+      @ebpf_maps %{name: ebpf_map_name, content: ebpf_map_content}
+    end
+  end
+
+  @doc """
   Makes sure the "use" keyword is inside a valid module to operate in and imports the modules that will be needed.
   """
 
@@ -47,68 +107,6 @@ defmodule Honey do
     end
 
     :ok
-  end
-
-  @doc """
-  Macro that allows users to define maps in eBPF through elixir.
-  Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
-
-  ```
-  defmap(:my_map,
-      %{type: BPF_MAP_TYPE_ARRAY,
-      max_entries: 10}
-  )
-  ```
-
-  In the Alpha version, just the map type BPF_MAP_TYPE_ARRAY is available, but you only need to specify the number of entries and the map is ready to use.
-  """
-
-  defmacro defmap(ebpf_map_name, ebpf_map) do
-    quote do
-      ebpf_map_name = unquote(ebpf_map_name)
-      ebpf_map_content = unquote(ebpf_map)
-      @ebpf_maps %{name: ebpf_map_name, content: ebpf_map_content}
-    end
-  end
-
-  @doc """
-  Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline. 
-  """
-
-  defmacro __before_compile__(env) do
-    #This can go into a new "Guard" module.
-    target_func = :main
-    target_arity = 1
-    #If the main function isn't defined raise an error.
-    if !(main_def = Module.get_definition(env.module, {target_func, target_arity})) do
-      Utils.compile_error!(
-        env,
-        "Module #{env.module} is using eBPF but does not contain #{target_func}/#{target_arity}."
-      )
-    end
-
-    #This can go into Utils as ExtractAst or into Info with same name.
-    # TODO: evaluate all clauses
-    {:v1, _kind, _metadata, [first_clause | _other_clauses]} = main_def
-    {_metadata, arguments, _guards, func_ast} = first_clause
-
-    #This can become a one-line call.
-    #Burns Fuel (expands recursive calls into repetitions) and runs the optimizer on the AST.
-    final_ast = func_ast |> Fuel.burn_fuel(env) # |> Optimizer.run()
-
-    {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
-
-    Write.write_ouput_files(backend_code, frontend_code, env)
-
-    Compiler.compile_bpf(env)
-
-    Module.delete_definition(env.module, {target_func, target_arity})
-
-    quote do
-      def main(unquote(arguments)) do
-        unquote(final_ast)
-      end
-    end
   end
 
   @doc false

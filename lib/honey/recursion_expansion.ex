@@ -26,13 +26,6 @@ defmodule Honey.Fuel do
     add_fuel_metadata(fun_call, amount)
   end
 
-  #Makes sure fuel is used inside the main function.
-  defp ensure_caller(%Macro.Env{function: {:main, 1}}), do: :ok
-
-  defp ensure_caller(env) do
-    compile_error!(env, "fuel can only be called inside main/1")
-  end
-
   @doc """
   Burns fuel with consecultive passes through the AST until no more changes are made.
   Currently it only accepts calls from the same module.
@@ -64,6 +57,13 @@ defmodule Honey.Fuel do
     else
       new_ast
     end
+  end
+
+  #Makes sure fuel is used inside the main function.
+  defp ensure_caller(%Macro.Env{function: {:main, 1}}), do: :ok
+
+  defp ensure_caller(env) do
+    compile_error!(env, "fuel can only be called inside main/1")
   end
 
   @doc """

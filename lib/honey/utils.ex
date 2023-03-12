@@ -9,9 +9,6 @@ defmodule Honey.Utils do
   Extremely useful for debugging generated code.
   """
 
-  # PS
-  # I just don't like sigils, because macro can have an english name
-  # while sigil is just one char, which makes no sense for readers
   defmacro gen(text) do
     %Macro.Env{file: file, line: line} = __CALLER__
 
@@ -24,6 +21,7 @@ defmodule Honey.Utils do
   @doc """
   Transforms a variable into an unique string.
   """
+
   def var_to_string({var_name, meta, var_context}) do
     "#{var_name}_#{inspect_no_limit(meta[:version])}_#{var_context}"
   end
@@ -57,6 +55,7 @@ defmodule Honey.Utils do
   @doc """
   Returns the name of the module that we are translating.
   """
+
   def module_name(env) do
     mod_name = env.module
     mod_name = Atom.to_string(mod_name)
@@ -67,6 +66,7 @@ defmodule Honey.Utils do
   @doc """
   Returns the clang format stored in env.module. 
   """
+
   def clang_format(env) do
     ebpf_options = Module.get_attribute(env.module, :ebpf_options)
     Keyword.get(ebpf_options, :clang_format)

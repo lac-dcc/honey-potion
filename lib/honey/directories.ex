@@ -22,6 +22,10 @@ defmodule Honey.Directories do
     env.file |> Path.dirname()
   end
 
+  @doc """
+  Returns the directory of the src folder of libbpf to get includes in compilation. 
+  """
+
   def libsdir() do
     libsdir = __ENV__.file |> Path.dirname
     Path.absname("./../benchmarks/libs/libbpf/src", libsdir) |> Path.expand

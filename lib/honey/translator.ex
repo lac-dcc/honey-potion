@@ -9,6 +9,25 @@ defmodule Honey.Translator do
   """
 
   @doc """
+  #Translates the main function.
+  """
+
+  def translate(func_name, ast, sec, license, requires, elixir_maps) do
+    case func_name do
+      "main" ->
+        ensure_right_type(sec)
+        translated_code = to_c(ast)
+
+        sec
+        |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code)
+        |> Boilerplates.generate_whole_code()
+
+      _ ->
+        false
+    end
+  end
+
+  @doc """
   Generates a string with the format "helper_var_<UniqueNumber>" to be used as an unique variable.
   """
 
@@ -23,6 +42,7 @@ defmodule Honey.Translator do
   @doc """
   Translates specific segments of the AST to C.
   """
+
   def to_c(tree, context \\ {})
 
   # Variables
@@ -728,6 +748,7 @@ defmodule Honey.Translator do
   Translates constants into a Generic C datatype.
   Generic being a struct used to represent many different datatypes with the same type.
   """
+
   def constant_to_code(item) do
     var_name_in_c = unique_helper_var()
 
@@ -847,7 +868,7 @@ defmodule Honey.Translator do
     end)
   end
 
-  #Guarantees we have a valid type of eBPF program. Only one type in alpha.
+  #Guarantees we have a valid type of eBPF program. Only three types in alpha.
   @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_traffic_count)
   defp ensure_right_type(type) do
     case type do
@@ -859,22 +880,6 @@ defmodule Honey.Translator do
 
       type ->
         raise "We cannot convert this Program Type yet: #{type}"
-    end
-  end
-
-  #Translates the main method.
-  def translate(func_name, ast, sec, license, requires, elixir_maps) do
-    case func_name do
-      "main" ->
-        ensure_right_type(sec)
-        translated_code = to_c(ast)
-
-        sec
-        |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code)
-        |> Boilerplates.generate_whole_code()
-
-      _ ->
-        false
     end
   end
 end

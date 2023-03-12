@@ -7,6 +7,7 @@ defmodule Honey.Info do
   @doc """
   Grabs the information used in generating the backend.
   """ 
+
   def get_backend_info(env, final_ast) do 
     ebpf_options = Module.get_attribute(env.module, :ebpf_options)
     sections = Module.get_attribute(env.module, :sections)
