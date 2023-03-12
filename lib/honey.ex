@@ -1,9 +1,11 @@
 defmodule Honey do
   alias Mix.Task.Compiler
-  alias Honey.{Utils, Fuel, Info}
-  alias Honey.Write
-  alias Honey.Generator
-  alias Honey.Compiler
+  alias Honey.Guard       #Stops execution if main doesn't exist.
+  alias Honey.Fuel        #Unrolls function calls.
+  alias Honey.Info        #Gathers Info about the AST.
+  alias Honey.Generator   #Uses that info to generate frontend and backend code.
+  alias Honey.Write       #Writes files into the right folders for compilation.
+  alias Honey.Compiler    #Compiles the files into userdir/bin/
 
   @moduledoc """
   Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
@@ -18,16 +20,8 @@ defmodule Honey do
   """
 
   defmacro __before_compile__(env) do
-    #This can go into a new "Guard" module.
-    target_func = :main
-    target_arity = 1
-    #If the main function isn't defined raise an error.
-    if !(main_def = Module.get_definition(env.module, {target_func, target_arity})) do
-      Utils.compile_error!(
-        env,
-        "Module #{env.module} is using eBPF but does not contain #{target_func}/#{target_arity}."
-      )
-    end
+
+    main_def = Guard.main_exists!(env)
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
@@ -39,7 +33,7 @@ defmodule Honey do
 
     Compiler.compile_bpf(env)
 
-    Module.delete_definition(env.module, {target_func, target_arity})
+    Module.delete_definition(env.module, {_target_func = :main, _target_arity = 1})
 
     quote do
       def main(unquote(arguments)) do

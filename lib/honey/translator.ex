@@ -1,6 +1,7 @@
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
+  alias Honey.Guard
 
   import Honey.Utils, only: [gen: 1, var_to_string: 1, ctx_var_to_generic: 1, is_var: 1]
 
@@ -15,7 +16,7 @@ defmodule Honey.Translator do
   def translate(func_name, ast, sec, license, requires, elixir_maps) do
     case func_name do
       "main" ->
-        ensure_right_type(sec)
+        Guard.ensure_sec_type!(sec)
         translated_code = to_c(ast)
 
         sec
@@ -868,18 +869,4 @@ defmodule Honey.Translator do
     end)
   end
 
-  #Guarantees we have a valid type of eBPF program. Only three types in alpha.
-  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_traffic_count)
-  defp ensure_right_type(type) do
-    case type do
-      type when type in @supported_types ->
-        true
-
-      type when type in ["", nil] ->
-        raise "The main/1 function must be preceded by a @sec indicating the type of the program."
-
-      type ->
-        raise "We cannot convert this Program Type yet: #{type}"
-    end
-  end
 end
