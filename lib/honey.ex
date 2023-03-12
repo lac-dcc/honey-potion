@@ -1,6 +1,6 @@
 defmodule Honey do
   alias Mix.Task.Compiler
-  alias Honey.{Utils, Fuel}
+  alias Honey.{Utils, Fuel, Info}
   alias Honey.Write
   alias Honey.Generator
   alias Honey.Compiler
@@ -29,10 +29,7 @@ defmodule Honey do
       )
     end
 
-    #This can go into Utils as ExtractAst or into Info with same name.
-    # TODO: evaluate all clauses
-    {:v1, _kind, _metadata, [first_clause | _other_clauses]} = main_def
-    {_metadata, arguments, _guards, func_ast} = first_clause
+    {arguments, func_ast} = Info.get_ast(main_def)
 
     final_ast = func_ast |> Fuel.burn_fuel(env) # |> Optimizer.run()
 

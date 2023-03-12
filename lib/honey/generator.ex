@@ -1,7 +1,7 @@
 defmodule Honey.Generator do
   alias Honey.Translator
   alias Honey.Boilerplates
-  alias Honey.Utils
+  alias Honey.Info
 
   @moduledoc """
   Groups the Boilerplates and Translation Modules to generate both the front-end and back-end code.
@@ -12,7 +12,7 @@ defmodule Honey.Generator do
   """ 
 
   def generate_code(env, final_ast) do 
-    {ebpf_options,sec,license,maps} = Info.get_backend_info(env)
+    {_ebpf_options,sec,license,maps} = Info.get_backend_info(env)
     backend_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
 
     frontend_code = Boilerplates.generate_frontend_code(env)

@@ -13,7 +13,7 @@ defmodule Honey.Compiler do
   def compile_bpf(env) do 
     mod_name = Utils.module_name(env)
 
-    userdir = Directories.userdir()
+    userdir = Directories.userdir(env)
     libsdir = Directories.libsdir()
     privdir = :code.priv_dir(:honey)
 
