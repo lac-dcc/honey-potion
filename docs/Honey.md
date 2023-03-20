@@ -19,6 +19,7 @@ Defines the fuel macro and the functions to make it work.
 _fuel: a macro that unrolls recursive calls into a fixed number of repeated calls, as eBPF doesn't allow recursive functions._
 
 ## Optimizer
+
 > **DEPENDENCIES**: Uses files for static analysis and optimization of code. Currently: *variable analysis*, *dead_code_elimination* and *constant_propagation*
 
 Defines the optimization pipeline for Honey, as in, what modules are called in what order to optimize. Works on the AST of the source. Currently deactivated thanks to conflicts with pattern matching.
@@ -43,25 +44,27 @@ Manages the calls to **Boilerplates** and to **Translator** to transform the use
 
 ## Boilerplates
 
-> **DEPENDENCIES**: Uses the /priv/c_boilerplates/runtime_functions.c to define runtime functions.
+> **DEPENDENCIES**: Uses the functions and structures defined in /priv/c_boilerplates/runtime_functions.bpf.c and runtime_structures.bpf.h.
 
 Adds and manages the boilerplate of C. Notably the #defines, structs, functions and other static parts that are always present in any target. 
 
 ## Translator
 
-> **CHECK BEFORE**: Uses the /priv/c_boilerplates/runtime_functions.c for certain methods, for full understanding of it we recommend you familiarize yourself with it before reading the translator.
+> **CHECK BEFORE**: Uses the functions and structures defined in /priv/c_boilerplates/runtime_functions.bpf.c and runtime_structures.bpf.h. Recommended read if you wish to understand better how the translation is done.
 
-Translates the elixir code into C that uses methods defined in priv/c_boilerplates/runtime_functions, such as basic math operators.
+Translates the elixir code into C that uses methods defined in /priv/c_boilerplates/runtime_functions, such as basic math operators and structures defined in /priv/c_boilerplates/runtime_structures, such as a Generic datatype.
 
 ## Translated_code
 
 Defines a struct for keeping C code.
 
-## Write 
+## Write
 
 Writes the output files and directories. Notably /src, /obj, /bin, a Makefile and the translated code into /src/code.c and code.bpf.c for the front-end and the back-end respectively.
 
 ## Compiler
+
+> **DEPENDENCIES**: Uses /priv/c_boilerplates/runtime_functions.bpf.c and runtime_structures.bpf.h in the makefile as dependencies to define runtime functions and structures.
 
 Compiles the files that were written in the last step using the Makefile. 
 
