@@ -10,12 +10,14 @@ LIBBPF_HEADERS ?= $(LIBBPF_DIR)/../../headers/
 PRIV_DIR ?= $(SRC_DIR)/../../priv
 C_BOILERPLATES ?= $(PRIV_DIR)/c_boilerplates/
 OBJ_FOLDER ?= $(SRC_DIR)/obj/
-CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)' -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
+CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)' -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)' -I./libbpf
 LDFLAGS ?= -L'$(LIBBPF_DIR)'
 LLVM13 ?= /usr/bin
 BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf
+
+LIBBPF_OBJ := $(abspath ./libbpf/libbpf.a)
 
 all: clean $(SRC_DIR)/obj/$(TARGET).skel.h $(SRC_DIR)/bin/$(TARGET)
 
@@ -27,6 +29,19 @@ clean:
 	rm -f $(SRC_DIR)/obj/$(TARGET).bpf.ll
 	rm -f $(SRC_DIR)/obj/$(TARGET).skel.h
 
+
+# Build libbpf
+$(LIBBPF_OBJ): $(wildcard $(LIBBPF_DIR)/*.[ch] $(LIBBPF_DIR)/Makefile) | ./libbpf
+	$(call msg,LIB,$@)
+	$(Q)$(MAKE) -C $(LIBBPF_DIR) BUILD_STATIC_ONLY=1		      \
+		    OBJDIR=$(dir $@)/libbpf DESTDIR=$(dir $@)		      \
+		    INCLUDEDIR= LIBDIR= UAPIDIR=			      \
+		    install
+
+. ./libbpf:
+	$(call msg,MKDIR,$@)
+	$(Q)mkdir -p $@
+
 $(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
 
@@ -34,7 +49,7 @@ $(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/src/$(TARGET).c
 	gcc $(CFLAGS) $(LDFLAGS) -o $(SRC_DIR)/bin/$(TARGET) $(SRC_DIR)/src/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
 
 # src directory is created during honey-potion execution, so only obj and bin are attempted here
-$(SRC_DIR)/obj/$(TARGET).bpf.o: $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
+$(SRC_DIR)/obj/$(TARGET).bpf.o: $(LIBBPF_OBJ) $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
 	${LLVM13}/clang -S \
 	    -target bpf \
 	    -D__BPF_TRACING__ \

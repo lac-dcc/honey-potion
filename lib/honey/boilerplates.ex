@@ -5,6 +5,7 @@ defmodule Honey.Boilerplates do
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
+alias Honey.Boilerplates
 
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
 
@@ -29,8 +30,8 @@ defmodule Honey.Boilerplates do
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
     #include <stdlib.h>
-    #include <runtime_structures.bpf.h>
-    #include <runtime_functions.bpf.c>
+    #include "runtime_structures.bpf.h"
+    #include "runtime_functions.bpf.c"
 
     """)
   end
@@ -56,10 +57,10 @@ defmodule Honey.Boilerplates do
   end
 
   @doc """
-  Converts the maps created in Elixir into its C version.
+  Generate the C version of the maps declared by the user in Elixir.
   """
 
-  def create_c_maps(maps) do
+  def generate_maps(%Boilerplates{elixir_maps: maps}) do
     c_maps =
       Enum.map(maps, fn elixir_map ->
         map_name = elixir_map[:name]
@@ -83,9 +84,9 @@ defmodule Honey.Boilerplates do
         """
         struct {
           #{fields}
-          __type(key, int);
+          __uint(key_size, sizeof(int));
           __uint(value_size, sizeof(Generic));
-        } #{map_name} SEC(".maps")
+        } #{map_name} SEC(".maps");
         """
       end)
 
@@ -349,6 +350,7 @@ defmodule Honey.Boilerplates do
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>
+      generate_maps(config) <>
       generate_ctx_struct(config) <>
       generate_license(config) <>
       generate_main(config)
