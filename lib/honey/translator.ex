@@ -125,7 +125,7 @@ defmodule Honey.Translator do
   end
 
   # C libraries
-  def to_c({{:., _, [Honey.Bpf.Bpf_helpers, function]}, _, params}, context) do
+  def to_c({{:., _, [Honey.Bpf_helpers, function]}, _, params}, context) do
     case function do
       :bpf_printk ->
         [[string | other_params]] = params

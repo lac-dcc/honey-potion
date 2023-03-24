@@ -5,6 +5,6 @@ defmodule Honey_Tuple do
   def main(_) do
     y = 2
     {1, {2, {"some string", x}}} = {1, {y, {"some string", 4}}}
-    Honey.Bpf.Bpf_helpers.bpf_printk(["x: %d", x])
+    Honey.Bpf_helpers.bpf_printk(["x: %d", x])
   end
 end

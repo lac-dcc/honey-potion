@@ -6,6 +6,6 @@ defmodule GetPID do
 
     #Shows how to use c-like arguments on string.
 
-    Honey.Bpf.Bpf_helpers.bpf_printk(["Current PID: %d", Honey.Bpf.Bpf_helpers.bpf_get_current_pid_tgid()])
+    Honey.Bpf_helpers.bpf_printk(["Current PID: %d", Honey.Bpf_helpers.bpf_get_current_pid_tgid()])
   end
 end
