@@ -1,3 +1,4 @@
+# To understand this makefile in a easier to digest format, please see /docs/Makefile!
 TARGET ?= prog
 
 #This directory represents the user directory, where the user creates .ex files.
@@ -17,7 +18,7 @@ BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf
 
-all: clean $(SRC_DIR)/obj/$(TARGET).skel.h $(SRC_DIR)/bin/$(TARGET)
+all: clean $(SRC_DIR)/bin/$(TARGET)
 
 .PHONY: clean
 
@@ -27,13 +28,15 @@ clean:
 	rm -f $(SRC_DIR)/obj/$(TARGET).bpf.ll
 	rm -f $(SRC_DIR)/obj/$(TARGET).skel.h
 
+# Binary Creation
+$(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/src/$(TARGET).c $(SRC_DIR)/obj/$(TARGET).skel.h
+	gcc $(CFLAGS) $(LDFLAGS) -o $(SRC_DIR)/bin/$(TARGET) $(SRC_DIR)/src/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
+
+# Skeleton Generation
 $(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
 
-$(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/src/$(TARGET).c
-	gcc $(CFLAGS) $(LDFLAGS) -o $(SRC_DIR)/bin/$(TARGET) $(SRC_DIR)/src/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
-
-# src directory is created during honey-potion execution, so only obj and bin are attempted here
+# Object Files
 $(SRC_DIR)/obj/$(TARGET).bpf.o: $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
 	${LLVM13}/clang -S \
 	    -target bpf \
