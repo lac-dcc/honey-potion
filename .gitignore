@@ -25,14 +25,19 @@ ebpf_translator-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
-#Object, Source and Binary files from examples
+# Object, Source and Binary files from examples
 /examples/lib/bin/
 /examples/lib/obj/
 /examples/lib/src/
 
+# Factorial Benchmark compilation files
+/benchmarks/programs/factorial/bin/*
+/benchmarks/programs/factorial/obj/*
+!**/.gitkeep
+
 examples/*.c
 /.vscode
 
-#clangd cleanup.
+# clangd cleanup.
 **/compile_commands.json
 **/.cache/**
