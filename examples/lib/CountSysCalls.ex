@@ -10,12 +10,12 @@ defmodule CountSysCalls do
 
     id = ctx.id
     cond do
-      id == 62 -> Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type enter_kill"])
-      id == 83 -> Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type enter_mkdir"])
-      id == 318 -> Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type enter_getrandom"])
+      id == 62 -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_kill"])
+      id == 83 -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_mkdir"])
+      id == 318 -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_getrandom"])
       # true ->  #These ignored types are recursive as they are created from the process and lead to another call of itself.
       #   if !(id == 0) and !(id == 1) and !(id == 7) and !(id == 47) do
-      #     Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type %d", id])
+      #     Honey.Bpf_helpers.bpf_printk(["Syscall of type %d", id])
       #   end
     end
     0

@@ -45,6 +45,8 @@ Will generate a few new sub-directories for you:
 
 To run your program, just go into the bin directory and run the executable with privileges.
 
+If you wish to learn how to use Honey-Potion with a video [click here.](https://www.youtube.com/watch?v=Wis5e3vLcMg)
+
 Notice the `license` option: as eBPF demands, we need to specify a license to our program.
 Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the C file generated.
 
