@@ -13,8 +13,6 @@ C_BOILERPLATES ?= $(PRIV_DIR)/c_boilerplates/
 OBJ_FOLDER ?= $(SRC_DIR)/obj/
 CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)' -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
 LDFLAGS ?= -L'$(LIBBPF_DIR)'
-LLVM13 ?= /usr/bin
-BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf
 
@@ -34,16 +32,16 @@ $(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/src/$(TARGET).c $(SRC_DIR)/obj/$(TARGET)
 
 # Skeleton Generation
 $(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
-	$(BPFTOOL) gen skeleton $< > $@
+	bpftool gen skeleton $< > $@
 
 # Object Files
 $(SRC_DIR)/obj/$(TARGET).bpf.o: $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
-	${LLVM13}/clang -S \
-	    -target bpf \
-	    -D__BPF_TRACING__ \
-	    $(CFLAGS) \
-	    -O2 -emit-llvm -c -g $(SRC_DIR)/src/$(TARGET).bpf.c -o $(SRC_DIR)/obj/$(TARGET).bpf.ll
-	${LLVM13}/llc -march=bpf -filetype=obj -o $(SRC_DIR)/obj/$(TARGET).bpf.o $(SRC_DIR)/obj/$(TARGET).bpf.ll
+	clang -S \
+			-target bpf \
+			-D__BPF_TRACING__ \
+			$(CFLAGS) \
+			-O2 -emit-llvm -c -g $(SRC_DIR)/src/$(TARGET).bpf.c -o $(SRC_DIR)/obj/$(TARGET).bpf.ll
+	llc -march=bpf -filetype=obj -o $(SRC_DIR)/obj/$(TARGET).bpf.o $(SRC_DIR)/obj/$(TARGET).bpf.ll
 
 .PHONY: compress
 compress:
