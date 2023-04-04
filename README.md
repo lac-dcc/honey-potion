@@ -24,7 +24,6 @@ In this alpha version, the framework translates the code to a subset of C that u
 - make - For Makefile compilation
 - llvm - For llc
 - clang - For clang
-- linux-tools-generic - For bpftool (Might need a specific package for your kernel, see output of bpftool to be sure it is working)
 
 Note that clang, llc and bpftool can be compiled by the user, as long as they are in the $PATH.
 
