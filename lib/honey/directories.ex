@@ -28,7 +28,7 @@ defmodule Honey.Directories do
 
   def libsdir() do
     libsdir = __ENV__.file |> Path.dirname
-    Path.absname("./../benchmarks/libs/libbpf/src", libsdir) |> Path.expand
+    Path.absname("./../../benchmarks/libs/libbpf/src", libsdir) |> Path.expand
   end
 
   #Creates the directories of the name given in the method
