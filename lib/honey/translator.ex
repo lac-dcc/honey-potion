@@ -1,3 +1,11 @@
+defmodule Honey.TranslatorContext do
+  defstruct [:maps]
+
+  def new(maps) do
+    %__MODULE__{maps: maps}
+  end
+end
+
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
@@ -17,7 +25,8 @@ defmodule Honey.Translator do
     case func_name do
       "main" ->
         Guard.ensure_sec_type!(sec)
-        translated_code = to_c(ast)
+        context = Honey.TranslatorContext.new(elixir_maps)
+        translated_code = to_c(ast, context)
 
         sec
         |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code)
@@ -63,15 +72,21 @@ defmodule Honey.Translator do
   end
 
   # Erlang functions
-  def to_c(ast = {{:., _, [:erlang, function]}, _, [constant]}, _context) when is_integer(constant) do
+  def to_c(ast = {{:., _, [:erlang, function]}, _, [constant]}, _context)
+      when is_integer(constant) do
     IO.inspect(ast)
+
     case function do
-      :- -> {:ok, code} = constant_to_code(0-constant); code
-      _ -> raise "Erlang function not supported: \"#{Atom.to_string(function)}#{constant}\""
+      :- ->
+        {:ok, code} = constant_to_code(0 - constant)
+        code
+
+      _ ->
+        raise "Erlang function not supported: \"#{Atom.to_string(function)}#{constant}\""
     end
   end
 
-  def to_c({{:., _, [:erlang, function]}, _, [lhs, rhs]}, _context) do
+  def to_c({{:., _, [:erlang, function]}, _, [lhs, rhs]}, context) do
     func_string =
       case function do
         :+ ->
@@ -111,8 +126,8 @@ defmodule Honey.Translator do
           raise "Erlang function not supported: #{Atom.to_string(function)}"
       end
 
-    lhs_in_c = to_c(lhs)
-    rhs_in_c = to_c(rhs)
+    lhs_in_c = to_c(lhs, context)
+    rhs_in_c = to_c(rhs, context)
     c_var_name = unique_helper_var()
 
     """
@@ -141,7 +156,7 @@ defmodule Honey.Translator do
 
         vars =
           Enum.reduce(code_vars, "", fn translated, so_far ->
-            so_far<>", "<>translated.return_var_name <> ".value.integer"
+            so_far <> ", " <> translated.return_var_name <> ".value.integer"
           end)
 
         result_var = unique_helper_var()
@@ -155,45 +170,137 @@ defmodule Honey.Translator do
         |> gen()
         |> TranslatedCode.new(result_var)
 
-      # TODO: Maps stopped working after the addition of dynamic types.
       :bpf_map_lookup_elem ->
-        [map, key_ast] = params
+        [map_name, key_ast] = params
 
-        if !is_atom(map) do
-          raise "bpf_map_lookup_elem: 'map' must be an atom. Received: #{Macro.to_string(map)}"
+        if !is_atom(map_name) do
+          raise "bpf_map_lookup_elem: 'map' must be an atom. Received: #{Macro.to_string(map_name)}"
         end
 
-        str_map_name = Atom.to_string(map)
+        declared_maps = context.maps
+
+        map =
+          Enum.find(declared_maps, nil, fn map ->
+            map[:name] == map_name
+          end)
+
+        if(!map) do
+          raise "bpf_map_update_elem: No map declared with name #{map_name}."
+        end
+
+        map_content = map[:content]
+
+        found_var = unique_helper_var()
+        item_var = unique_helper_var()
+
+        str_map_name = Atom.to_string(map_name)
 
         key = to_c(key_ast, context)
 
         result_var_pointer = unique_helper_var()
         result_var = unique_helper_var()
 
-        """
-        #{key.code}
-        if(#{key.return_var_name}.type != INTEGER) {
-          op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_lookup_elem is not integer."};
-          goto CATCH;
-        }
-        Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
-        if(!#{result_var_pointer}) {
-          op_result = (OpResult){.exception = 1, .exception_msg = "(MapAcess) Impossible to access map '#{str_map_name}' with the key informed."};
-          goto CATCH;
-        }
-        Generic #{result_var} = *#{result_var_pointer};
-        """
-        |> gen()
-        |> TranslatedCode.new(result_var)
+        cond do
+          map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
+              map_content.type == BPF_MAP_TYPE_ARRAY ->
+            tuple_translation = generate_c_tuple_from_variables([found_var, item_var])
 
-      :bpf_map_update_elem ->
-        [map, key_ast, value_ast] = params
+            # Ideally this will return a tuple with two values: A boolean representing whether the value was found
+            # and the value itself (:nil if it wasn't found).
+            # At this moment however, I'm having trouble because 1) Storing the value in a stack variable is only
+            # being possible if I stop the program when the key isn't found and 2) The pattern matching for
+            # tuples seems bugged.
+            # So currently, the program throws an exception if the key is not found and only returns the value
+            # as a single variable. But I'm commeting some code to make it easier to convert it to the the original
+            # idea once it's possible.
 
-        if !is_atom(map) do
-          raise "bpf_map_update_elem: 'map' must be an atom. Received: #{Macro.to_string(map)}"
+            """
+            #{key.code}
+            if(#{key.return_var_name}.type != INTEGER) {
+              op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not integer."};
+              goto CATCH;
+            }
+            Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
+
+            Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = 0};
+
+            Generic #{found_var} = #{result_var_pointer} ? ATOM_TRUE : ATOM_FALSE;
+            Generic #{item_var} = (Generic){0};
+            if(!#{result_var_pointer}) {
+              // #{item_var} = ATOM_NIL;
+              op_result = (OpResult){.exception = 1, .exception_msg = "(KeyNotFound) The key provided was not found in the map '#{str_map_name}'."};
+              goto CATCH;
+            } else {
+              #{item_var} = *#{result_var_pointer};
+              #{item_var}.type = #{item_var}.type == INVALID_TYPE ? INTEGER : #{item_var}.type;
+            }
+            /* #{tuple_translation.code} */
+            """
+            |> gen()
+            # |> TranslatedCode.new(tuple_translation.return_var_name)
+            |> TranslatedCode.new(item_var)
+
+          true ->
+            raise "bpf_map_lookup_elem: In this verison of Honey Potion, we cannot use this function with map type #{map_content.type}."
+            #   case Map.fetch(map_content, :key_type) do
+            #     {:ok, key_type} ->
+            #       case key_type[:type] do
+            #         :string ->
+            #           """
+            #           #{key.code}
+            #           if(#{key.return_var_name}.type != STRING) {
+            #             op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not a string."};
+            #             goto CATCH;
+            #           }
+            #           if(#{key.return_var_name}.value.string.end - #{key.return_var_name}.value.string.start + 1 < #{key_type[:size]}) {
+            #             op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) String passed to bpf_map_lookup_elem is not long enough for key of size #{key_type[:size]}."};
+            #             goto CATCH;
+            #           }
+            #           if(#{key.return_var_name}.value.string.start >= STRING_POOL_SIZE - #{key_type[:size]}) {
+            #             op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function bpf_map_lookup_elem)."};
+            #             goto CATCH;
+            #           }
+            #           Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, (*string_pool) + #{key.return_var_name}.value.string.start);
+
+            #           Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = 0}; // This is a fake variable, necessary while we still need to return a var name.
+
+            #           Generic #{found_var_name} = (Generic){0};
+            #           Generic #{item_var_name} = (Generic){0};
+            #           if(!#{result_var_pointer}) {
+            #             #{found_var_name} = ATOM_FALSE;
+            #             #{item_var_name} = ATOM_NIL;
+            #           } else {
+            #             #{found_var_name} = ATOM_TRUE;
+            #             #{item_var_name} = *#{result_var_pointer};
+            #           }
+            #           """
+            #           |> gen()
+            #           |> TranslatedCode.new(result_var)
+            #       end
+            #   end
         end
 
-        str_map_name = Atom.to_string(map)
+      :bpf_map_update_elem ->
+        [map_name, key_ast, value_ast] = params
+
+        if !is_atom(map_name) do
+          raise "bpf_map_update_elem: 'map' must be an atom. Received: #{Macro.to_string(map_name)}"
+        end
+
+        declared_maps = context.maps
+
+        map =
+          Enum.find(declared_maps, nil, fn map ->
+            map[:name] == map_name
+          end)
+
+        if(!map) do
+          raise "bpf_map_update_elem: No map declared with name #{map_name}."
+        end
+
+        map_content = map[:content]
+
+        str_map_name = Atom.to_string(map_name)
 
         # if(!is_atom(flags)) do
         #   throw "bpf_map_update_elem: 'flags' must be an atom. Received: #{Macro.to_string(map)}"
@@ -207,18 +314,25 @@ defmodule Honey.Translator do
         result_var_c = unique_helper_var()
         result_var = unique_helper_var()
 
-        """
-        #{key.code}
-        #{value.code}
-        if(#{key.return_var_name}.type != INTEGER) {
-          op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
-          goto CATCH;
-        }
-        int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, BPF_ANY);
-        Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
-        """
-        |> gen()
-        |> TranslatedCode.new(result_var)
+        cond do
+          map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
+              map_content.type == BPF_MAP_TYPE_ARRAY ->
+            """
+            #{key.code}
+            #{value.code}
+            if(#{key.return_var_name}.type != INTEGER) {
+              op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
+              goto CATCH;
+            }
+            int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, BPF_ANY);
+            Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
+            """
+            |> gen()
+            |> TranslatedCode.new(result_var)
+
+          true ->
+            raise "bpf_map_update_elem: In this verison of Honey Potion, we cannot use this function with map type #{map_content.type}."
+        end
 
       :bpf_get_current_pid_tgid ->
         result_var = unique_helper_var()
@@ -232,15 +346,19 @@ defmodule Honey.Translator do
   # Here for future possibility of global variables. Incomplete.
   def to_c({{:., _, [Honey.Bpf.Global, function]}, _, _params}, _context) do
     case function do
-      :create -> "" #Creates a global variable in the front end. Translated elsewhere.
-      :set -> "" #Sets the value in the front-end before calling the program, translated elsewhere here.
-      :get -> "" #Gets the value set in the front-end, has to be translated here.
+      # Creates a global variable in the front end. Translated elsewhere.
+      :create -> ""
+      # Sets the value in the front-end before calling the program, translated elsewhere here.
+      :set -> ""
+      # Gets the value set in the front-end, has to be translated here.
+      :get -> ""
       func -> raise "Honey.Bpf.Global does not have " <> to_string(func) <> "as a valid function."
     end
   end
 
   # Dot operator to access ctx_arg
-  def to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context) when is_atom(var_context) do
+  def to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context)
+      when is_atom(var_context) do
     generic_name = ctx_var_to_generic(element)
     TranslatedCode.new("", generic_name)
   end
@@ -278,10 +396,10 @@ defmodule Honey.Translator do
   def to_c(pm_operation = {:=, _, [_lhs, _rhs]}, context), do: to_c(pm_operation, context, true)
 
   # Cond
-  def to_c({:cond, _, [[do: conds]]}, _context) do
+  def to_c({:cond, _, [[do: conds]]}, context) do
     cond_var = unique_helper_var()
 
-    cond_code = cond_statments_to_c(conds, cond_var)
+    cond_code = cond_statments_to_c(conds, cond_var, context)
 
     """
     Generic #{cond_var} = {.type = INTEGER, .value.integer = 0};
@@ -292,11 +410,20 @@ defmodule Honey.Translator do
   end
 
   def to_c({:{}, _, tuple_values}, _context) when is_list(tuple_values) do
-    tuple_values_to_c = Enum.map(tuple_values, fn element -> to_c(element) end)
-    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(tuple_values_to_c, 0)
-    tuple_values_code = Enum.reduce(tuple_values_to_c, "", fn tuple_to_c, acc -> (acc <> "\n" <> tuple_to_c.code) end)
+    tuple_translations_to_c = Enum.map(tuple_values, fn element -> to_c(element) end)
+
+    tuple_var_names =
+      Enum.map(tuple_translations_to_c, fn translation -> translation.return_var_name end)
+
+    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(tuple_var_names, 0)
+
+    tuple_values_code =
+      Enum.reduce(tuple_translations_to_c, "", fn tuple_to_c, acc ->
+        acc <> "\n" <> tuple_to_c.code
+      end)
 
     tuple_var = unique_helper_var()
+
     """
     #{tuple_values_code}
     #{heap_allocation_code}
@@ -309,9 +436,15 @@ defmodule Honey.Translator do
   def to_c({first_element, second_element}, _context) do
     first_element_c_code = to_c(first_element)
     second_element_c_code = to_c(second_element)
-    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap([first_element_c_code, second_element_c_code], 0)
+
+    {heap_allocation_code, heap_allocated_size} =
+      allocate_tuple_in_heap(
+        [first_element_c_code.return_var_name, second_element_c_code.return_var_name],
+        0
+      )
 
     tuple_var = unique_helper_var()
+
     """
     #{first_element_c_code.code}
     #{second_element_c_code.code}
@@ -324,6 +457,7 @@ defmodule Honey.Translator do
 
   def to_c([], _context) do
     list_var = unique_helper_var()
+
     """
     Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
     if((*heap_index) < HEAP_SIZE && (*heap_index) >= 0) {
@@ -342,9 +476,8 @@ defmodule Honey.Translator do
     list_tail_in_c = to_c(tail_assignments, context)
     list_header_in_c = allocate_list_header_into_heap(head_element)
 
-    list_tail_in_c.code
-    <>
-    list_header_in_c.code
+    (list_tail_in_c.code <>
+       list_header_in_c.code)
     |> gen()
     |> TranslatedCode.new(list_header_in_c.return_var_name)
   end
@@ -353,9 +486,8 @@ defmodule Honey.Translator do
     list_tail_in_c = to_c(tail, context)
     list_header_in_c = allocate_list_header_into_heap(first_element)
 
-    list_tail_in_c.code
-    <>
-    list_header_in_c.code
+    (list_tail_in_c.code <>
+       list_header_in_c.code)
     |> gen()
     |> TranslatedCode.new(list_header_in_c.return_var_name)
   end
@@ -365,9 +497,12 @@ defmodule Honey.Translator do
     case_input_translated = to_c(case_input)
     case_return_var = unique_helper_var()
 
-    case_code = case_statements_to_c(case_input_translated.return_var_name,
-                                     case_return_var,
-                                     cases)
+    case_code =
+      case_statements_to_c(
+        case_input_translated.return_var_name,
+        case_return_var,
+        cases
+      )
 
     """
     #{case_input_translated.code}
@@ -392,17 +527,16 @@ defmodule Honey.Translator do
   end
 
   # Match operator, not complete
-  def to_c({:=, _, [lhs, rhs]}, _context, raise_exception) do
+  def to_c({:=, _, [lhs, rhs]}, context, raise_exception) do
     exit_label = unique_helper_label()
-    rhs_in_c = to_c(rhs)
+    rhs_in_c = to_c(rhs, context)
 
-    pattern_matching_code =
-      """
-      #{rhs_in_c.code}
-      op_result.exception = 0;
-      #{pattern_matching(lhs, rhs_in_c.return_var_name, exit_label)}
-      #{exit_label}:
-      """
+    pattern_matching_code = """
+    #{rhs_in_c.code}
+    op_result.exception = 0;
+    #{pattern_matching(lhs, rhs_in_c.return_var_name, exit_label)}
+    #{exit_label}:
+    """
 
     # `raise_exception` is a boolean parameter that defines if the pattern
     # matching operation should report an error or not if it is not possible
@@ -426,31 +560,31 @@ defmodule Honey.Translator do
   end
 
   defp allocate_tuple_in_heap([], index) do
-    code =
-    """
+    code = """
     *heap_index += #{index};
     *tuple_pool_index += #{index};
     """
+
     {code, index}
   end
 
-  defp allocate_tuple_in_heap([translated_code_var | tail], index) do
-    code =
-      """
-      if(*heap_index < (HEAP_SIZE-#{index})) {
-        (*heap)[(*heap_index)+#{index}] = #{translated_code_var.return_var_name};
-      } else {
-        op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
-        goto CATCH;
-      }
-      if(*tuple_pool_index < (TUPLE_POOL_SIZE-#{index})) {
-        (*tuple_pool)[(*tuple_pool_index)+#{index}] = (*heap_index)+#{index};
-      } else {
-        op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
-        goto CATCH;
-      }
-      """
-    {next_code, allocated_size} = allocate_tuple_in_heap(tail, index+1)
+  defp allocate_tuple_in_heap([var_name | tail], index) do
+    code = """
+    if(*heap_index < (HEAP_SIZE-#{index})) {
+      (*heap)[(*heap_index)+#{index}] = #{var_name};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+      goto CATCH;
+    }
+    if(*tuple_pool_index < (TUPLE_POOL_SIZE-#{index})) {
+      (*tuple_pool)[(*tuple_pool_index)+#{index}] = (*heap_index)+#{index};
+    } else {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+      goto CATCH;
+    }
+    """
+
+    {next_code, allocated_size} = allocate_tuple_in_heap(tail, index + 1)
     {code <> next_code, allocated_size}
   end
 
@@ -458,47 +592,51 @@ defmodule Honey.Translator do
     list_element_in_c = to_c(header_element)
     list_var = unique_helper_var()
 
-    list_element_in_c.code
-    <>
-    """
-    if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
-      (*tuple_pool)[(*tuple_pool_index)] = (*heap_index);
-    } else {
-      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
-      goto CATCH;
-    }
-    ++(*tuple_pool_index);
-    if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
-      (*tuple_pool)[(*tuple_pool_index)] = (*heap_index)-1;
-    } else {
-      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
-      goto CATCH;
-    }
-    ++(*tuple_pool_index);
+    (list_element_in_c.code <>
+       """
+       if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
+         (*tuple_pool)[(*tuple_pool_index)] = (*heap_index);
+       } else {
+         op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+         goto CATCH;
+       }
+       ++(*tuple_pool_index);
+       if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
+         (*tuple_pool)[(*tuple_pool_index)] = (*heap_index)-1;
+       } else {
+         op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create tuple, the tuple pool is full."};
+         goto CATCH;
+       }
+       ++(*tuple_pool_index);
 
-    Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
-    if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
-      (*heap)[(*heap_index)] = #{list_element_in_c.return_var_name};
-    } else {
-      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
-      goto CATCH;
-    }
-    ++(*heap_index);
-    if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
-      (*heap)[(*heap_index)] = #{list_var};
-    } else {
-      op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
-      goto CATCH;
-    }
-    ++(*heap_index);
-    """
+       Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
+       if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
+         (*heap)[(*heap_index)] = #{list_element_in_c.return_var_name};
+       } else {
+         op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+         goto CATCH;
+       }
+       ++(*heap_index);
+       if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
+         (*heap)[(*heap_index)] = #{list_var};
+       } else {
+         op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
+         goto CATCH;
+       }
+       ++(*heap_index);
+       """)
     |> gen()
     |> TranslatedCode.new(list_var)
   end
 
-  defp generate_code_for_list_head_element_assignment(list_head_var_name, assignment_head, exit_label) do
+  defp generate_code_for_list_head_element_assignment(
+         list_head_var_name,
+         assignment_head,
+         exit_label
+       ) do
     head_element_var_name = unique_helper_var()
     heap_index_var_name = unique_helper_var()
+
     """
     Generic #{head_element_var_name};
     if(#{list_head_var_name}.value.tuple.start < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start >= 0) {
@@ -513,14 +651,14 @@ defmodule Honey.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """
-    <>
-    pattern_matching(assignment_head, head_element_var_name, exit_label)
+    """ <>
+      pattern_matching(assignment_head, head_element_var_name, exit_label)
   end
 
   defp generate_code_for_get_next_list_head(list_head_var_name, exit_label) do
     next_list_head_var_name = unique_helper_label()
     heap_index_var_name = unique_helper_var()
+
     """
     Generic #{next_list_head_var_name};
     if(#{list_head_var_name}.value.tuple.start+1 < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start+1 >= 0) {
@@ -549,15 +687,23 @@ defmodule Honey.Translator do
     """
   end
 
-  defp get_list_elements_from_heap(list_head_var_name, [assignment_head | assignments_tail], exit_label) do
-    head_element_code = generate_code_for_list_head_element_assignment(list_head_var_name, assignment_head, exit_label)
+  defp get_list_elements_from_heap(
+         list_head_var_name,
+         [assignment_head | assignments_tail],
+         exit_label
+       ) do
+    head_element_code =
+      generate_code_for_list_head_element_assignment(
+        list_head_var_name,
+        assignment_head,
+        exit_label
+      )
+
     next_list_header = generate_code_for_get_next_list_head(list_head_var_name, exit_label)
 
-    head_element_code
-    <>
-    next_list_header.code
-    <>
-    get_list_elements_from_heap(next_list_header.return_var_name, assignments_tail, exit_label)
+    head_element_code <>
+      next_list_header.code <>
+      get_list_elements_from_heap(next_list_header.return_var_name, assignments_tail, exit_label)
   end
 
   defp get_tuple_element_from_heap(_tuple_var_name, [], _index, _exit_label), do: ""
@@ -565,6 +711,7 @@ defmodule Honey.Translator do
   defp get_tuple_element_from_heap(tuple_var_name, [first_tuple_elm | tail], index, exit_label) do
     first_tuple_elm_name = unique_helper_var()
     heap_index_var_name = unique_helper_var()
+
     """
     Generic #{first_tuple_elm_name};
     if(#{tuple_var_name}.value.tuple.start + #{index} < TUPLE_POOL_SIZE && #{tuple_var_name}.value.tuple.start + #{index}>= 0) {
@@ -579,24 +726,23 @@ defmodule Honey.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "TUPLE(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """
-      <>
-    pattern_matching(first_tuple_elm, first_tuple_elm_name, exit_label)
-      <>
-    get_tuple_element_from_heap(tuple_var_name, tail, index+1, exit_label)
+    """ <>
+      pattern_matching(first_tuple_elm, first_tuple_elm_name, exit_label) <>
+      get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label)
   end
 
-  defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var), do: ""
+  defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var),
+    do: ""
 
-  defp pattern_matching({:{}, _meta, tuple_elements}, helper_var_name, exit_label) when is_list(tuple_elements) do
+  defp pattern_matching({:{}, _meta, tuple_elements}, helper_var_name, exit_label)
+       when is_list(tuple_elements) do
     """
     if(#{helper_var_name}.type != TUPLE){
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """
-    <>
-    get_tuple_element_from_heap(helper_var_name, tuple_elements, 0, exit_label)
+    """ <>
+      get_tuple_element_from_heap(helper_var_name, tuple_elements, 0, exit_label)
   end
 
   defp pattern_matching({first, second}, helper_var_name, exit_label) do
@@ -605,13 +751,22 @@ defmodule Honey.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """
-    <>
-    get_tuple_element_from_heap(helper_var_name, [first, second], 0, exit_label)
+    """ <>
+      get_tuple_element_from_heap(helper_var_name, [first, second], 0, exit_label)
   end
 
-  defp pattern_matching([{:|, _meta, [header_assignment, tail_assignments]}], helper_var_name, exit_label) do
-    head_element_code = generate_code_for_list_head_element_assignment(helper_var_name, header_assignment, exit_label)
+  defp pattern_matching(
+         [{:|, _meta, [header_assignment, tail_assignments]}],
+         helper_var_name,
+         exit_label
+       ) do
+    head_element_code =
+      generate_code_for_list_head_element_assignment(
+        helper_var_name,
+        header_assignment,
+        exit_label
+      )
+
     next_list_header = generate_code_for_get_next_list_head(helper_var_name, exit_label)
 
     """
@@ -619,13 +774,10 @@ defmodule Honey.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """
-    <>
-    head_element_code
-    <>
-    next_list_header.code
-    <>
-    pattern_matching(tail_assignments, next_list_header.return_var_name, exit_label)
+    """ <>
+      head_element_code <>
+      next_list_header.code <>
+      pattern_matching(tail_assignments, next_list_header.return_var_name, exit_label)
   end
 
   defp pattern_matching(list_handlers, helper_var_name, exit_label) when is_list(list_handlers) do
@@ -634,19 +786,19 @@ defmodule Honey.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """
-    <>
-    get_list_elements_from_heap(helper_var_name, list_handlers, exit_label)
+    """ <>
+      get_list_elements_from_heap(helper_var_name, list_handlers, exit_label)
   end
 
   defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
     c_var_name = var_to_string(var)
+
     """
     Generic #{c_var_name} = #{helper_var_name};
     """
   end
 
-  defp pattern_matching(:true, helper_var_name, exit_label) do
+  defp pattern_matching(true, helper_var_name, exit_label) do
     """
     if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 8 ) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -655,7 +807,7 @@ defmodule Honey.Translator do
     """
   end
 
-  defp pattern_matching(:false, helper_var_name, exit_label) do
+  defp pattern_matching(false, helper_var_name, exit_label) do
     """
     if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 3 ) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -664,7 +816,7 @@ defmodule Honey.Translator do
     """
   end
 
-  defp pattern_matching(:nil, helper_var_name, exit_label) do
+  defp pattern_matching(nil, helper_var_name, exit_label) do
     """
     if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 0 ) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -684,6 +836,7 @@ defmodule Honey.Translator do
 
   defp pattern_matching(constant, helper_var_name, exit_label) when is_bitstring(constant) do
     string_var_name = unique_helper_var()
+
     """
     if(#{helper_var_name}.type != STRING) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -695,17 +848,17 @@ defmodule Honey.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """
-    <>
-    generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
+    """ <>
+      generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
   end
 
   # Compare if a given constant string `constant` is equals to a given variable by checking
   # chars one by one.
   defp generate_bitstring_checker_at_position("", _string_var_name, _index, _exit_label), do: ""
 
-  defp generate_bitstring_checker_at_position(constant, string_var_name, index, exit_label) when is_bitstring(constant) do
-    if (String.length(constant) <= index) do
+  defp generate_bitstring_checker_at_position(constant, string_var_name, index, exit_label)
+       when is_bitstring(constant) do
+    if String.length(constant) <= index do
       ""
     else
       """
@@ -715,9 +868,8 @@ defmodule Honey.Translator do
           goto #{exit_label};
         }
       }
-      """
-      <>
-      generate_bitstring_checker_at_position(constant, string_var_name, index+1, exit_label)
+      """ <>
+        generate_bitstring_checker_at_position(constant, string_var_name, index + 1, exit_label)
     end
   end
 
@@ -728,7 +880,9 @@ defmodule Honey.Translator do
     """
   end
 
-  defp case_statements_to_c(case_input_var_name, return_var_name, [{:->, _meta, [[lhs_expression], case_code_block]} | further_cases]) do
+  defp case_statements_to_c(case_input_var_name, return_var_name, [
+         {:->, _meta, [[lhs_expression], case_code_block]} | further_cases
+       ]) do
     exit_label = unique_helper_label()
     translated_case_code_block = to_c(case_code_block)
 
@@ -833,17 +987,17 @@ defmodule Honey.Translator do
   Transforms conditional statements to C.
   """
 
-  #Creates a situation for when all conditions are exhausted from the method below.
-  def cond_statments_to_c([], cond_var_name_in_c) do
+  # Creates a situation for when all conditions are exhausted from the method below.
+  def cond_statments_to_c([], cond_var_name_in_c, _context) do
     "#{cond_var_name_in_c} = (Generic){.type = ATOM, .value.string = (String){0, 2}};"
   end
 
-  #Transforms conditional statements to C one condition at a time.
-  def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c) do
+  # Transforms conditional statements to C one condition at a time.
+  def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c, context) do
     {:->, _, [[condition] | [block]]} = cond_stat
-    condition_in_c = to_c(condition)
+    condition_in_c = to_c(condition, context)
 
-    block_in_c = to_c(block)
+    block_in_c = to_c(block, context)
 
     gen("""
     #{condition_in_c.code}
@@ -851,13 +1005,12 @@ defmodule Honey.Translator do
       #{block_in_c.code}
       #{cond_var_name_in_c} = #{block_in_c.return_var_name};
     } else {
-      #{cond_statments_to_c(other_conds, cond_var_name_in_c)}
+      #{cond_statments_to_c(other_conds, cond_var_name_in_c, context)}
     }
     """)
   end
 
-
-  #Translates a block of code by calling to_c for each element in that block.
+  # Translates a block of code by calling to_c for each element in that block.
   defp block_to_c({:__block__, _, exprs}, context) do
     Enum.reduce(exprs, Honey.TranslatedCode.new(), fn expr, translated_so_far ->
       translated_expr = to_c(expr, context)
@@ -869,4 +1022,16 @@ defmodule Honey.Translator do
     end)
   end
 
+  # Receives existing variable names in the C code and generates the equivalent C code to a tuple containing the values of these variables
+  def generate_c_tuple_from_variables(variable_names) do
+    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(variable_names, 0)
+    tuple_var = unique_helper_var()
+
+    """
+    #{heap_allocation_code}
+    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
+    """
+    |> gen()
+    |> TranslatedCode.new(tuple_var)
+  end
 end

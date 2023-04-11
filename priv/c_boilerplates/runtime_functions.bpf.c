@@ -100,7 +100,7 @@ static void Subtract(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Sum)."};
 }
 
-static void Sum(OpResult *result, Generic *var1, Generic *var2)
+static __inline void Sum(OpResult *result, Generic *var1, Generic *var2)
 {
   result->exception = 0;
 
