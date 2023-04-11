@@ -9,12 +9,33 @@ end
 defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
+  alias Honey.Guard
 
   import Honey.Utils, only: [gen: 1, var_to_string: 1, ctx_var_to_generic: 1, is_var: 1]
 
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
   """
+
+  @doc """
+  #Translates the main function.
+  """
+
+  def translate(func_name, ast, sec, license, requires, elixir_maps) do
+    case func_name do
+      "main" ->
+        Guard.ensure_sec_type!(sec)
+        context = Honey.TranslatorContext.new(elixir_maps)
+        translated_code = to_c(ast, context)
+
+        sec
+        |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code)
+        |> Boilerplates.generate_whole_code()
+
+      _ ->
+        false
+    end
+  end
 
   @doc """
   Generates a string with the format "helper_var_<UniqueNumber>" to be used as an unique variable.
@@ -31,6 +52,7 @@ defmodule Honey.Translator do
   @doc """
   Translates specific segments of the AST to C.
   """
+
   def to_c(tree, context \\ {})
 
   # Variables
@@ -118,7 +140,7 @@ defmodule Honey.Translator do
   end
 
   # C libraries
-  def to_c({{:., _, [Honey.Bpf.Bpf_helpers, function]}, _, params}, context) do
+  def to_c({{:., _, [Honey.Bpf_helpers, function]}, _, params}, context) do
     case function do
       :bpf_printk ->
         [[string | other_params]] = params
@@ -881,6 +903,7 @@ defmodule Honey.Translator do
   Translates constants into a Generic C datatype.
   Generic being a struct used to represent many different datatypes with the same type.
   """
+
   def constant_to_code(item) do
     var_name_in_c = unique_helper_var()
 
@@ -1010,38 +1033,5 @@ defmodule Honey.Translator do
     """
     |> gen()
     |> TranslatedCode.new(tuple_var)
-  end
-
-  # Guarantees we have a valid type of eBPF program.
-  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_traffic_count)
-  defp ensure_right_type(type) do
-    case type do
-      type when type in @supported_types ->
-        true
-
-      type when type in ["", nil] ->
-        raise "The main/1 function must be preceded by a @sec indicating the type of the program."
-
-      type ->
-        raise "We cannot convert this Program Type yet: #{type}"
-    end
-  end
-
-  # Translates the main method.
-  def translate(func_name, ast, sec, license, requires, elixir_maps) do
-    case func_name do
-      "main" ->
-        ensure_right_type(sec)
-        context = Honey.TranslatorContext.new(elixir_maps)
-
-        translated_code = to_c(ast, context)
-
-        sec
-        |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code)
-        |> Boilerplates.generate_whole_code()
-
-      _ ->
-        false
-    end
   end
 end

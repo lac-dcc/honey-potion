@@ -15,9 +15,9 @@ defmodule Countsyscalls do
   def main(ctx) do
     id = ctx.id
 
-    id_count = Honey.Bpf.Bpf_helpers.bpf_map_lookup_elem(:map_traffic, id)
+    id_count = Honey.Bpf_helpers.bpf_map_lookup_elem(:map_traffic, id)
 
-    Honey.Bpf.Bpf_helpers.bpf_map_update_elem(:map_traffic, id, id_count + 1)
+    Honey.Bpf_helpers.bpf_map_update_elem(:map_traffic, id, id_count + 1)
 
     0
   end

@@ -6,6 +6,104 @@ defmodule Honey.DCE do
   """
 
   @doc """
+  Runs Dead Code Elimination given an elixir AST.
+  """
+
+  def run(fun_def) do
+    new_ast =
+      Macro.prewalk(fun_def, fn segment ->
+        case segment do
+          {:case, _, _} ->
+            analyze_case(segment)
+
+          {:cond, _, _} ->
+            analyze_cond(segment)
+
+          _ ->
+            segment
+        end
+      end)
+
+    new_ast =
+      Macro.prewalk(new_ast, fn segment ->
+        case segment do
+          {:__block__, meta, block} ->
+            new_block = eliminate_constants_in_code(block)
+            {:__block__, meta, new_block}
+
+          _ ->
+            segment
+        end
+      end)
+
+    new_ast =
+      Macro.prewalk(new_ast, fn segment ->
+        case segment do
+          {:__block__, meta, block} ->
+            new_block = expand_blocks(block)
+            {:__block__, meta, new_block}
+
+          _ ->
+            segment
+        end
+      end)
+
+    {new_ast, _def_use} =
+      Macro.prewalk(new_ast, Keyword.new(), fn segment, def_use ->
+        {segment, def_use} =
+          case segment do
+            {:=, _meta, [lhs, rhs]} ->
+              var_version = var_to_key(lhs)
+
+              var_uses = get_uses(rhs)
+
+              def_use =
+                Keyword.update(def_use, var_version, [], fn uses ->
+                  uses ++ var_uses
+                end)
+
+              {segment, def_use}
+
+            {fun_name, meta, args} ->
+              if(is_atom(fun_name) and is_list(meta) and is_list(args)) do
+                function_uses =
+                  Enum.reduce(args, [], fn arg, uses ->
+                    get_uses(arg) ++ uses
+                  end)
+
+                def_use =
+                  if(Enum.count(function_uses) > 0) do
+                    Keyword.update(def_use, :function_call, [], fn uses ->
+                      uses ++ function_uses
+                    end)
+                  else
+                    def_use
+                  end
+
+                {segment, def_use}
+              else
+                {segment, def_use}
+              end
+
+            _ ->
+              {segment, def_use}
+          end
+
+        {segment, def_use}
+      end)
+
+    # IO.puts("Uses:")
+    # IO.inspect(def_use)
+
+    # IO.puts("Ast after Dead Code Elimination:")
+    # IO.inspect(new_ast)
+    # IO.puts("\nCode after Dead Code Elimination:")
+    # IO.puts(Macro.to_string(new_ast))
+
+    new_ast
+  end
+
+  @doc """
   Calculates the used variables within a segment.
   """
 
@@ -170,103 +268,5 @@ defmodule Honey.DCE do
       new_conds = Enum.reverse(new_conds_or_block)
       {:cond, meta, [[do: new_conds]]}
     end
-  end
-
-  @doc """
-  Runs Dead Code Elimination given an elixir AST.
-  """
-
-  def run(fun_def) do
-    new_ast =
-      Macro.prewalk(fun_def, fn segment ->
-        case segment do
-          {:case, _, _} ->
-            analyze_case(segment)
-
-          {:cond, _, _} ->
-            analyze_cond(segment)
-
-          _ ->
-            segment
-        end
-      end)
-
-    new_ast =
-      Macro.prewalk(new_ast, fn segment ->
-        case segment do
-          {:__block__, meta, block} ->
-            new_block = eliminate_constants_in_code(block)
-            {:__block__, meta, new_block}
-
-          _ ->
-            segment
-        end
-      end)
-
-    new_ast =
-      Macro.prewalk(new_ast, fn segment ->
-        case segment do
-          {:__block__, meta, block} ->
-            new_block = expand_blocks(block)
-            {:__block__, meta, new_block}
-
-          _ ->
-            segment
-        end
-      end)
-
-    {new_ast, _def_use} =
-      Macro.prewalk(new_ast, Keyword.new(), fn segment, def_use ->
-        {segment, def_use} =
-          case segment do
-            {:=, _meta, [lhs, rhs]} ->
-              var_version = var_to_key(lhs)
-
-              var_uses = get_uses(rhs)
-
-              def_use =
-                Keyword.update(def_use, var_version, [], fn uses ->
-                  uses ++ var_uses
-                end)
-
-              {segment, def_use}
-
-            {fun_name, meta, args} ->
-              if(is_atom(fun_name) and is_list(meta) and is_list(args)) do
-                function_uses =
-                  Enum.reduce(args, [], fn arg, uses ->
-                    get_uses(arg) ++ uses
-                  end)
-
-                def_use =
-                  if(Enum.count(function_uses) > 0) do
-                    Keyword.update(def_use, :function_call, [], fn uses ->
-                      uses ++ function_uses
-                    end)
-                  else
-                    def_use
-                  end
-
-                {segment, def_use}
-              else
-                {segment, def_use}
-              end
-
-            _ ->
-              {segment, def_use}
-          end
-
-        {segment, def_use}
-      end)
-
-    # IO.puts("Uses:")
-    # IO.inspect(def_use)
-
-    # IO.puts("Ast after Dead Code Elimination:")
-    # IO.inspect(new_ast)
-    # IO.puts("\nCode after Dead Code Elimination:")
-    # IO.puts(Macro.to_string(new_ast))
-
-    new_ast
   end
 end

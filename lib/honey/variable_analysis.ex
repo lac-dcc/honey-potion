@@ -13,6 +13,7 @@ defmodule Honey.Analyze do
   @doc """
   Runs the analysis given an elixir AST.
   """
+
   def run(ast) do
 
     #Does a right to left traverse to check what variables have uses from a point on. Considers case/cond branches
@@ -277,5 +278,4 @@ defmodule Honey.Analyze do
   defp do_cond_traverse_args_equals(args, acc, _pre, _post, _casecondFather, _sharedAccumulator) when is_atom(args) do
     {args, acc}
   end
-
 end

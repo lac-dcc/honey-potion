@@ -15,6 +15,18 @@
 *Honey Potion* is a framework that brings the powerful eBPF technology into Elixir. Users can write Elixir code that will be transformed into eBPF bytecodes. Many high-level features of Elixir are available and more will be added soon.
 In this alpha version, the framework translates the code to a subset of C that uses [libbpf](https://github.com/libbpf/libbpf)'s features. Then it's possible to use `clang` to obtain the bytecodes and load it into the Kernel.
 
+## Dependencies
+*Honey Potion* depends on a few BPF-related packages to run. Below are listed the packages with the ubuntu names. Other distros should have similar or equal names.
+
+- erlang and elixir - For the language used in Honey Potion
+- libbpf-dev - For libbpf, libelf and zlib
+- gcc-multilib - For C libraries (asm/types.h)
+- make - For Makefile compilation
+- llvm - For llc
+- clang - For clang
+
+Note that clang, llc and bpftool can be compiled by the user, as long as they are in the $PATH.
+
 ## Installation
 
 The package can be installed by adding `honey` to your list of dependencies in `mix.exs`:
@@ -44,6 +56,8 @@ Will generate a few new sub-directories for you:
 - bin : Where the executable is kept, `Minimal` for example
 
 To run your program, just go into the bin directory and run the executable with privileges.
+
+If you wish to learn how to use Honey-Potion with a video [click here.](https://www.youtube.com/watch?v=Wis5e3vLcMg)
 
 Notice the `license` option: as eBPF demands, we need to specify a license to our program.
 Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the C file generated.
