@@ -1,6 +1,11 @@
 defmodule Countsyscalls do
   use Honey, license: "Dual BSD/GPL"
 
+  # This module uses a frontend located in the folder frontends in the above directory.
+  # To use it make sure to first run mix compile --force to generate backend, then move the
+  # frontend to the src directory (overwrite) then run make TARGET=CountSysCalls.
+  # Now the binary has the front-end that every three seconds prints the map!
+
   defmap(
     :map_traffic,
     %{type: BPF_MAP_TYPE_ARRAY, max_entries: 335}

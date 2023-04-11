@@ -30,8 +30,8 @@ alias Honey.Boilerplates
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
     #include <stdlib.h>
-    #include "runtime_structures.bpf.h"
-    #include "runtime_functions.bpf.c"
+    #include <runtime_structures.bpf.h>
+    #include <runtime_functions.bpf.c>
 
     """)
   end
