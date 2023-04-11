@@ -64,7 +64,7 @@ defmodule Honey.Translator do
     end
   end
 
-  def to_c({{:., _, [:erlang, function]}, _, [lhs, rhs]}, _context) do
+  def to_c({{:., _, [:erlang, function]}, _, [lhs, rhs]}, context) do
     func_string =
       case function do
         :+ ->
@@ -104,8 +104,8 @@ defmodule Honey.Translator do
           raise "Erlang function not supported: #{Atom.to_string(function)}"
       end
 
-    lhs_in_c = to_c(lhs)
-    rhs_in_c = to_c(rhs)
+    lhs_in_c = to_c(lhs, context)
+    rhs_in_c = to_c(rhs, context)
     c_var_name = unique_helper_var()
 
     """
@@ -210,8 +210,9 @@ defmodule Honey.Translator do
               goto CATCH;
             } else {
               #{item_var} = *#{result_var_pointer};
+              #{item_var}.type = #{item_var}.type == INVALID_TYPE ? INTEGER : #{item_var}.type;
             }
-            // #{tuple_translation.code}
+            /* #{tuple_translation.code} */
             """
             |> gen()
             # |> TranslatedCode.new(tuple_translation.return_var_name)
@@ -373,10 +374,10 @@ defmodule Honey.Translator do
   def to_c(pm_operation = {:=, _, [_lhs, _rhs]}, context), do: to_c(pm_operation, context, true)
 
   # Cond
-  def to_c({:cond, _, [[do: conds]]}, _context) do
+  def to_c({:cond, _, [[do: conds]]}, context) do
     cond_var = unique_helper_var()
 
-    cond_code = cond_statments_to_c(conds, cond_var)
+    cond_code = cond_statments_to_c(conds, cond_var, context)
 
     """
     Generic #{cond_var} = {.type = INTEGER, .value.integer = 0};
@@ -964,16 +965,16 @@ defmodule Honey.Translator do
   """
 
   # Creates a situation for when all conditions are exhausted from the method below.
-  def cond_statments_to_c([], cond_var_name_in_c) do
+  def cond_statments_to_c([], cond_var_name_in_c, _context) do
     "#{cond_var_name_in_c} = (Generic){.type = ATOM, .value.string = (String){0, 2}};"
   end
 
   # Transforms conditional statements to C one condition at a time.
-  def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c) do
+  def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c, context) do
     {:->, _, [[condition] | [block]]} = cond_stat
-    condition_in_c = to_c(condition)
+    condition_in_c = to_c(condition, context)
 
-    block_in_c = to_c(block)
+    block_in_c = to_c(block, context)
 
     gen("""
     #{condition_in_c.code}
@@ -981,7 +982,7 @@ defmodule Honey.Translator do
       #{block_in_c.code}
       #{cond_var_name_in_c} = #{block_in_c.return_var_name};
     } else {
-      #{cond_statments_to_c(other_conds, cond_var_name_in_c)}
+      #{cond_statments_to_c(other_conds, cond_var_name_in_c, context)}
     }
     """)
   end

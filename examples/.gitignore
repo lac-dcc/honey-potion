@@ -24,3 +24,7 @@ examples-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# VS Code settings directory
+
+/.vscode

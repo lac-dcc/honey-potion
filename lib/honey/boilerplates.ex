@@ -163,7 +163,7 @@ alias Honey.Boilerplates
     StrFormatSpec str_param2;
     StrFormatSpec str_param3;
 
-    OpResult op_result;
+    OpResult op_result = (OpResult){0};
 
     int zero = 0;
     char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);

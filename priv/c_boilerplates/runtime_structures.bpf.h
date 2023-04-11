@@ -24,7 +24,7 @@
   op(&op_result, &var1, &var2);                          \
   if (op_result.exception)                               \
     goto CATCH;                                          \
-  Generic generic_result;                                \
+  Generic generic_result = (Generic){0};                 \
   generic_result.type = op_result.result_var.type;       \
   generic_result.value = op_result.result_var.value;
 
