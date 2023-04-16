@@ -1,23 +1,24 @@
-defmodule CountSysCalls do
+defmodule Countsyscalls do
   use Honey, license: "Dual BSD/GPL"
+
+  # This module uses a frontend located in the folder frontends in the above directory.
+  # To use it make sure to first run mix compile --force to generate backend, then move the
+  # frontend to the src directory (overwrite) then run make TARGET=CountSysCalls.
+  # Now the binary has the front-end that every three seconds prints the map!
+
+  defmap(
+    :map_traffic,
+    %{type: BPF_MAP_TYPE_ARRAY, max_entries: 335}
+  )
 
   @sec "tracepoint/raw_syscalls/sys_enter"
   def main(ctx) do
-
-    # Uncomment last 4 lines in case you want to see more types of sys_calls.
-    # This file is a mixture of Cond and CtxAccess.
-    # See https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/ for translation.
-
     id = ctx.id
-    cond do
-      id == 62 -> Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type enter_kill"])
-      id == 83 -> Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type enter_mkdir"])
-      id == 318 -> Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type enter_getrandom"])
-      # true ->  #These ignored types are recursive as they are created from the process and lead to another call of itself.
-      #   if !(id == 0) and !(id == 1) and !(id == 7) and !(id == 47) do
-      #     Honey.Bpf.Bpf_helpers.bpf_printk(["Syscall of type %d", id])
-      #   end
-    end
+
+    id_count = Honey.Bpf_helpers.bpf_map_lookup_elem(:map_traffic, id)
+
+    Honey.Bpf_helpers.bpf_map_update_elem(:map_traffic, id, id_count + 1)
+
     0
   end
 end

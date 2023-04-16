@@ -6,6 +6,6 @@ defmodule HelloWorld do
 
     # Shows how to print to /sys/kernel/debug/tracing/trace_pipe.
 
-    Honey.Bpf.Bpf_helpers.bpf_printk(["Hello world!", nil])
+    Honey.Bpf_helpers.bpf_printk(["Hello world!", nil])
   end
 end

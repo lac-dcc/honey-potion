@@ -1,10 +1,12 @@
 defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
+  alias Honey.Utils 
 
   @moduledoc """
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
+alias Honey.Boilerplates
 
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
 
@@ -18,6 +20,73 @@ defmodule Honey.Boilerplates do
       requires: requires,
       translated_code: translated_code
     }
+  end
+
+  @doc """
+  Calls the methods necessary to create the boilerplates and add the translated code.
+  """
+
+  def generate_whole_code(config) do
+    gen(
+      generate_includes(config) <>
+      generate_maps(config) <>
+      generate_ctx_struct(config) <>
+      generate_license(config) <>
+      generate_main(config)
+    )
+  end
+
+  @doc """
+  Generates the generic front-end for the bpf program.
+  """
+
+  def generate_frontend_code(env) do
+    module_name = Utils.module_name(env) 
+
+    include = """
+    #include <bpf/libbpf.h>
+    #include <bpf/bpf.h>
+    #include <stdio.h>
+    #include <unistd.h>
+    #include "#{module_name}.skel.h"
+    """
+
+    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
+    output_func = File.read!(path)
+
+    main = """
+    int main(int argc, char **argv) {
+      struct #{module_name}_bpf *skel;
+      int err;
+
+      skel = #{module_name}_bpf__open();
+      if(!skel){
+        fprintf(stderr, "Skeleton failed opening.\\n");
+        return 1;
+      }
+
+      /*If we wish to change global values in the skeleton, this is the correct section to do so.*/
+    """ <> "" <> """
+
+      err = #{module_name}_bpf__load(skel);
+      if(err){
+        fprintf(stderr, "Failed loading or verification of BPF skeleton.\\n");
+        #{module_name}_bpf__destroy(skel);
+        return -err;
+      }
+
+      err = #{module_name}_bpf__attach(skel);
+      if(err){
+        fprintf(stderr, "Failed attaching BPF skeleton.\\n");
+        #{module_name}_bpf__destroy(skel);
+        return -err;
+      }
+
+      output();
+    }
+    """
+
+    include <> output_func <> main
   end
 
   @doc """
@@ -56,10 +125,10 @@ defmodule Honey.Boilerplates do
   end
 
   @doc """
-  Converts the maps created in Elixir into its C version.
+  Generate the C version of the maps declared by the user in Elixir.
   """
 
-  def create_c_maps(maps) do
+  def generate_maps(%Boilerplates{elixir_maps: maps}) do
     c_maps =
       Enum.map(maps, fn elixir_map ->
         map_name = elixir_map[:name]
@@ -83,9 +152,9 @@ defmodule Honey.Boilerplates do
         """
         struct {
           #{fields}
-          __type(key, int);
+          __uint(key_size, sizeof(int));
           __uint(value_size, sizeof(Generic));
-        } #{map_name} SEC(".maps")
+        } #{map_name} SEC(".maps");
         """
       end)
 
@@ -162,7 +231,7 @@ defmodule Honey.Boilerplates do
     StrFormatSpec str_param2;
     StrFormatSpec str_param3;
 
-    OpResult op_result;
+    OpResult op_result = (OpResult){0};
 
     int zero = 0;
     char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
@@ -237,6 +306,7 @@ defmodule Honey.Boilerplates do
   @doc """
   Creates the struct for the ctx main argument.
   """
+
   def generate_ctx_struct(config) do
     case config.libbpf_prog_type do
     "tracepoint/syscalls/sys_enter_kill" -> gen("""
@@ -340,65 +410,5 @@ defmodule Honey.Boilerplates do
       #{generate_ending_main_code(config.translated_code.return_var_name)}
     }
     """)
-  end
-
-  @doc """
-  Calls the methods necessary to create the boilerplates and add the translated version.
-  """
-
-  def generate_whole_code(config) do
-    gen(
-      generate_includes(config) <>
-      generate_ctx_struct(config) <>
-      generate_license(config) <>
-      generate_main(config)
-    )
-  end
-
-  def generate_frontend_code(module_name) do
-    include = """
-    #include <bpf/libbpf.h>
-    #include <bpf/bpf.h>
-    #include <stdio.h>
-    #include <unistd.h>
-    #include "#{module_name}.skel.h"
-    """
-
-    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
-    output_func = File.read!(path)
-
-    main = """
-    int main(int argc, char **argv) {
-      struct #{module_name}_bpf *skel;
-      int err;
-
-      skel = #{module_name}_bpf__open();
-      if(!skel){
-        fprintf(stderr, "Skeleton failed opening.\\n");
-        return 1;
-      }
-
-      /*If we wish to change global values in the skeleton, this is the correct section to do so.*/
-    """ <> "" <> """
-
-      err = #{module_name}_bpf__load(skel);
-      if(err){
-        fprintf(stderr, "Failed loading or verification of BPF skeleton.\\n");
-        #{module_name}_bpf__destroy(skel);
-        return -err;
-      }
-
-      err = #{module_name}_bpf__attach(skel);
-      if(err){
-        fprintf(stderr, "Failed attaching BPF skeleton.\\n");
-        #{module_name}_bpf__destroy(skel);
-        return -err;
-      }
-
-      output();
-    }
-    """
-
-    include <> output_func <> main
   end
 end

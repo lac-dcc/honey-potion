@@ -38,6 +38,9 @@ ebpf_translator-*.tar
 examples/*.c
 /.vscode
 
+# Elixisls cleanup
+**/.elixir_ls/
+
 # clangd cleanup.
 **/compile_commands.json
 **/.cache/**
