@@ -31,6 +31,8 @@ clean:
 
 # Binary Creation
 $(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/$(TARGET).c $(SRC_DIR)/obj/$(TARGET).skel.h
+	@$(MAKE) --directory=${LIBBPF_DIR} all
+	@DESTDIR=root $(MAKE) --directory=${LIBBPF_DIR} install_headers
 	gcc $(CFLAGS) $(LDFLAGS) -o $(SRC_DIR)/bin/$(TARGET) $(SRC_DIR)/$(TARGET).c -Wl,-rpath='$(LIBBPF_DIR)' $(LIBS)
 
 # Skeleton Generation
