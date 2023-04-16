@@ -2,6 +2,7 @@ defmodule Honey do
   alias Mix.Task.Compiler
   alias Honey.Guard       #Stops execution if main doesn't exist.
   alias Honey.Fuel        #Unrolls function calls.
+  alias Honey.Optimizer   #Optimizes the AST with DCE and CP and does variable analysis.
   alias Honey.Info        #Gathers Info about the AST.
   alias Honey.Generator   #Uses that info to generate frontend and backend code.
   alias Honey.Write       #Writes files into the right folders for compilation.
@@ -25,7 +26,7 @@ defmodule Honey do
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
-    final_ast = func_ast |> Fuel.burn_fuel(env) # |> Optimizer.run()
+    final_ast = func_ast |> Fuel.burn_fuel(env) |> Optimizer.run()
 
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 

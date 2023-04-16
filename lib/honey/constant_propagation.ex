@@ -1,5 +1,5 @@
 defmodule Honey.ConstantPropagation do
-  import Honey.Utils, only: [var_to_string: 1, is_var: 1]
+  import Honey.Utils, only: [var_to_key: 1, is_var: 1]
 
   @moduledoc """
   Executes Constant Propagation optimization in the elixir AST of the source program.
@@ -27,8 +27,8 @@ defmodule Honey.ConstantPropagation do
     Macro.postwalk(ast, [], fn segment, constants ->
       case segment do
         #An atribution with a constant right hand side has a constant left side. Add the LHS variable as a constant.
-        {:=, _meta, [lhs, rhs]} when is_constant(rhs) ->
-          var_version = String.to_atom(var_to_string(lhs))
+        {:=, _meta, [lhs, rhs]} when is_constant(rhs) and is_var(lhs) ->
+          var_version = var_to_key(lhs)
           constants = Keyword.put(constants, var_version, rhs)
           {rhs, constants}
 
@@ -50,7 +50,7 @@ defmodule Honey.ConstantPropagation do
 
         #A variable that has been kept as a constant (from the := case) can be substituted by its value.
         var when is_var(var) ->
-          var_version = String.to_atom(var_to_string(var))
+          var_version = var_to_key(var)
 
           case Keyword.fetch(constants, var_version) do
             {:ok, const} ->

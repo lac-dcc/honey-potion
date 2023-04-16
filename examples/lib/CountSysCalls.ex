@@ -1,4 +1,4 @@
-defmodule Countsyscalls do
+defmodule CountSysCalls do
   use Honey, license: "Dual BSD/GPL"
 
   # This module uses a frontend located in the folder frontends in the above directory.

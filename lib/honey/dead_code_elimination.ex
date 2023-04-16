@@ -52,7 +52,7 @@ defmodule Honey.DCE do
       Macro.prewalk(new_ast, Keyword.new(), fn segment, def_use ->
         {segment, def_use} =
           case segment do
-            {:=, _meta, [lhs, rhs]} ->
+            {:=, _meta, [lhs, rhs]} when is_var(lhs) ->
               var_version = var_to_key(lhs)
 
               var_uses = get_uses(rhs)
