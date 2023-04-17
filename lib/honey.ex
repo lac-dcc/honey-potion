@@ -15,8 +15,10 @@ defmodule Honey do
   Then it's possible to use clang to obtain the bytecodes and load it into the Kernel.
   """
 
+
+
   @doc """
-  Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline. 
+  Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline.
   """
 
   defmacro __before_compile__(env) do
@@ -27,6 +29,7 @@ defmodule Honey do
 
     final_ast = func_ast |> Fuel.burn_fuel(env) # |> Optimizer.run()
 
+    IO.inspect(final_ast)
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 
     Write.write_ouput_files(backend_code, frontend_code, env)

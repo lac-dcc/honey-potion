@@ -26,6 +26,23 @@ defmodule Honey.Fuel do
     add_fuel_metadata(fun_call, amount)
   end
 
+  defp transform_function_matching_to_case_do({name, arity}, env) do
+    {:v1, _kind, _metadata, clauses} = Module.get_definition(env.module, {name, arity})
+    do_expressions = Enum.map(clauses, fn clause ->
+        {_metadata, formal_args, _guards, func_ast} = clause
+        [formal_args, func_ast]
+      end)
+      do_expressions
+    # {_metadata, formal_args, _guards, func_ast} = clause
+    # clauses
+  end
+
+  defp functions_to_case_do(env) do
+    function_names_and_arity = Module.definitions_in(env.module)
+    Enum.map(function_names_and_arity, fn current_function -> transform_function_matching_to_case_do(current_function, env) end)
+    # IO.inspect(function_names)
+  end
+
   @doc """
   Burns fuel with consecultive passes through the AST until no more changes are made.
   Currently it only accepts calls from the same module.
