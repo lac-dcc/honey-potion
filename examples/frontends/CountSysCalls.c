@@ -107,7 +107,7 @@ void printMap(struct bpf_object *obj) {
     while (bpf_map_get_next_key(map_syscalls_fd, &key, &next_key) == 0) {
         int success = bpf_map_lookup_elem(map_syscalls_fd, &key, &value);
         if (success == 0 && findSyscallName(key)) {
-            printf("Syscall: %ld (%s)", key, findSyscallName(key));
+            printf("Syscall: %d (%s)", key, findSyscallName(key));
             printf(" | Qtd: %ld\n", value.value.integer);
         }
         key = next_key;
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     struct bpf_object *obj;
     struct bpf_prog_load_attr prog_load_attr = {
         .prog_type = BPF_PROG_TYPE_TRACEPOINT,
-        .file = "./lib/obj/Count.bpf.o"
+        .file = "./../obj/CountSysCalls.bpf.o"
     };
 
     if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd) == 0) {
