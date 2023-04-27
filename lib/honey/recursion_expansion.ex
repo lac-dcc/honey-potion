@@ -29,6 +29,7 @@ defmodule Honey.Fuel do
   defp transform_function_matching_to_case_do({name, arity}, env) do
     {:v1, _kind, _metadata, clauses} = Module.get_definition(env.module, {name, arity})
     do_expressions = Enum.map(clauses, fn clause ->
+      # TODO: Add support for guards
         {_metadata, formal_args, _guards, func_ast} = clause
         [formal_args, func_ast]
       end)
@@ -37,10 +38,36 @@ defmodule Honey.Fuel do
     # clauses
   end
 
+  defp get_function_key({name, arity}), do: get_function_key(name, arity)
+
+  defp get_function_key(name, arity) do
+    "#{name}.#{to_string(arity)}"
+  end
+
+
   defp functions_to_case_do(env) do
     function_names_and_arity = Module.definitions_in(env.module)
-    Enum.map(function_names_and_arity, fn current_function -> transform_function_matching_to_case_do(current_function, env) end)
-    # IO.inspect(function_names)
+    function_keys = Enum.map(function_names_and_arity, &get_function_key/1)
+    function_declarations = Enum.map(function_names_and_arity, fn current_function -> transform_function_matching_to_case_do(current_function, env) end)
+
+
+    Enum.zip([function_keys, function_declarations])
+    |> Map.new()
+  end
+
+  defp get_case_block_for_function({function_name, function_arity}, function_arguments, function_declarations_map),
+    do: get_case_block_for_function(function_name, function_arity, function_arguments, function_declarations_map)
+
+  defp get_case_block_for_function(function_name, function_arity, function_arguments, function_declarations_map) do
+    function_key = get_function_key(function_name, function_arity)
+    function_declarations = function_declarations_map[function_key]
+    {:case, [], [
+      function_arguments,
+      [
+        do: Enum.map(function_declarations, fn function_case -> {:->, [], function_case} end)
+      ]
+
+    ]}
   end
 
   @doc """
@@ -49,6 +76,10 @@ defmodule Honey.Fuel do
   """
 
   def burn_fuel(main_ast, env) do
+    function_declarations_map = functions_to_case_do(env)
+    # IO.inspect(function_declarations_map)
+    IO.inspect(get_case_block_for_function("foo", 1, [3],function_declarations_map))
+
     {new_ast, modified} =
       Macro.postwalk(main_ast, false, fn
         {_, meta, _} = call, modified when is_call(call) ->
