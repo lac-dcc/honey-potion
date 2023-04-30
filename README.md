@@ -34,7 +34,7 @@ The package can be installed by adding `honey` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:honey, git: "https://github.com/lac-dcc/honey-potion/"}
+    {:honey, git: "https://github.com/lac-dcc/honey-potion/", submodules: true}
   ]
 end
 ```
