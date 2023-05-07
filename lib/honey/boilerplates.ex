@@ -1,6 +1,7 @@
 defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
   alias Honey.Utils 
+  alias Honey.Info
 
   @moduledoc """
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
@@ -44,18 +45,18 @@ alias Honey.Boilerplates
     module_name = Utils.module_name(env) 
 
     include = """
-    #include <bpf/libbpf.h>
     #include <bpf/bpf.h>
+    #include <bpf/libbpf.h>
     #include <stdio.h>
     #include <unistd.h>
-    #include "#{module_name}.skel.h"
+    #include <runtime_generic.bpf.h>
+    #include "#{module_name}.skel.h"\n
     """
 
-    path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
-    output_func = File.read!(path)
+    {output_decl, output_func} = generate_output_function(env)
 
     main = """
-    int main(int argc, char **argv) {
+    \nint main(int argc, char **argv) {
       struct #{module_name}_bpf *skel;
       int err;
 
@@ -64,9 +65,6 @@ alias Honey.Boilerplates
         fprintf(stderr, "Skeleton failed opening.\\n");
         return 1;
       }
-
-      /*If we wish to change global values in the skeleton, this is the correct section to do so.*/
-    """ <> "" <> """
 
       err = #{module_name}_bpf__load(skel);
       if(err){
@@ -82,11 +80,77 @@ alias Honey.Boilerplates
         return -err;
       }
 
-      output();
+      output(skel);
     }
     """
+    
+    include <> output_decl <> main <> output_func
+  end
 
-    include <> output_func <> main
+  def generate_output_function(env) do
+    {_,_,_,maps} = Info.get_backend_info(env)
+
+    # Enumerate through functions and return the print of the elements that were requested.
+    output = Enum.map(maps, fn map ->
+      {name, _type, _max_entries, print, print_elem} = Info.get_maps_attributes(map)
+      if(!(print == true)) do
+        ""
+      else
+        if(print_elem == nil) do
+          raise "RuntimeError: When :print is true, make sure to specify :print_elem."
+        end
+        name = Atom.to_string(name)
+        """
+          /* Printing map of name #{name} */
+          struct bpf_map* #{name} = skel->maps.#{name};
+          int #{name}_fd = bpf_map__fd(#{name});
+          while(1){
+            printf("\\e[1;1H\\e[2J");
+            printf("#{name}:\\n");
+            #{Enum.map(print_elem, fn elem ->
+              case elem do
+                {elem_name, key} when is_binary(elem_name) and is_integer(key)->
+                  """
+                  key = #{Integer.to_string(key)};
+                  success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                  if(success == 0){
+                    printf("%s %d\\n", "#{elem_name}", value.value.integer);
+                  }
+                  else
+                  {
+                    printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
+                  }
+                  """
+                _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
+                end
+              end
+            ) |> Enum.join}
+        """  
+      end
+    end) |> Enum.join
+
+    #If no print has been generated, return to the standard output.
+    if(output == "") do
+      path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
+      decl = "void output();\n"
+      {decl, File.read!(path)}
+    else
+      #Else, add the prefix and the suffix to the output.
+      module_name = Utils.module_name(env)
+      prefix = """
+        void output(struct #{module_name}_bpf* skel) {
+          int key, success;
+          Generic value = (Generic){0};
+      """
+      suffix = """
+              sleep(1);
+            }
+          } 
+      """
+      decl = "void output(struct #{module_name}_bpf* skel);\n"
+
+      {decl, prefix <> output <> suffix}
+    end
   end
 
   @doc """
@@ -136,16 +200,17 @@ alias Honey.Boilerplates
 
         fields =
           Enum.map(map_content, fn {key, value} ->
-            value =
-              case key do
-                :type ->
-                  Macro.to_string(value)
-
-                _ ->
-                  Integer.to_string(value)
-              end
-
-            "__uint(#{key}, #{value});"
+            case key do
+              :type ->
+                
+                "__uint(#{key}, #{Macro.to_string(value)});"
+                
+              :max_entries ->
+                "__uint(#{key}, #{Integer.to_string(value)});"
+                
+              _ -> 
+                ""
+            end
           end)
           |> Enum.join("\n")
 

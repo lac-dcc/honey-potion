@@ -11,7 +11,7 @@ LIBBPF_HEADERS ?= $(LIBBPF_DIR)/../../headers/
 PRIV_DIR ?= $(SRC_DIR)/../../priv
 C_BOILERPLATES ?= $(PRIV_DIR)/c_boilerplates/
 OBJ_FOLDER ?= $(SRC_DIR)/obj/
-CFLAGS ?= -I'$(LIBBPF_INCLUDE)' -I'$(LIBBPF_HEADERS)' -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
+CFLAGS ?=  -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
 LDFLAGS ?= -L'$(LIBBPF_DIR)'
 BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 

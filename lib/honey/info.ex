@@ -32,4 +32,19 @@ defmodule Honey.Info do
     {_metadata, arguments, _guards, func_ast} = first_clause
     {arguments, func_ast}
   end
+
+  @doc """
+  Gets all of the main attributes of a map.
+  """ 
+
+  def get_maps_attributes(maps) do
+    name = Map.get(maps, :name)
+    content = Map.get(maps, :content)
+
+    type = Map.get(content, :type)
+    max_entries = Map.get(content, :max_entries)
+    print = Map.get(content, :print)
+    print_elem = Map.get(content, :print_elem)
+    {name, type, max_entries, print, print_elem}
+  end
 end
