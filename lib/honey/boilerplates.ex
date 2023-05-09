@@ -114,7 +114,7 @@ alias Honey.Boilerplates
                   key = #{Integer.to_string(key)};
                   success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
                   if(success == 0){
-                    printf("%s %d\\n", "#{elem_name}", value.value.integer);
+                    printf("%s %ld\\n", "#{elem_name}", value.value.integer);
                   }
                   else
                   {
