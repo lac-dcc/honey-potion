@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
     struct bpf_object *obj;
     struct bpf_prog_load_attr prog_load_attr = {
         .prog_type = BPF_PROG_TYPE_TRACEPOINT,
-        .file = "./lib/obj/Forcekill.bpf.o"
+        .file = "../obj/Forcekill.bpf.o"
     };
 
     if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd) == 0) {
