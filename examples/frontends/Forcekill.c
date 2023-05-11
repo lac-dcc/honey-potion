@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 static char PROGNAME[] = "main_func";
-static char MAPNAME[] = "map";
+static char MAPNAME[] = "kills";
 
 /**
  * @brief Load the eBPF program

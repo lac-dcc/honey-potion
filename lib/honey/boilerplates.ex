@@ -1,6 +1,6 @@
 defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
-  alias Honey.Utils 
+  alias Honey.Utils
   alias Honey.Info
 
   @moduledoc """
@@ -42,7 +42,7 @@ alias Honey.Boilerplates
   """
 
   def generate_frontend_code(env) do
-    module_name = Utils.module_name(env) 
+    module_name = Utils.module_name(env)
 
     include = """
     #include <bpf/bpf.h>
@@ -83,7 +83,7 @@ alias Honey.Boilerplates
       output(skel);
     }
     """
-    
+
     include <> output_decl <> main <> output_func
   end
 
@@ -125,7 +125,7 @@ alias Honey.Boilerplates
                 end
               end
             ) |> Enum.join}
-        """  
+        """
       end
     end) |> Enum.join
 
@@ -145,7 +145,7 @@ alias Honey.Boilerplates
       suffix = """
               sleep(1);
             }
-          } 
+          }
       """
       decl = "void output(struct #{module_name}_bpf* skel);\n"
 
@@ -202,13 +202,13 @@ alias Honey.Boilerplates
           Enum.map(map_content, fn {key, value} ->
             case key do
               :type ->
-                
+
                 "__uint(#{key}, #{Macro.to_string(value)});"
-                
+
               :max_entries ->
                 "__uint(#{key}, #{Integer.to_string(value)});"
-                
-              _ -> 
+
+              _ ->
                 ""
             end
           end)
@@ -217,7 +217,11 @@ alias Honey.Boilerplates
         """
         struct {
           #{fields}
-          __uint(key_size, sizeof(int));
+          #{if(map_content.type == BPF_MAP_TYPE_ARRAY or map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY) do
+            "__uint(key_size, sizeof(int));"
+          else
+            "__uint(key_size, sizeof(long));"
+          end}
           __uint(value_size, sizeof(Generic));
         } #{map_name} SEC(".maps");
         """

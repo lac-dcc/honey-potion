@@ -17,7 +17,7 @@ defmodule Honey do
   """
 
   @doc """
-  Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline. 
+  Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline.
   """
 
   defmacro __before_compile__(env) do
@@ -54,7 +54,12 @@ defmodule Honey do
   )
   ```
 
-  In the Alpha version, just the map type BPF_MAP_TYPE_ARRAY is available, but you only need to specify the number of entries and the map is ready to use.
+  In the current version, the types of maps available are:
+
+    - BPF_MAP_TYPE_ARRAY: You only need to specify the maximum number of entries (max_entries) and the map is ready to use.
+    - BPF_MAP_TYPE_HASH: The key is an integer, and you only need to provide the maximum number of entries (max_entries) and the map is ready to use,
+    - BPF_MAP_TYPE_PERCPU_ARRAY: Same as BPF_MAP_TYPE_ARRAY.
+    - BPF_MAP_TYPE_PERCPU_HASH: Same as BPF_MAP_TYPE_HASH.
   """
 
   defmacro defmap(ebpf_map_name, ebpf_map) do
