@@ -281,7 +281,14 @@ defmodule Honey.Translator do
         end
 
       :bpf_map_update_elem ->
-        [map_name, key_ast, value_ast] = params
+        [map_name, key_ast, value_ast, flags] =
+          case params do
+            [map_name, key_ast, value_ast] ->
+              [map_name, key_ast, value_ast, :BPF_ANY]
+
+            [_map_name, _key_ast, _value_ast, _flags] ->
+              params
+          end
 
         if !is_atom(map_name) do
           raise "bpf_map_update_elem: 'map' must be an atom. Received: #{Macro.to_string(map_name)}"
@@ -302,11 +309,13 @@ defmodule Honey.Translator do
 
         str_map_name = Atom.to_string(map_name)
 
-        # if(!is_atom(flags)) do
-        #   throw "bpf_map_update_elem: 'flags' must be an atom. Received: #{Macro.to_string(map)}"
-        # end
-        # flags_map_name = Atom.to_string(flags)
-        # |> String.replace("Elixir.", "")
+        if(!is_atom(flags)) do
+          throw("bpf_map_update_elem: 'flags' must be an atom. Received: #{Macro.to_string(map)}")
+        end
+
+        flags_str =
+          Atom.to_string(flags)
+          |> String.replace("Elixir.", "")
 
         key = to_c(key_ast, context)
         value = to_c(value_ast, context)
@@ -316,7 +325,9 @@ defmodule Honey.Translator do
 
         cond do
           map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
-              map_content.type == BPF_MAP_TYPE_ARRAY ->
+            map_content.type == BPF_MAP_TYPE_ARRAY or
+            map_content.type == BPF_MAP_TYPE_PERCPU_HASH or
+              map_content.type == BPF_MAP_TYPE_HASH ->
             """
             #{key.code}
             #{value.code}
@@ -324,7 +335,7 @@ defmodule Honey.Translator do
               op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
               goto CATCH;
             }
-            int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, BPF_ANY);
+            int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, #{flags_str});
             Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
             """
             |> gen()
