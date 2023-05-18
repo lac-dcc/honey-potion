@@ -30,6 +30,11 @@ ebpf_translator-*.tar
 /examples/lib/obj/
 /examples/lib/src/
 
+# Factorial Benchmark compilation files
+/benchmarks/programs/factorial/bin/*
+/benchmarks/programs/factorial/obj/*
+!**/.gitkeep
+
 examples/*.c
 /.vscode
 
