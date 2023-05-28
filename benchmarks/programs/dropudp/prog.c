@@ -23,17 +23,15 @@ void _unloadProg() {
  * @brief Load the eBPF program    
  */
 int main(int argc, char **argv) {
-    int prog_fd;
+    int success, prog_fd;
     struct bpf_object *obj;
-    struct bpf_prog_load_attr prog_load_attr = {
-        .prog_type = BPF_PROG_TYPE_XDP,
-        .file = "prog.bpf.o",
-    };
+    obj = bpf_object__open("prog.bpf.o");
+    success = bpf_object__load(obj);
 
     signal(SIGINT, _unloadProg);
     signal(SIGTERM, _unloadProg);
 
-    if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd) < 0) {
+    if (success != 0) {
         printf("Error loading the eBPF program\n");
         return -1;
     }
@@ -42,6 +40,7 @@ int main(int argc, char **argv) {
 
     prog = bpf_object__find_program_by_name(obj, PROGNAME);
     prog_fd = bpf_program__fd(prog);
+
     IFINDEX = if_nametoindex("lo");
     if (bpf_set_link_xdp_fd(IFINDEX, prog_fd, XDPFLAGS) < 0) {
         printf("link set xdp fd failed\n");

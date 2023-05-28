@@ -54,7 +54,7 @@ void handle_event(void *ctx, int cpu, void *data, unsigned int data_sz)
 int main(int argc, char **argv)
 {
 	struct perf_buffer *pb = NULL;
-	struct perf_buffer_opts pb_opts = {};
+  //struct perf_buffer_opts pb_opts = {}; // Used to be passed as last argument of perf_buffer__new, but causes error with new version.
 	struct prog_bpf *skel;
 	int err;
 
@@ -83,8 +83,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Set up ring buffer polling */
-	pb_opts.sample_cb = handle_event;
-	pb = perf_buffer__new(bpf_map__fd(skel->maps.pb), 8 /* 32KB per CPU */, &pb_opts);
+	pb = perf_buffer__new(bpf_map__fd(skel->maps.pb), 8 /* 32KB per CPU */, handle_event, NULL, NULL, NULL);
 	if (libbpf_get_error(pb)) {
 		err = -1;
 		fprintf(stderr, "Failed to create perf buffer\n");

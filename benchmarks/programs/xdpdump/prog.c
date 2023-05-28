@@ -26,11 +26,10 @@ bool DUMPPAYLOAD;
 /**
  * @brief Unload the eBPF program from the XDP and
  */
-static void _unloadProg()
-{
-	bpf_set_link_xdp_fd(IFINDEX, -1, XDPFLAGS);
-	printf("Unloading the eBPF program...");
-	exit(0);
+static void _unloadProg() {
+    bpf_xdp_attach(IFINDEX, -1, XDPFLAGS, NULL);
+    printf("Unloading the eBPF program...");
+    exit(0);
 }
 
 /**
@@ -154,7 +153,7 @@ int event_poller(struct perf_event_mmap_page **mem_buf, int *sys_fds,
 		for (n = 0; n < cpu_total; n++)
 		{
 			if (poll_fds[n].revents)
-			{ /* events found */
+			{ /* events found */ //bpf_perf_event_read_value(mem_buf[n] 
 				res = bpf_perf_event_read_simple(mem_buf[n],
 												 total_size,
 												 pagesize,
@@ -166,6 +165,7 @@ int event_poller(struct perf_event_mmap_page **mem_buf, int *sys_fds,
 			}
 		}
 	}
+  
 	free(buf);
 }
 
@@ -230,18 +230,14 @@ static void usage(const char *prog)
 int main(int argc, char **argv)
 {
 	static struct perf_event_mmap_page *mem_buf[MAX_CPU];
-	struct bpf_prog_load_attr prog_load_attr = {
-		.prog_type = BPF_PROG_TYPE_XDP,
-		.file = "prog.bpf.o",
-	};
 	struct bpf_map *perf_map;
-	struct bpf_object *obj;
+  struct bpf_object *obj;
+  struct bpf_program *prog;
 	int sys_fds[MAX_CPU];
 	int perf_map_fd;
-	int prog_fd;
+  int prog_fd, success;
 	int n_cpus;
 	int opt;
-
 	XDPFLAGS = XDP_FLAGS_SKB_MODE;
 	n_cpus = get_nprocs();
 	DUMPPAYLOAD = 0;
@@ -261,10 +257,11 @@ int main(int argc, char **argv)
 			return 0;
 		case 'H':
 			XDPFLAGS = XDP_FLAGS_HW_MODE;
-			prog_load_attr.ifindex = IFINDEX; /* set HW ifindex */
+			//prog_load_attr.ifindex = IFINDEX; /* set HW ifindex */
 			break;
 		case 'i':
 			IFINDEX = if_nametoindex(optarg);
+      printf("Your optarg was: %d, which should be %s, given that it is %s.\n", IFINDEX, optarg, optarg);
 			break;
 		case 'N':
 			XDPFLAGS = XDP_FLAGS_DRV_MODE;
@@ -288,12 +285,21 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	/* use libbpf to load program */
-	if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd))
-	{
-		printf("error with loading file\n");
-		return -1;
-	}
+
+  obj = bpf_object__open("prog.bpf.o");
+
+  prog = bpf_object__next_program(obj, NULL);
+  bpf_program__set_type(prog, BPF_PROG_TYPE_XDP);
+
+  success = bpf_object__load(obj);
+
+  // Load the program
+  if (success != 0) {
+      printf("The kernel didn't load the BPF program\n");
+      return -1;
+  }
+
+  prog_fd = bpf_program__fd(prog);
 
 	if (prog_fd < 1)
 	{
@@ -305,7 +311,7 @@ int main(int argc, char **argv)
 	signal(SIGTERM, _unloadProg);
 
 	/* use libbpf to link program to interface with corresponding flags */
-	if (bpf_set_link_xdp_fd(IFINDEX, prog_fd, XDPFLAGS) < 0)
+	if (bpf_xdp_attach(IFINDEX, prog_fd, XDPFLAGS, NULL) < 0)
 	{
 		printf("error setting fd onto xdp\n");
 		return -1;

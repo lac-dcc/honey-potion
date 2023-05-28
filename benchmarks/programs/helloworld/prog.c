@@ -30,11 +30,8 @@ int main(int argc, char **argv) {
     obj = bpf_object__open("prog.bpf.o");
     success = bpf_object__load(obj);
     if (success == 0) {
-    
         struct bpf_program *prog;
-
         prog = bpf_object__find_program_by_name(obj, PROGNAME);
-        
         bpf_program__attach(prog);
         
         output();

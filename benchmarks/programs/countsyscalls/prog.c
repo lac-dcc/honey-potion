@@ -47,20 +47,12 @@ void printMap(struct bpf_object *obj) {
  * @brief Load the eBPF program    
  */
 int main(int argc, char **argv) {
-    int prog_fd;
+    int success;
     struct bpf_object *obj;
-    struct bpf_prog_load_attr prog_load_attr = {
-        .prog_type = BPF_PROG_TYPE_TRACEPOINT,
-        .file = "prog.bpf.o"
-    };
-
-    if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd) == 0) {
-        if (prog_fd < 1) {
-            printf("Error creating prog_fd\n");
-            return -2;
-        }
+    obj = bpf_object__open("prog.bpf.o");
+    success = bpf_object__load(obj);
+    if (success == 0) {
         struct bpf_program *prog;
-
         prog = bpf_object__find_program_by_name(obj, PROGNAME);
         bpf_program__attach(prog);
     }
