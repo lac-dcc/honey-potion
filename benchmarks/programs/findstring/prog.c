@@ -111,18 +111,18 @@ int fillMapStrings(struct bpf_object *obj, char filename[]) {
             printf("Error to update strings map.");
             return -1;
         }
-
+        
         int currentState = 1;
         // Insert all characters of current word
         for(int i = 0; i < SIZETEXT; i++) {
             if(line[i] == '\0' || line[i] == '\n') {
-                continue;
+                break;
             }
 
             int ch = line[i] - 'a';
 
             if(ch < 0 || ch >= 26) {
-                printf("\nInvalid character found in strings.txt: %c\n", line[i]);
+                printf("\nInvalid character found in strings.txt: %c %d\n", line[i], line[i]);
                 return -1;
             }
 
