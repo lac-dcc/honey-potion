@@ -3,19 +3,17 @@ TARGET ?= prog
 
 #This directory represents the user directory, where the user creates .ex files.
 SRC_DIR = $(shell realpath .)
-#In Honey.ex this is changed to the location of the Honey build, so this is the anchor to eBPF compilation files.
-LIBBPF_DIR ?= $(SRC_DIR)/../../benchmarks/libs/libbpf/src
-LIBBPF_INCLUDE ?= $(LIBBPF_DIR)/root/usr/include/
-LIBBPF_HEADERS ?= $(LIBBPF_DIR)/../../headers/
+#In Honey.ex this is changed to the location of the Honey build, so this is the anchor to eBPF compilation headers.
+LIBS_DIR ?= $(SRC_DIR)/../../benchmarks/libs
+MISC_HEADERS ?= $(LIBS_DIR)/headers/
 #This is also redefined in Honey.ex to the priv directory of the honey-files. This is the anchor to honey files.
 PRIV_DIR ?= $(SRC_DIR)/../../priv
 C_BOILERPLATES ?= $(PRIV_DIR)/c_boilerplates/
 OBJ_FOLDER ?= $(SRC_DIR)/obj/
-CFLAGS ?=  -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
-LDFLAGS ?= -L'$(LIBBPF_DIR)'
+CFLAGS ?=  -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)' -I'$(MISC_HEADERS)'
 BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 
-LIBS = -lbpf -lelf
+LIBS = -lbpf -lelf -lz
 
 all: clean $(SRC_DIR)/bin/$(TARGET)
 
