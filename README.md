@@ -30,7 +30,11 @@ Note that clang, llc and bpftool can be compiled by the user, as long as they ar
 ## YouTube
 If you prefer the video format, Honey Potion has a [YouTube playlist](https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY) with guides on how to set up Honey Potion and how to create example programs.
 
-[![youtube-thumb](./assets/youtube.png)](https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY)
+<p align="center">
+  </br>
+  <a href="https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY"><img alt="YouTubeThumb" src="./assets/youtube.png" width="75%" height="auto"/>
+</p>
+
 
 ## Installation
 
