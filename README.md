@@ -19,13 +19,18 @@ In this alpha version, the framework translates the code to a subset of C that u
 *Honey Potion* depends on a few BPF-related packages to run. Below are listed the packages with the ubuntu names. Other distros should have similar or equal names.
 
 - erlang and elixir - For the language used in Honey Potion
-- libbpf-dev - For libbpf, libelf and zlib
+- libbpf - Version 1.1 (See [YouTube video](https://www.youtube.com/watch?v=PhHs9u9toTg&list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY&index=2) on how to get it)
 - gcc-multilib - For C libraries (asm/types.h)
 - make - For Makefile compilation
 - llvm - For llc
 - clang - For clang
 
 Note that clang, llc and bpftool can be compiled by the user, as long as they are in the $PATH.
+
+## YouTube
+If you prefer the video format, Honey Potion has a [YouTube playlist](https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY) with guides on how to set up Honey Potion and how to create example programs.
+
+[![youtube-thumb](./assets/youtube.png)](https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY)
 
 ## Installation
 
