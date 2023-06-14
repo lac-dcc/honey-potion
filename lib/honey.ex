@@ -27,7 +27,8 @@ defmodule Honey do
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
-    final_ast = func_ast |> Fuel.burn_fuel(env) # |> Optimizer.run()
+    function_declaration_map = Fuel.functions_to_case_do(env)
+    final_ast = func_ast |> Fuel.burn_fuel(env, function_declaration_map) # |> Optimizer.run()
 
     IO.inspect(final_ast)
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)

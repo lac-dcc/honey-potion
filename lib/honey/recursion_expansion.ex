@@ -31,7 +31,7 @@ defmodule Honey.Fuel do
     do_expressions = Enum.map(clauses, fn clause ->
       # TODO: Add support for guards
         {_metadata, formal_args, _guards, func_ast} = clause
-        [formal_args, func_ast]
+        [[formal_args], func_ast]
       end)
       do_expressions
     # {_metadata, formal_args, _guards, func_ast} = clause
@@ -45,11 +45,10 @@ defmodule Honey.Fuel do
   end
 
 
-  defp functions_to_case_do(env) do
+  def functions_to_case_do(env) do
     function_names_and_arity = Module.definitions_in(env.module)
     function_keys = Enum.map(function_names_and_arity, &get_function_key/1)
     function_declarations = Enum.map(function_names_and_arity, fn current_function -> transform_function_matching_to_case_do(current_function, env) end)
-
 
     Enum.zip([function_keys, function_declarations])
     |> Map.new()
@@ -75,17 +74,17 @@ defmodule Honey.Fuel do
   Currently it only accepts calls from the same module.
   """
 
-  def burn_fuel(main_ast, env) do
-    function_declarations_map = functions_to_case_do(env)
+  def burn_fuel(main_ast, env, function_declarations_map) do
+    # function_declarations_map = functions_to_case_do(env)
     # IO.inspect(function_declarations_map)
-    IO.inspect(get_case_block_for_function("foo", 1, [3],function_declarations_map))
+    # IO.inspect(get_case_block_for_function("foo", 1, [3],function_declarations_map))
 
     {new_ast, modified} =
       Macro.postwalk(main_ast, false, fn
         {_, meta, _} = call, modified when is_call(call) ->
           case Keyword.get(meta, :fuel) do
             fuel when is_integer(fuel) and fuel > 0 ->
-              new_ast = get_def_for_reinjection(call, env, fuel)
+              new_ast = get_def_for_reinjection(call, env, fuel, function_declarations_map)
 
               {new_ast, true}
 
@@ -101,7 +100,7 @@ defmodule Honey.Fuel do
       end)
 
     if modified do
-      burn_fuel(new_ast, env)
+      burn_fuel(new_ast, env, function_declarations_map)
     else
       new_ast
     end
@@ -118,39 +117,19 @@ defmodule Honey.Fuel do
   Unrolls one fuel of a specific function call and subtracts the value of its fuel by one.
   """
 
-  def get_def_for_reinjection(fun_call, env, current_fuel) do
+  def get_def_for_reinjection(fun_call, env, current_fuel, function_declarations_map) do
     {module, function, arity, actual_args} = decompose_call(fun_call, env)
-    fun_def = Module.get_definition(module, {function, arity})
-
-    {:v1, _kind, _metadata, [clause | _other_clauses]} = fun_def
-    {_metadata, formal_args, _guards, func_ast} = clause
+    function_converted_to_case = get_case_block_for_function(function, arity, [actual_args], function_declarations_map)
 
     context = String.to_atom("Fuel#{current_fuel}")
-
-    formal_into_actual =
-      for {formal_arg, actual_arg} <- Enum.zip(formal_args, actual_args) do
-        var = replace_context(formal_arg, context)
-
-        quote do
-          unquote(var) = unquote(actual_arg)
-        end
-      end
-
-    ast_with_context = replace_context(func_ast, context)
-
-    ast_with_args =
-      quote do
-        # IO.puts("Burned the #{unquote(current_fuel)}th fuel")
-        unquote_splicing(formal_into_actual)
-        unquote(ast_with_context)
-      end
+    ast_with_context = replace_context(function_converted_to_case, context)
 
     # Add fuel to the calls
     final_ast =
-      Macro.postwalk(ast_with_args, fn segment ->
+      Macro.postwalk(ast_with_context, fn segment ->
         case segment do
           {var_name, _meta, args} ->
-            if(is_atom(var_name) and is_list(args)) do
+            if(is_atom(var_name) and is_list(args) and var_name != :case) do
               {module_, function_, arity_, _} = decompose_call(segment, env)
 
               if(module_ == module and function_ == function and arity_ == arity) do
