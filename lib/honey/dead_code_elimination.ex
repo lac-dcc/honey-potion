@@ -91,15 +91,6 @@ defmodule Honey.DCE do
 
         {segment, def_use}
       end)
-
-    # IO.puts("Uses:")
-    # IO.inspect(def_use)
-
-    # IO.puts("Ast after Dead Code Elimination:")
-    # IO.inspect(new_ast)
-    # IO.puts("\nCode after Dead Code Elimination:")
-    # IO.puts(Macro.to_string(new_ast))
-
     new_ast
   end
 
