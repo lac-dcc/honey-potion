@@ -5,7 +5,7 @@ defmodule ListSysCalls do
   def main(ctx) do
 
     # Uncomment last 4 lines in case you want to see more types of sys_calls.
-    # This file is a mixture of Cond and CtxAccess.
+    # This file cointains what was shown in Cond, CtxAccess and HelloWorld.
     # See https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/ for translation.
 
     id = ctx.id
