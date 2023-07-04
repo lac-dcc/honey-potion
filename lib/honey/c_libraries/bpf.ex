@@ -1,4 +1,6 @@
 defmodule Honey.Bpf_helpers do
+  import Honey.CoreElixirToC, only: [generate_c_tuple_from_variables: 1]
+  import Honey.Utils, only: [gen: 1]
   alias Honey.{FunctionData, FunctionArgument, ElixirType, CLibrary}
   use CLibrary
 
