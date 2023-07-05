@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
     signal(SIGTERM, _unloadProg);
 
     prog_fd = bpf_program__fd(prog);
-    IFINDEX = if_nametoindex("wlp3s0");
+    IFINDEX = if_nametoindex("wlp60s0");
     if (bpf_xdp_attach(IFINDEX, prog_fd, XDPFLAGS, NULL) < 0) {
         printf("link set xdp fd failed\n");
         return -1;

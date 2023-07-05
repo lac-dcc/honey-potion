@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
-#include "fact.skel.h"
+#include "prog.skel.h"
 #include "fact.h"
 
 // input value of factorial

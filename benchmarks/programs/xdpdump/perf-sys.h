@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copied from $(LINUX)/tools/perf/perf-sys.h (kernel 4.18) */
+/* Copied from $(LINUX-KERNEL)/tools/perf/perf-sys.h (kernel 4.18) */
 #ifndef _PERF_SYS_H
 #define _PERF_SYS_H
 

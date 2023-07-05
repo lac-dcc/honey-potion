@@ -13,7 +13,8 @@
 #include <linux/udp.h>
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
-#include "prog.h"
+
+#include "xdpdump_common.h"
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
