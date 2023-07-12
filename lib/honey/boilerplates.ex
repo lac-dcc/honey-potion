@@ -7,18 +7,17 @@ defmodule Honey.Boilerplates do
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
-alias Honey.Boilerplates
+  alias Honey.Boilerplates
 
-  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
+  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :translated_code]
 
-  #Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
-  def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code) do
+  # Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
+  def config(libbpf_prog_type, func_args, license, elixir_maps, translated_code) do
     %__MODULE__{
       libbpf_prog_type: libbpf_prog_type,
       func_args: func_args,
       license: license,
       elixir_maps: elixir_maps,
-      requires: requires,
       translated_code: translated_code
     }
   end
@@ -30,10 +29,10 @@ alias Honey.Boilerplates
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>
-      generate_maps(config) <>
-      generate_ctx_struct(config) <>
-      generate_license(config) <>
-      generate_main(config)
+        generate_maps(config) <>
+        generate_ctx_struct(config) <>
+        generate_license(config) <>
+        generate_main(config)
     )
   end
 
@@ -88,65 +87,69 @@ alias Honey.Boilerplates
   end
 
   def generate_output_function(env) do
-    {_,_,_,maps} = Info.get_backend_info(env)
+    {_, _, _, maps} = Info.get_backend_info(env)
 
     # Enumerate through functions and return the print of the elements that were requested.
-    output = Enum.map(maps, fn map ->
-      {name, _type, _max_entries, print, print_elem} = Info.get_maps_attributes(map)
-      if(!(print == true)) do
-        ""
-      else
-        if(print_elem == nil) do
-          raise "RuntimeError: When :print is true, make sure to specify :print_elem."
-        end
-        name = Atom.to_string(name)
-        """
-          /* Printing map of name #{name} */
-          struct bpf_map* #{name} = skel->maps.#{name};
-          int #{name}_fd = bpf_map__fd(#{name});
-          while(1){
-            printf("\\e[1;1H\\e[2J");
-            printf("#{name}:\\n");
-            #{Enum.map(print_elem, fn elem ->
-              case elem do
-                {elem_name, key} when is_binary(elem_name) and is_integer(key)->
-                  """
-                  key = #{Integer.to_string(key)};
-                  success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
-                  if(success == 0){
-                    printf("%s %ld\\n", "#{elem_name}", value.value.integer);
-                  }
-                  else
-                  {
-                    printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
-                  }
-                  """
-                _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
-                end
-              end
-            ) |> Enum.join}
-        """
-      end
-    end) |> Enum.join
+    output =
+      Enum.map(maps, fn map ->
+        {name, _type, _max_entries, print, print_elem} = Info.get_maps_attributes(map)
 
-    #If no print has been generated, return to the standard output.
+        if(!(print == true)) do
+          ""
+        else
+          if(print_elem == nil) do
+            raise "RuntimeError: When :print is true, make sure to specify :print_elem."
+          end
+
+          name = Atom.to_string(name)
+
+          """
+            /* Printing map of name #{name} */
+            struct bpf_map* #{name} = skel->maps.#{name};
+            int #{name}_fd = bpf_map__fd(#{name});
+            while(1){
+              printf("\\e[1;1H\\e[2J");
+              printf("#{name}:\\n");
+              #{Enum.map(print_elem, fn elem -> case elem do
+              {elem_name, key} when is_binary(elem_name) and is_integer(key) -> """
+                key = #{Integer.to_string(key)};
+                success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                if(success == 0){
+                  printf("%s %ld\\n", "#{elem_name}", value.value.integer);
+                }
+                else
+                {
+                  printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
+                }
+                """
+              _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
+            end end) |> Enum.join()}
+          """
+        end
+      end)
+      |> Enum.join()
+
+    # If no print has been generated, return to the standard output.
     if(output == "") do
       path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
       decl = "void output();\n"
       {decl, File.read!(path)}
     else
-      #Else, add the prefix and the suffix to the output.
+      # Else, add the prefix and the suffix to the output.
       module_name = Utils.module_name(env)
+
       prefix = """
         void output(struct #{module_name}_bpf* skel) {
           int key, success;
           Generic value = (Generic){0};
       """
+
       suffix = """
               sleep(1);
             }
           }
       """
+
       decl = "void output(struct #{module_name}_bpf* skel);\n"
 
       {decl, prefix <> output <> suffix}
@@ -176,7 +179,9 @@ alias Honey.Boilerplates
         #include <linux/ip.h>
         #include <linux/icmp.h>
         """)
-      _ -> ""
+
+      _ ->
+        ""
     end
   end
 
@@ -202,7 +207,6 @@ alias Honey.Boilerplates
           Enum.map(map_content, fn {key, value} ->
             case key do
               :type ->
-
                 "__uint(#{key}, #{Macro.to_string(value)});"
 
               :max_entries ->
@@ -218,10 +222,10 @@ alias Honey.Boilerplates
         struct {
           #{fields}
           #{if(map_content.type == BPF_MAP_TYPE_ARRAY or map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY) do
-            "__uint(key_size, sizeof(int));"
-          else
-            "__uint(key_size, sizeof(long));"
-          end}
+          "__uint(key_size, sizeof(int));"
+        else
+          "__uint(key_size, sizeof(long));"
+        end}
           __uint(value_size, sizeof(Generic));
         } #{map_name} SEC(".maps");
         """
@@ -248,40 +252,40 @@ alias Honey.Boilerplates
       }
     #{gen(case config.libbpf_prog_type do
       "tracepoint/syscalls/sys_enter_kill" -> "if (elixir_struct->type == TYPE_Syscalls_enter_kill_arg)
-            {
-              if (__builtin_memcmp(member_name, \"pad\", 4) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pad;
-                if (index < HEAP_SIZE)
                 {
-                  *member = (*heap)[index];
-                }
-              }
-              else if (__builtin_memcmp(member_name, \"syscall_nr\", 11) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_syscall_nr;
-                if (index < HEAP_SIZE)
-                {
-                  *member = (*heap)[index];
-                }
-              }
-              else if (__builtin_memcmp(member_name, \"pid\", 4) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pid;
-                if (index < HEAP_SIZE)
-                {
-                  *member = (*heap)[index];
-                }
-              }
-              else if (__builtin_memcmp(member_name, \"sig\", 4) == 0)
-              {
-                unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_sig;
-                if (index < HEAP_SIZE)
-                {
-                  *member = (*heap)[index];
-                }
-              }
-            }"
+                  if (__builtin_memcmp(member_name, \"pad\", 4) == 0)
+                  {
+                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pad;
+                    if (index < HEAP_SIZE)
+                    {
+                      *member = (*heap)[index];
+                    }
+                  }
+                  else if (__builtin_memcmp(member_name, \"syscall_nr\", 11) == 0)
+                  {
+                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_syscall_nr;
+                    if (index < HEAP_SIZE)
+                    {
+                      *member = (*heap)[index];
+                    }
+                  }
+                  else if (__builtin_memcmp(member_name, \"pid\", 4) == 0)
+                  {
+                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pid;
+                    if (index < HEAP_SIZE)
+                    {
+                      *member = (*heap)[index];
+                    }
+                  }
+                  else if (__builtin_memcmp(member_name, \"sig\", 4) == 0)
+                  {
+                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_sig;
+                    if (index < HEAP_SIZE)
+                    {
+                      *member = (*heap)[index];
+                    }
+                  }
+                }"
       _ -> ""
     end)}
       *result = (OpResult){.exception = 1, .exception_msg = "(InvalidMember) Tried to access invalid member of a struct."};
@@ -378,56 +382,60 @@ alias Honey.Boilerplates
 
   def generate_ctx_struct(config) do
     case config.libbpf_prog_type do
-    "tracepoint/syscalls/sys_enter_kill" -> gen("""
-    typedef struct syscalls_enter_kill_args
-    {
-      /**
-      * This is the tracepoint arguments of the kill functions.
-      * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
-      */
-      long long pad;
+      "tracepoint/syscalls/sys_enter_kill" ->
+        gen("""
+        typedef struct syscalls_enter_kill_args
+        {
+          /**
+          * This is the tracepoint arguments of the kill functions.
+          * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
+          */
+          long long pad;
 
-      long syscall_nr;
-      long pid;
-      long sig;
-    } syscalls_enter_kill_args;
-    """)
+          long syscall_nr;
+          long pid;
+          long sig;
+        } syscalls_enter_kill_args;
+        """)
 
-    "tracepoint/raw_syscalls/sys_enter" -> gen("""
-    typedef struct syscalls_enter_args
-    {
-      /**
-       * This is the tracepoint arguments.
-       * Defined at: /sys/kernel/debug/tracing/events/raw_syscalls/sys_enter/format
-       */
-        unsigned short common_type;
-        unsigned char common_flags;
-        unsigned char common_preempt_count;
-        int common_pid;
-        long id;
-        unsigned long args[6];
-    } syscalls_enter_args;
-    """)
+      "tracepoint/raw_syscalls/sys_enter" ->
+        gen("""
+        typedef struct syscalls_enter_args
+        {
+          /**
+           * This is the tracepoint arguments.
+           * Defined at: /sys/kernel/debug/tracing/events/raw_syscalls/sys_enter/format
+           */
+            unsigned short common_type;
+            unsigned char common_flags;
+            unsigned char common_preempt_count;
+            int common_pid;
+            long id;
+            unsigned long args[6];
+        } syscalls_enter_args;
+        """)
 
-    "tracepoint/syscalls/sys_enter_write" -> gen("""
-    typedef struct syscalls_enter_write_args
-    {
-      /**
-       * This is the tracepoint arguments.
-       * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
-       */
-       unsigned short common_type;
-       unsigned char common_flags;
-       unsigned char common_preempt_count;
-       int common_pid;
-       int __syscall_nr;
-       unsigned int fd;
-       const char * buf;
-       size_t count;
-    } syscalls_enter_write_args;
-    """)
+      "tracepoint/syscalls/sys_enter_write" ->
+        gen("""
+        typedef struct syscalls_enter_write_args
+        {
+          /**
+           * This is the tracepoint arguments.
+           * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
+           */
+           unsigned short common_type;
+           unsigned char common_flags;
+           unsigned char common_preempt_count;
+           int common_pid;
+           int __syscall_nr;
+           unsigned int fd;
+           const char * buf;
+           size_t count;
+        } syscalls_enter_write_args;
+        """)
 
-    _ -> gen("")
+      _ ->
+        gen("")
     end
   end
 
@@ -459,7 +467,7 @@ alias Honey.Boilerplates
       "tracepoint/syscalls/sys_enter_write" ->
         "syscalls_enter_write_args *ctx_arg"
 
-      "xdp_traffic_count" ->
+      "xdp" ->
         "struct xdp_md *ctx_arg"
     end
   end

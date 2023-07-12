@@ -1,5 +1,4 @@
 defmodule Honey.Utils do
-
   @moduledoc """
   Contains utility functions used across Honey-Potion.
   """
@@ -18,12 +17,23 @@ defmodule Honey.Utils do
     end
   end
 
-  @doc """
-  Transforms a variable into an unique string.
-  """
+  def ctx_var_to_generic(element) do
+    var_name = "ctx_arg->#{Atom.to_string(element)}"
+    "{.type = INTEGER, .value.integer = #{var_name}}"
+  end
 
+  @doc """
+  Transforms a variable into a unique string.
+  """
   def var_to_string({var_name, meta, var_context}) do
     "#{var_name}_#{inspect_no_limit(meta[:version])}_#{var_context}"
+  end
+
+  @doc """
+  Transforms a variable into a unique atom.
+  """
+  def var_to_atom(var) do
+    String.to_atom(var_to_string(var))
   end
 
   @doc """
@@ -34,7 +44,7 @@ defmodule Honey.Utils do
     String.to_atom(var_to_string({var_name, meta, var_context}))
   end
 
-  #Gets the value without limits in size or printing.
+  # Gets the value without limits in size or printing.
   defp inspect_no_limit(value) do
     inspect(value, limit: :infinity, printable_limit: :infinity)
   end
@@ -45,11 +55,6 @@ defmodule Honey.Utils do
 
   def compile_error!(%Macro.Env{line: line, file: file}, description) do
     raise CompileError, line: line, file: file, description: description
-  end
-
-  def ctx_var_to_generic(element) do
-    var_name = "ctx_arg->#{Atom.to_string(element)}"
-    "{.type = INTEGER, .value.integer = #{var_name}}"
   end
 
   @doc """
@@ -64,7 +69,7 @@ defmodule Honey.Utils do
   end
 
   @doc """
-  Returns the clang format stored in env.module. 
+  Returns the clang format stored in env.module.
   """
 
   def clang_format(env) do
@@ -72,9 +77,9 @@ defmodule Honey.Utils do
     Keyword.get(ebpf_options, :clang_format)
   end
 
-  #Guards to filter elements from the Elixir AST.
+  # Guards to filter elements from the Elixir AST.
   @doc """
-  Guard for Function calls.
+  Check if an AST node is a function call.
   """
   defguard is_call(t)
            when is_tuple(t) and
@@ -82,8 +87,9 @@ defmodule Honey.Utils do
                   is_atom(:erlang.element(1, t)) and
                   is_list(:erlang.element(2, t)) and
                   is_list(:erlang.element(3, t))
+
   @doc """
-  Guard for Variables.
+  Check if an AST node is a variable.
   """
   defguard is_var(t)
            when is_tuple(t) and
@@ -91,14 +97,16 @@ defmodule Honey.Utils do
                   is_atom(:erlang.element(1, t)) and
                   is_list(:erlang.element(2, t)) and
                   is_atom(:erlang.element(3, t))
+
   @doc """
-  Guard for Constants.
+  Check if an AST node is a constant. Note: this fails for explicit binaries, as the node is represent as {:<<>>, [...], [...]}
   """
   defguard is_constant(item)
            when is_number(item) or
                   is_bitstring(item) or
                   is_atom(item) or
                   is_binary(item) or
-                  is_boolean(item) or
-                  is_nil(item)
+                  is_list(item) or
+                  is_function(item) or
+                  (is_tuple(item) and tuple_size(item) < 3)
 end

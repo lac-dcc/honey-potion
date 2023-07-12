@@ -1,5 +1,5 @@
 defmodule Honey.Optimizer do
-  alias Honey.{ConstantPropagation, DCE, Analyze}
+  alias Honey.{TypePropagation, ConstantPropagation, DCE, Analyze}
 
   @moduledoc """
   Module to define and run the optimization pipeline that runs over elixirs AST.
@@ -9,9 +9,12 @@ defmodule Honey.Optimizer do
   Runs the optimization and analysis steps.
   """
 
-  def run(fun_def) do
-    fun_def |> Analyze.run()
-    |> ConstantPropagation.run()
-    |> DCE.run()
+  def run(fun_def, arguments, env) do
+    fun_def
+    # |> Analyze.run()
+    # |> ConstantPropagation.run()
+    # |> DCE.run()
+    # |> TypePropagation.run(arguments, env)
+    # |> IO.inspect()
   end
 end

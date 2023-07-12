@@ -9,11 +9,11 @@ defmodule Honey.Generator do
 
   @doc """
   Generates both the front-end code and the back-end code.
-  """ 
+  """
 
-  def generate_code(env, final_ast) do 
-    {_ebpf_options,sec,license,maps} = Info.get_backend_info(env)
-    backend_code = Translator.translate("main", final_ast, sec, license, env.requires, maps)
+  def generate_code(env, final_ast) do
+    {_ebpf_options, sec, license, maps} = Info.get_backend_info(env)
+    backend_code = Translator.translate("main", final_ast, sec, license, maps)
 
     frontend_code = Boilerplates.generate_frontend_code(env)
 

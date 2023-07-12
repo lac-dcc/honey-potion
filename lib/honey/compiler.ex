@@ -3,14 +3,15 @@ defmodule Honey.Compiler do
   alias Honey.Utils
 
   @moduledoc """
-  Contains functions used to compile the generated code. 
+  Contains functions used to compile the generated code.
   """
 
   @doc """
   Compiles the files located in userdir/src using a pre-defined Makefile that was added in write module.
   """
 
-  def compile_bpf(env) do 
+  def compile_bpf(env) do
+    IO.puts("Compiling generated C file into eBPF objects and executable...")
     mod_name = Utils.module_name(env)
 
     userdir = Directories.userdir(env)

@@ -1,12 +1,19 @@
 defmodule Honey do
   alias Mix.Task.Compiler
-  alias Honey.Guard       #Stops execution if main doesn't exist.
-  alias Honey.Fuel        #Unrolls function calls.
-  alias Honey.Optimizer   #Optimizes the AST with DCE and CP and does variable analysis.
-  alias Honey.Info        #Gathers Info about the AST.
-  alias Honey.Generator   #Uses that info to generate frontend and backend code.
-  alias Honey.Write       #Writes files into the right folders for compilation.
-  alias Honey.Compiler    #Compiles the files into userdir/bin/
+  # Stops execution if main doesn't exist.
+  alias Honey.Guard
+  # Unrolls function calls.
+  alias Honey.Fuel
+  # Optimizes the AST with DCE and CP and does variable analysis.
+  alias Honey.Optimizer
+  # Gathers Info about the AST.
+  alias Honey.Info
+  # Uses that info to generate frontend and backend code.
+  alias Honey.Generator
+  # Writes files into the right folders for compilation.
+  alias Honey.Write
+  # Compiles the files into userdir/bin/
+  alias Honey.Compiler
 
   @moduledoc """
   Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
@@ -21,12 +28,14 @@ defmodule Honey do
   """
 
   defmacro __before_compile__(env) do
-
-    main_def = Guard.main_exists!(env)
+    main_def = Guard.get_main_definition!(env)
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
-    final_ast = func_ast |> Fuel.burn_fuel(env) |> Optimizer.run()
+    final_ast =
+      func_ast
+      |> Fuel.burn_fuel(env)
+      |> Optimizer.run(arguments, env)
 
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 
@@ -34,7 +43,7 @@ defmodule Honey do
 
     Compiler.compile_bpf(env)
 
-    Module.delete_definition(env.module, {_target_func = :main, _target_arity = 1})
+    Module.delete_definition(env.module, {:main, 1})
 
     quote do
       def main(unquote(arguments)) do
@@ -83,6 +92,8 @@ defmodule Honey do
       raise "Honey: Module #{__CALLER__.module} has already set the before_compile attribute."
     end
 
+    Guard.ensure_exports_exists!()
+
     Module.register_attribute(__CALLER__.module, :ebpf_maps, accumulate: true)
 
     quote do
@@ -107,8 +118,8 @@ defmodule Honey do
   end
 
   @doc false
-  def print_ast(ast) do
-    IO.puts("\nFinal code of main/1 after all fuel burned:")
+  def print_ast_as_code(ast) do
+    IO.puts("\nAST as code:")
     IO.puts(Macro.to_string(ast) <> "\n")
     IO.inspect(ast)
     IO.puts("")
