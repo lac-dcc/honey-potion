@@ -57,13 +57,11 @@ defmodule Honey.Translator do
         "deft #{expected_func_name}(segment, context) do\n" <>
         "    #...\n" <>
         "end"
-
     func_def_ast = get_function_ast_without_guards!(call)
-
-    # Check if the name and parameters are passed correctly
-    with {:func_name, {^expected_func_name, _, _}} <- {:func_name, func_def_ast},
          {:num_args, {_, _, [_, _]}} <- {:num_args, func_def_ast},
          {:do_block, [do: _]} <- {:do_block, expr} do
+
+         end
     else
       {:func_name, _} ->
         err =
@@ -235,7 +233,6 @@ defmodule Honey.Translator do
   """
   def honeys_ast_to_c(ast, context = %TranslatorContext{}) do
     module = get_module_ast_to_c!(ast, context)
-    # |> dbg()
 
     ast = try do
       module.ast_to_c(ast, context)
@@ -251,7 +248,6 @@ defmodule Honey.Translator do
     end
 
     ast
-    # |> dbg()
   end
 
   @doc """

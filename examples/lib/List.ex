@@ -3,6 +3,9 @@ defmodule Honey_List do
 
   @sec "tracepoint/syscalls/sys_enter_kill"
   def main(_) do
+    
+    #Shows that pattern matching on lists is possible.
+
     one_two = {1, 2}
     three = 3
     [_, any_tuple] = [three, one_two]

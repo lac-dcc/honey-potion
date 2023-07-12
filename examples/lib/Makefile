@@ -16,7 +16,7 @@ CFLAGS := -I$(OBJ_FOLDER) -I$(LIBBPF_INCLUDE) -I'$(C_BOILERPLATES)'
 LDFLAGS := -L$(LIBBPF_BUILD)
 BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 
-LIBS = -lbpf -lelf
+LIBS = -lbpf -lelf -lz
 
 all: clean $(SRC_DIR)/bin/$(TARGET)
 

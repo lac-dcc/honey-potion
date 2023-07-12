@@ -459,16 +459,20 @@ defmodule Honey.Boilerplates do
   def generate_main_arguments(config) do
     case config.libbpf_prog_type do
       "tracepoint/syscalls/sys_enter_kill" ->
-        "syscalls_enter_kill_args *ctx_arg"
+        "syscalls_enter_kill_args *ctx_0_"
 
       "tracepoint/raw_syscalls/sys_enter" ->
-        "syscalls_enter_args *ctx_arg"
+        "syscalls_enter_args *ctx_0_"
 
       "tracepoint/syscalls/sys_enter_write" ->
-        "syscalls_enter_write_args *ctx_arg"
+        "syscalls_enter_write_args *ctx_0_"
 
       "xdp" ->
+<<<<<<< HEAD
         "struct xdp_md *ctx_arg"
+=======
+        "struct xdp_md *ctx_0_"
+>>>>>>> b1ccda894804389681d21328bd594f9715c446f3
     end
   end
 
