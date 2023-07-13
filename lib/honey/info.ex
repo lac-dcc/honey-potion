@@ -27,8 +27,9 @@ defmodule Honey.Info do
   def get_ast(main_def) do
     # TODO: evaluate all clauses
     {:v1, _kind, _metadata, [first_clause | _other_clauses]} = main_def
-    {_metadata, arguments, _guards, func_ast} = first_clause
-    {arguments, func_ast}
+    {metadata, arguments, _guards, func_ast} = first_clause
+
+    {metadata, arguments, func_ast}
   end
 
   @doc """

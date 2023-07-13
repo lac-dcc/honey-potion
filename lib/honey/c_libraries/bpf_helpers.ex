@@ -150,9 +150,7 @@ defmodule Honey.Bpf_helpers do
           throw("bpf_map_update_elem: 'flags' must be an atom. Received: #{Macro.to_string(map)}")
         end
 
-        flags_str =
-          Atom.to_string(flags)
-          |> String.replace("Elixir.", "")
+        flags_str = Honey.Utils.custom_atom_to_string(flags)
 
         key = Translator.honeys_ast_to_c(key_ast, context)
         value = Translator.honeys_ast_to_c(value_ast, context)

@@ -8,7 +8,7 @@ defmodule Honey.ExportedSecs do
     ]
   end
 
-  def get_by_sec_name!(sec_name) do
+  def get_from_sec_name!(sec_name) do
     module =
       get()
       |> Enum.find(nil, fn module ->
@@ -39,7 +39,7 @@ defmodule Honey.ExportedSecs do
       sec_name = Enum.at(module.__info__(:attributes)[:name], 0)
 
       if(Enum.find(sec_names, nil, &(&1 == sec_name))) do
-        repeated_module = get_by_sec_name!(sec_name)
+        repeated_module = get_from_sec_name!(sec_name)
         raise "SEC Modules #{module} and #{repeated_module} implements the same SEC name: '#{sec_name}'."
       end
 

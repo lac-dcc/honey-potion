@@ -30,7 +30,7 @@ defmodule Honey do
   defmacro __before_compile__(env) do
     main_def = Guard.get_main_definition!(env)
 
-    {arguments, func_ast} = Info.get_ast(main_def)
+    {_meta, arguments, func_ast} = Info.get_ast(main_def)
 
     final_ast =
       func_ast
@@ -43,13 +43,32 @@ defmodule Honey do
 
     Compiler.compile_bpf(env)
 
-    Module.delete_definition(env.module, {:main, 1})
+    update_module(env)
+  end
 
-    quote do
-      def main(unquote(arguments)) do
-        unquote(final_ast)
+  defp update_module(env) do
+    update_defs =
+      Module.get_attribute(env.module, :sections)
+      |> Enum.map(fn {{_kind, function, arity}, _sec_name} ->
+        fun_def = Module.get_definition(env.module, {function, arity})
+        {meta, arguments, _func_ast} = Info.get_ast(fun_def)
+        module_str = Honey.Utils.custom_atom_to_string(env.module)
+
+        quote do
+          Module.delete_definition(__MODULE__, {unquote(function), unquote(arity)})
+
+          def unquote({function, meta, arguments}) do
+            raise "The #{unquote(module_str)}.#{unquote(function)}/#{unquote(arity)} function was translated to a C file and that file must be used to interact with eBPF. The module #{unquote(module_str)} and its functions have no effect after compilation."
+          end
+        end
+      end)
+
+    [
+      quote do
+        @compilation_ended true
       end
-    end
+      | update_defs
+    ]
   end
 
   @doc """
@@ -107,14 +126,28 @@ defmodule Honey do
   end
 
   def __on_definition__(env, kind, fun, args, _guards, _body) do
-    if sec = Module.get_attribute(env.module, :sec) do
-      sections = Module.get_attribute(env.module, :sections)
-      sections = Map.put(sections, {kind, fun, length(args)}, sec)
-      Module.put_attribute(env.module, :sections, sections)
-      Module.put_attribute(env.module, :sec, nil)
-    end
+    compilation_ended = Module.get_attribute(env.module, :compilation_ended)
 
-    :ok
+    if(!compilation_ended) do
+      sec = Module.get_attribute(env.module, :sec)
+
+      if(fun == :main and Enum.count(args) == 1 and !sec) do
+        raise """
+        The main/1 function must be preceded by a @sec indicating the type of the eBPF program. Try:
+        @sec "sec_type"
+        def main(ctx) do
+          # ...
+        end
+        """
+      end
+
+      if sec do
+        sections = Module.get_attribute(env.module, :sections)
+        sections = Map.put(sections, {kind, fun, length(args)}, sec)
+        Module.put_attribute(env.module, :sections, sections)
+        Module.put_attribute(env.module, :sec, nil)
+      end
+    end
   end
 
   @doc false

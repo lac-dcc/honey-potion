@@ -157,8 +157,6 @@ defmodule Honey.Translator do
           end
         end
       end)
-
-    {:__block__, [], ast_to_c_defs}
   end
 
   @doc """
@@ -171,7 +169,7 @@ defmodule Honey.Translator do
         context = Honey.TranslatorContext.new(elixir_maps)
         translated_code = honeys_ast_to_c(ast, context)
 
-        Honey.ExportedSecs.get_by_sec_name!(sec_name)
+        Honey.ExportedSecs.get_from_sec_name!(sec_name)
         |> Boilerplates.config("ctx_arg", license, elixir_maps, translated_code)
         |> Boilerplates.generate_whole_code()
 

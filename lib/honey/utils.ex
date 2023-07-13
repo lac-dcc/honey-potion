@@ -108,6 +108,14 @@ defmodule Honey.Utils do
     Keyword.get(ebpf_options, :clang_format)
   end
 
+  @doc """
+  Get an atom name and formats it to a string, removing the leading "Elixir."
+  """
+  def custom_atom_to_string(module_name) do
+    Atom.to_string(module_name)
+    |> String.replace("Elixir.", "")
+  end
+
   # Guards to filter elements from the Elixir AST.
   @doc """
   Check if an AST node is a function call.
