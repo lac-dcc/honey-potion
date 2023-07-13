@@ -25,7 +25,7 @@ TCP/UDP data, but could easily be expanded to cover a wider range of protocols.
 This program requires the `libbpf` and:
 - Linux kernel 4.18
 - clang / LLVM 4.0
-- Agilio® eBPF firmware for HW offload (available from [Netronome's support website](https://help.netronome.com/))
+- If using NIC offloading: Agilio® eBPF firmware for HW offload (available from [Netronome's support website](https://help.netronome.com/))
 
 ## 🚀 How to Build
 
@@ -40,21 +40,23 @@ It will generate the following files:
 
 ## ☕ How to Run
 
-You can run:
+To check your availble network interfaces, you can run:
 ```bash
-sudo ./prog -i <INTERFACE>
+ifconfig
 ```
-The program may be started in driver mode using the following command:
+
+Then, to start xdpdump, use:
 ```bash
-sudo ./prog -i eth4
+sudo ./prog -i <NETWORK_INTERFACE>
 ```
+
 >28228.714182 IP 10.0.0.2:9203 > 10.0.0.1:0 TCP seq 437136853, length 6 <br>
 28233.714510 IP6 fe80::268a:7ff:fe3b:46:9 > 2001:db8:85a3::370:7334:9 UDP, length 16 <br>
 28234.040118 IP 10.0.0.2:1709 > 10.0.0.1:0 TCP seq 1723695364, length 30
 
 Payload information can also be displayed with the payload option:
 ```bash
-sudo ./prog -i eth4 -x
+sudo ./prog -i <NETWORK_INTERFACE> -x
 ```
 >28298.719497 IP 10.0.0.2:1697 > 10.0.0.1:0 TCP seq 1017625101, length 6 <br>
        0015 4d13 0880 248a 073b 0046 0800 4500 <br>
@@ -62,9 +64,9 @@ sudo ./prog -i eth4 -x
        0001 06a1 0000 3ca7 ba0d 558d d5a8 5000 <br>
        0200 7156 0000 0000 0000 0000
 
-The program may be offloaded to the SmartNIC using the HW offload option:
+The program may be offloaded to a SmartNIC using the HW offload option:
 ```bash
-./xdpdump -i eth4 -x -H
+./xdpdump -i <NETWORK_INTERFACE> -x -H
 ```
 >28357.729517 IP 10.0.0.2:54013 > 10.0.0.1:53 UDP, length 51 <br>
        0015 4d13 0880 248a 073b 0046 0800 4500 <br>
@@ -74,9 +76,9 @@ The program may be offloaded to the SmartNIC using the HW offload option:
        6d00 0001 0001 0000 2910 0000 0000 0000 <br>
        0c00 0a00 08ce 1722 411e 4e95 8b
 
-For systems without a compatible XDP driver, it can also be loaded in SKB mode ::
+To check all options in xdpdump, you can run.
 ```bash
-sudo ./xdpdump -i eth4 -S
+sudo ./xdpdump -h
 ```
 
 ## ©️ Copyright

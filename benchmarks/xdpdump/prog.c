@@ -110,9 +110,9 @@ static void usage(const char *prog)
 			"%s -i interface [OPTS]\n\n"
 			"OPTS:\n"
 			" -h        help\n"
+			" -S        SKB Mode (XDPGENERIC) -> default mode\n"
 			" -H        Hardware Mode (XDPOFFLOAD)\n"
 			" -N        Native Mode (XDPDRV)\n"
-			" -S        SKB Mode (XDPGENERIC)\n"
 			" -x        Show packet payload\n",
 			prog);
 }
@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 	int opt;
 	int ret;
 
-	xdp_flags = XDP_FLAGS_DRV_MODE; /* default to DRV */
+	xdp_flags = XDP_FLAGS_SKB_MODE; /* default to SKB */
 	n_cpus = get_nprocs();
 	dump_payload = 0;
 
@@ -226,12 +226,14 @@ int main(int argc, char **argv)
 
 	struct perf_buffer *pb = perf_buffer__new(perf_map_fd, 8, print_bpf_output, NULL, NULL, NULL);
 	ret = libbpf_get_error(pb);
-	if (ret) {
+	if (ret)
+	{
 		printf("failed to setup perf_buffer: %d\n", ret);
 		return 1;
 	}
 
-	while ((ret = perf_buffer__poll(pb, 1000)) >= 0 && cnt < MAX_CNT) {
+	while ((ret = perf_buffer__poll(pb, 1000)) >= 0 && cnt < MAX_CNT)
+	{
 	}
 	kill(0, SIGINT);
 }
