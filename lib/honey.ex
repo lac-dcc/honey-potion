@@ -92,7 +92,7 @@ defmodule Honey do
       raise "Honey: Module #{__CALLER__.module} has already set the before_compile attribute."
     end
 
-    Guard.ensure_exports_exists!()
+    Guard.ensure_valid_exports!()
 
     Module.register_attribute(__CALLER__.module, :ebpf_maps, accumulate: true)
 

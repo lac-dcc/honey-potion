@@ -9,13 +9,13 @@ defmodule Honey.Boilerplates do
   """
   alias Honey.Boilerplates
 
-  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :translated_code]
+  defstruct [:sec_module, :func_arg, :license, :elixir_maps, :translated_code]
 
   # Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
-  def config(libbpf_prog_type, func_args, license, elixir_maps, translated_code) do
+  def config(sec_module, func_arg, license, elixir_maps, translated_code) do
     %__MODULE__{
-      libbpf_prog_type: libbpf_prog_type,
-      func_args: func_args,
+      sec_module: sec_module,
+      func_arg: func_arg,
       license: license,
       elixir_maps: elixir_maps,
       translated_code: translated_code
@@ -30,7 +30,7 @@ defmodule Honey.Boilerplates do
     gen(
       generate_includes(config) <>
         generate_maps(config) <>
-        generate_ctx_struct(config) <>
+        generate_sec_structs(config) <>
         generate_license(config) <>
         generate_main(config)
     )
@@ -172,17 +172,12 @@ defmodule Honey.Boilerplates do
   end
 
   def dependant_includes(config) do
-    case config.libbpf_prog_type do
-      "xdp_traffic_count" ->
-        gen("""
-        #include <linux/if_ether.h>
-        #include <linux/ip.h>
-        #include <linux/icmp.h>
-        """)
-
-      _ ->
-        ""
-    end
+    config.sec_module.__info__(:attributes)[:c_includes]
+    |> Enum.map(fn include ->
+      "#include <#{include}>"
+    end)
+    |> Enum.join("\n")
+    |> gen()
   end
 
   @doc """
@@ -235,70 +230,10 @@ defmodule Honey.Boilerplates do
   end
 
   @doc """
-  Creates the method to access a member of the Generic struct in C.
-  """
-
-  def generate_getMember(config) do
-    gen("""
-    static void getMember(OpResult *result, Generic *elixir_struct, char member_name[20], Generic *member)
-    {
-      *result = (OpResult){.exception = 0};
-      int zero = 0;
-      Generic(*heap)[HEAP_SIZE] = bpf_map_lookup_elem(&heap_map, &zero);
-      if (!heap)
-      {
-        *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access string pool, getMember function)."};
-        return;
-      }
-    #{gen(case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" -> "if (elixir_struct->type == TYPE_Syscalls_enter_kill_arg)
-                {
-                  if (__builtin_memcmp(member_name, \"pad\", 4) == 0)
-                  {
-                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pad;
-                    if (index < HEAP_SIZE)
-                    {
-                      *member = (*heap)[index];
-                    }
-                  }
-                  else if (__builtin_memcmp(member_name, \"syscall_nr\", 11) == 0)
-                  {
-                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_syscall_nr;
-                    if (index < HEAP_SIZE)
-                    {
-                      *member = (*heap)[index];
-                    }
-                  }
-                  else if (__builtin_memcmp(member_name, \"pid\", 4) == 0)
-                  {
-                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_pid;
-                    if (index < HEAP_SIZE)
-                    {
-                      *member = (*heap)[index];
-                    }
-                  }
-                  else if (__builtin_memcmp(member_name, \"sig\", 4) == 0)
-                  {
-                    unsigned index = elixir_struct->value.syscalls_enter_kill_args.pos_sig;
-                    if (index < HEAP_SIZE)
-                    {
-                      *member = (*heap)[index];
-                    }
-                  }
-                }"
-      _ -> ""
-    end)}
-      *result = (OpResult){.exception = 1, .exception_msg = "(InvalidMember) Tried to access invalid member of a struct."};
-      return;
-    }
-    """)
-  end
-
-  @doc """
   Prepares the main method to operate normally.
   """
 
-  def beginning_main_code do
+  def leading_main_code do
     gen("""
     StrFormatSpec str_param1;
     StrFormatSpec str_param2;
@@ -362,7 +297,7 @@ defmodule Honey.Boilerplates do
   Generates the return of the code. Returns if the value is an integer or goes to the CATCH error otherwise.
   """
 
-  def generate_ending_main_code(return_var_name) do
+  def generate_trailing_main_code(return_var_name) do
     gen("""
     if (#{return_var_name}.type != INTEGER) {
       op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
@@ -380,63 +315,10 @@ defmodule Honey.Boilerplates do
   Creates the struct for the ctx main argument.
   """
 
-  def generate_ctx_struct(config) do
-    case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" ->
-        gen("""
-        typedef struct syscalls_enter_kill_args
-        {
-          /**
-          * This is the tracepoint arguments of the kill functions.
-          * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
-          */
-          long long pad;
-
-          long syscall_nr;
-          long pid;
-          long sig;
-        } syscalls_enter_kill_args;
-        """)
-
-      "tracepoint/raw_syscalls/sys_enter" ->
-        gen("""
-        typedef struct syscalls_enter_args
-        {
-          /**
-           * This is the tracepoint arguments.
-           * Defined at: /sys/kernel/debug/tracing/events/raw_syscalls/sys_enter/format
-           */
-            unsigned short common_type;
-            unsigned char common_flags;
-            unsigned char common_preempt_count;
-            int common_pid;
-            long id;
-            unsigned long args[6];
-        } syscalls_enter_args;
-        """)
-
-      "tracepoint/syscalls/sys_enter_write" ->
-        gen("""
-        typedef struct syscalls_enter_write_args
-        {
-          /**
-           * This is the tracepoint arguments.
-           * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
-           */
-           unsigned short common_type;
-           unsigned char common_flags;
-           unsigned char common_preempt_count;
-           int common_pid;
-           int __syscall_nr;
-           unsigned int fd;
-           const char * buf;
-           size_t count;
-        } syscalls_enter_write_args;
-        """)
-
-      _ ->
-        gen("")
-    end
+  def generate_sec_structs(config) do
+    config.sec_module.__info__(:attributes)[:c_structs]
+    |> Enum.join("\n")
+    |> gen()
   end
 
   @doc """
@@ -446,30 +328,15 @@ defmodule Honey.Boilerplates do
   def generate_license(config) do
     gen("""
     char LICENSE[] SEC("license") = "#{config.license}";
-
-
     """)
   end
 
   @doc """
   Adds the arguments of the main function.
-  Currently only ctx for tracepoint/syscalls/sys_enter_kill
   """
 
   def generate_main_arguments(config) do
-    case config.libbpf_prog_type do
-      "tracepoint/syscalls/sys_enter_kill" ->
-        "syscalls_enter_kill_args *ctx_arg"
-
-      "tracepoint/raw_syscalls/sys_enter" ->
-        "syscalls_enter_args *ctx_arg"
-
-      "tracepoint/syscalls/sys_enter_write" ->
-        "syscalls_enter_write_args *ctx_arg"
-
-      "xdp" ->
-        "struct xdp_md *ctx_arg"
-    end
+    Enum.at(config.sec_module.__info__(:attributes)[:c_argument_type], 0) <> config.func_arg
   end
 
   @doc """
@@ -478,13 +345,13 @@ defmodule Honey.Boilerplates do
 
   def generate_main(config) do
     gen("""
-    SEC("#{config.libbpf_prog_type}")
+    SEC("#{config.sec_module}")
     int main_func(#{generate_main_arguments(config)}) {
-      #{beginning_main_code()}
+      #{leading_main_code()}
       // =============== beginning of user code ===============
       #{config.translated_code.code}
-      // =============== end of user code ==============
-      #{generate_ending_main_code(config.translated_code.return_var_name)}
+      // =============== end of user code =====================
+      #{generate_trailing_main_code(config.translated_code.return_var_name)}
     }
     """)
   end

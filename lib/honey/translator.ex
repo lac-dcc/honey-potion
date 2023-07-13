@@ -11,7 +11,8 @@ defmodule Honey.Translator do
     TranslatorContext,
     Boilerplates,
     Guard,
-    CoreElixirToC
+    CoreElixirToC,
+    Utils
   }
 
   @moduledoc """
@@ -142,13 +143,16 @@ defmodule Honey.Translator do
         check_call = change_func_name_in_ast!(call, :ast_to_c_CHECK)
 
         quote do
-          def unquote(call), unquote(expr) # unquote real ast_to_c
+          # unquote real ast_to_c
+          def unquote(call), unquote(expr)
 
-          def unquote(check_call) do # unquote the ast_to_c_CHECK
+          # unquote the ast_to_c_CHECK
+          def unquote(check_call) do
             unquote(translation_order)
           end
 
-          def ast_to_c_CHECK(_, _) do #
+          #
+          def ast_to_c_CHECK(_, _) do
             false
           end
         end
@@ -161,15 +165,14 @@ defmodule Honey.Translator do
   #Translates the main function.
   """
 
-  def translate(func_name, ast, sec, license, elixir_maps) do
+  def translate(func_name, ast, sec_name, license, elixir_maps) do
     case func_name do
       "main" ->
-        Guard.ensure_sec_type!(sec)
         context = Honey.TranslatorContext.new(elixir_maps)
         translated_code = honeys_ast_to_c(ast, context)
 
-        sec
-        |> Boilerplates.config(["ctx_arg"], license, elixir_maps, translated_code)
+        Honey.ExportedSecs.get_by_sec_name!(sec_name)
+        |> Boilerplates.config("ctx_arg", license, elixir_maps, translated_code)
         |> Boilerplates.generate_whole_code()
 
       _ ->
@@ -189,6 +192,9 @@ defmodule Honey.Translator do
   end
 
   defp get_module_ast_to_c!(ast, context = %TranslatorContext{}) do
+    # TODO: Improve the complexity of this function...
+    # TODO: Accept user-defined modules
+
     c_libraries_modules =
       Honey.ExportedCLibraries.get()
       |> Enum.reverse()
@@ -224,7 +230,6 @@ defmodule Honey.Translator do
 
           :normal ->
             {current_module, current_priority}
-
         end
       end)
 
@@ -236,25 +241,27 @@ defmodule Honey.Translator do
   def honeys_ast_to_c(ast, context = %TranslatorContext{}) do
     module = get_module_ast_to_c!(ast, context)
 
-    ast = try do
-      module.ast_to_c(ast, context)
-    rescue
-      # To my understanding, if it gets to this point, it's because it reached CoreElixirToC and not even it implements this ast pattern
-      FunctionClauseError ->
-        IO.puts(
-          "No translator candidate has implemented a pattern for translating this AST segment:"
-        )
+    ast =
+      try do
+        module.ast_to_c(ast, context)
+      rescue
+        # To my understanding, if it gets to this point, it's because it reached CoreElixirToC and not even it implements this ast pattern
+        FunctionClauseError ->
+          IO.puts(
+            "Honey is not capable of translating this AST pattern yet:"
+          )
 
-        IO.inspect(ast)
-        raise "No translator candidate has implemented a pattern for translating this AST segment."
-    end
+          IO.inspect(ast)
+
+          raise "Honey is not capable of translating this AST pattern yet."
+      end
 
     ast
   end
 
   @doc """
   Translates an Elixir AST to C, calling the right method given its priority, which are:
-  1st. A module implementing a @translator_order as high
+  1st. A module implementing a @translator_order as :high
   2nd. User-defined translation
   3rd. SEC-defined translation
   4th. C library-defined translation
@@ -271,7 +278,7 @@ defmodule Honey.Translator do
 
       :inclusive ->
         quote do
-          unquote(__ENV__.module).honeys_ast_to_c(unquote(ast), unquote(context))
+          unquote(__MODULE__).honeys_ast_to_c(unquote(ast), unquote(context))
         end
 
       :exclusive ->

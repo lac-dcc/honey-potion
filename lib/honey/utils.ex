@@ -9,11 +9,42 @@ defmodule Honey.Utils do
   """
 
   defmacro gen(text) do
+    # TODO add tabulation and define beginning and end of generated parts
     %Macro.Env{file: file, line: line} = __CALLER__
 
-    # TODO add tabulation and define beginning and end of generated parts
+    first_comment = "\n// ===== Generated at #{file}:#{line} ======"
+    second_comment = gen_complement(String.length(first_comment)) <> "\n"
+
     quote do
-      "// Generated at #{unquote(file)}:#{unquote(line)}\n" <> unquote(text)
+      unquote(first_comment) <>
+        unquote(__MODULE__).trim_and_wrap_line_breaks(unquote(text)) <>
+        unquote(second_comment)
+    end
+  end
+
+  defp gen_complement(num, equals_str \\ "// ") do
+    if(String.length(equals_str) >= num - 1) do
+      equals_str
+    else
+      gen_complement(num, equals_str <> "=")
+    end
+  end
+
+  @doc """
+  Trims and wraps a string with line break characters ("\n").
+  It also guarantess that only one line break will exist in the beginning, and only one at the end.
+  """
+
+  def trim_and_wrap_line_breaks(text) when is_bitstring(text) do
+    new_text =
+      text
+      |> String.trim()
+      |> String.trim("\n")
+
+    if(new_text == text) do
+      "\n" <> new_text <> "\n"
+    else
+      trim_and_wrap_line_breaks(new_text)
     end
   end
 
