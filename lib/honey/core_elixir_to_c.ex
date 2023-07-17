@@ -58,6 +58,7 @@ defmodule Honey.CoreElixirToC do
         :== ->
           "Equals"
 
+        # TODO :
         # :> ->
         #   " ..."
 
@@ -107,25 +108,16 @@ defmodule Honey.CoreElixirToC do
   end
 
   # General dot operator
-  def ast_to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context)
-      when is_atom(var_context) do
-    generic_name = ctx_var_to_generic(element)
-    TranslatedCode.new("", generic_name)
+  # Let's only accept one level for now. So var.field is allowed but var.field1.field2 is not.
+  def default_ast_to_c({{:., _, [var, field]}, _, _}, _context) do
+    # TODO
+    typeset = TypeSet.get_typeset_from_var_ast(var)
   end
 
-  # def ast_to_c({{:., _, [var, property]}, _, _}, _context) do
-  #   var_name_in_c = var_to_string(var)
-  #   property_var = Translator.unique_helper_var()
-  #   str_name_var = Translator.unique_helper_var()
-
-  #   """
-  #   Generic #{property_var} = {0};
-  #   char #{str_name_var}[20] = "#{Atom.to_string(property)}";
-  #   getMember(&op_result, &#{var_name_in_c}, #{str_name_var}, &#{property_var});
-  #   if (op_result.exception) goto CATCH
-  #   """
-  #   |> gen()
-  #   |> TranslatedCode.new(property_var)
+  # def ast_to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context)
+  #     when is_atom(var_context) do
+  #   generic_name = ctx_var_to_generic(element)
+  #   TranslatedCode.new("", generic_name)
   # end
 
   # function raise/1
@@ -133,7 +125,7 @@ defmodule Honey.CoreElixirToC do
     new_var_name = Translator.unique_helper_var()
 
     """
-    Generic #{new_var_name} = (Generic){0};
+    Dynamic #{new_var_name} = (Dynamic){0};
     op_result = (OpResult){ .exception = 1, .exception_msg = \"(RaiseException) #{msg}\"};
     goto CATCH;
     """
@@ -152,7 +144,7 @@ defmodule Honey.CoreElixirToC do
     cond_code = cond_statments_to_c(conds, cond_var, context)
 
     """
-    Generic #{cond_var} = {.type = INTEGER, .value.integer = 0};
+    Dynamic #{cond_var} = {.type = INTEGER, .value.integer = 0};
     #{cond_code}
     """
     |> gen()
@@ -178,7 +170,7 @@ defmodule Honey.CoreElixirToC do
     """
     #{tuple_values_code}
     #{heap_allocation_code}
-    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
+    Dynamic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
     """
     |> gen()
     |> TranslatedCode.new(tuple_var)
@@ -200,7 +192,7 @@ defmodule Honey.CoreElixirToC do
     #{first_element_c_code.code}
     #{second_element_c_code.code}
     #{heap_allocation_code}
-    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
+    Dynamic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
     """
     |> gen()
     |> TranslatedCode.new(tuple_var)
@@ -210,7 +202,7 @@ defmodule Honey.CoreElixirToC do
     list_var = Translator.unique_helper_var()
 
     """
-    Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
+    Dynamic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
     if((*heap_index) < HEAP_SIZE && (*heap_index) >= 0) {
       (*heap)[(*heap_index)] = #{list_var};
     } else {
@@ -258,7 +250,7 @@ defmodule Honey.CoreElixirToC do
 
     """
     #{case_input_translated.code}
-    Generic #{case_return_var};
+    Dynamic #{case_return_var};
     #{case_code}
     """
     |> gen()
@@ -362,7 +354,7 @@ defmodule Honey.CoreElixirToC do
        }
        ++(*tuple_pool_index);
 
-       Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
+       Dynamic #{list_var} = (Dynamic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
        if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
          (*heap)[(*heap_index)] = #{list_element_in_c.return_var_name};
        } else {
@@ -391,7 +383,7 @@ defmodule Honey.CoreElixirToC do
     heap_index_var_name = Translator.unique_helper_var()
 
     """
-    Generic #{head_element_var_name};
+    Dynamic #{head_element_var_name};
     if(#{list_head_var_name}.value.tuple.start < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start >= 0) {
       unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start));
       if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
@@ -413,7 +405,7 @@ defmodule Honey.CoreElixirToC do
     heap_index_var_name = Translator.unique_helper_var()
 
     """
-    Generic #{next_list_head_var_name};
+    Dynamic #{next_list_head_var_name};
     if(#{list_head_var_name}.value.tuple.start+1 < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start+1 >= 0) {
       unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start+1));
       if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
@@ -466,7 +458,7 @@ defmodule Honey.CoreElixirToC do
     heap_index_var_name = Translator.unique_helper_var()
 
     """
-    Generic #{first_tuple_elm_name};
+    Dynamic #{first_tuple_elm_name};
     if(#{tuple_var_name}.value.tuple.start + #{index} < TUPLE_POOL_SIZE && #{tuple_var_name}.value.tuple.start + #{index}>= 0) {
       unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{tuple_var_name}.value.tuple.start + #{index}));
       if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
@@ -547,7 +539,7 @@ defmodule Honey.CoreElixirToC do
     c_var_name = var_to_string(var)
 
     """
-    Generic #{c_var_name} = #{helper_var_name};
+    Dynamic #{c_var_name} = #{helper_var_name};
     """
   end
 
@@ -658,8 +650,8 @@ defmodule Honey.CoreElixirToC do
   end
 
   @doc """
-  Translates constants into a Generic C datatype.
-  Generic being a struct used to represent many different datatypes with the same type.
+  Translates constants into a Dynamic C datatype.
+  Dynamic being a struct used to represent many different datatypes with the same type.
   """
 
   def constant_to_code(item) do
@@ -669,14 +661,14 @@ defmodule Honey.CoreElixirToC do
       is_integer(item) ->
         {:ok,
          TranslatedCode.new(
-           "Generic #{var_name_in_c} = {.type = INTEGER, .value.integer = #{item}};",
+           "Dynamic #{var_name_in_c} = {.type = INTEGER, .value.integer = #{item}};",
            var_name_in_c
          )}
 
       is_number(item) ->
         {:ok,
          TranslatedCode.new(
-           "Generic #{var_name_in_c} = {.type = DOUBLE, .value.double_precision = #{item}};",
+           "Dynamic #{var_name_in_c} = {.type = DOUBLE, .value.double_precision = #{item}};",
            var_name_in_c
          )}
 
@@ -705,7 +697,7 @@ defmodule Honey.CoreElixirToC do
             __builtin_memcpy(&(*string_pool)[*string_pool_index], "#{str}", #{len_var_name});
           }
 
-          Generic #{var_name_in_c} = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = #{end_var_name}}};
+          Dynamic #{var_name_in_c} = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = #{end_var_name}}};
           *string_pool_index = #{end_var_name} + 1;
           """)
 
@@ -728,7 +720,7 @@ defmodule Honey.CoreElixirToC do
               raise "We cannot convert arbitrary atoms such as :#{item} yet (only :true, :false and :nil)."
           end
 
-        code = "Generic #{var_name_in_c} = #{value};"
+        code = "Dynamic #{var_name_in_c} = #{value};"
         {:ok, TranslatedCode.new(code, var_name_in_c)}
 
       is_binary(item) ->
@@ -747,7 +739,7 @@ defmodule Honey.CoreElixirToC do
 
   # Creates a situation for when all conditions are exhausted from the method below.
   def cond_statments_to_c([], cond_var_name_in_c, _context) do
-    "#{cond_var_name_in_c} = (Generic){.type = ATOM, .value.string = (String){0, 2}};"
+    "#{cond_var_name_in_c} = (Dynamic){.type = ATOM, .value.string = (String){0, 2}};"
   end
 
   # Transforms conditional statements to C one condition at a time.
@@ -787,7 +779,7 @@ defmodule Honey.CoreElixirToC do
 
     """
     #{heap_allocation_code}
-    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
+    Dynamic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
     """
     |> gen()
     |> TranslatedCode.new(tuple_var)

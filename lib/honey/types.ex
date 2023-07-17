@@ -1,3 +1,12 @@
+defmodule Honey.Type do
+  defstruct [c_type: nil, e_type: nil]
+  defguard is_type(var) when is_struct(var, Honey.ElixirType) or is_struct(var, Honey.ElixirType)
+
+  def receive_type(type) when is_type(type) do
+
+  end
+end
+
 defmodule Honey.ElixirType do
   @derive {Inspect, optional: [:name, :struct, :function]}
   defstruct name: nil, struct: nil, function: nil
@@ -66,38 +75,44 @@ defmodule Honey.ElixirType do
   end
 end
 
-defmodule Honey.FunctionType do
+defmodule Honey.ElixirFunctionType do
   defstruct [:arguments, :return_type]
 
   def new() do
   end
 end
 
-defmodule Honey.FunctionArgument do
+defmodule Honey.ElixirFunctionArgument do
   defstruct [:name, :type, :optional]
 
   def new(name, type, optional \\ false) do
-    %Honey.FunctionArgument{name: name, type: type, optional: optional}
+    %Honey.ElixirFunctionArgument{name: name, type: type, optional: optional}
   end
 end
 
-defmodule Honey.StructType do
+defmodule Honey.ElixirStructField do
+  defstruct name: "", type: nil
+
+  def new(name, type) do
+  end
+end
+
+defmodule Honey.ElixirStructType do
   defstruct fields: []
 
   def new() do
-    %Honey.StructType{}
+    %Honey.ElixirStructType{}
+  end
+
+  def add_field(field = %Honey.ElixirStructField{}) do
   end
 end
 
-defmodule Honey.StructField do
-  defstruct name: "", type: nil
-end
-
-defmodule Honey.CType do
-  defstruct name: nil, struct: nil, pointer: nil
-end
-
 defmodule Honey.TypeSet do
+  @moduledoc """
+  This module manages the information regarding the types that a variable can assume at
+  a point in the code.
+  """
   alias Honey.{TypeSet, ElixirType}
   import Honey.Utils, only: [is_var: 1]
 

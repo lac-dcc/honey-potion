@@ -141,7 +141,7 @@ defmodule Honey.Boilerplates do
       prefix = """
         void output(struct #{module_name}_bpf* skel) {
           int key, success;
-          Generic value = (Generic){0};
+          Dynamic value = (Dynamic){0};
       """
 
       suffix = """
@@ -221,7 +221,7 @@ defmodule Honey.Boilerplates do
         else
           "__uint(key_size, sizeof(long));"
         end}
-          __uint(value_size, sizeof(Generic));
+          __uint(value_size, sizeof(Dynamic));
         } #{map_name} SEC(".maps");
         """
       end)
@@ -261,7 +261,7 @@ defmodule Honey.Boilerplates do
     __builtin_memcpy(*string_pool + 3, \"false\", 5);
     __builtin_memcpy(*string_pool + 3 + 5, \"true\", 4);
 
-    Generic(*heap)[HEAP_SIZE] = bpf_map_lookup_elem(&heap_map, &zero);
+    Dynamic(*heap)[HEAP_SIZE] = bpf_map_lookup_elem(&heap_map, &zero);
     if (!heap)
     {
       op_result = (OpResult){.exception = 1, .exception_msg = \"(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access heap map, main function).\"};

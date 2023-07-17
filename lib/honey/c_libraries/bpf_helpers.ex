@@ -47,7 +47,7 @@ defmodule Honey.Bpf_helpers do
         """
         #{code}
         bpf_printk(\"#{string}\"#{vars});
-        Generic #{result_var} = {.type = INTEGER, .value.integer = 0};
+        Dynamic #{result_var} = {.type = INTEGER, .value.integer = 0};
         """
         |> gen()
         |> TranslatedCode.new(result_var)
@@ -93,12 +93,12 @@ defmodule Honey.Bpf_helpers do
               op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not integer."};
               goto CATCH;
             }
-            Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
+            Dynamic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
 
-            Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = 0};
+            Dynamic #{result_var} = (Dynamic){.type = INTEGER, .value.integer = 0};
 
-            Generic #{found_var} = #{result_var_pointer} ? ATOM_TRUE : ATOM_FALSE;
-            Generic #{item_var} = (Generic){0};
+            Dynamic #{found_var} = #{result_var_pointer} ? ATOM_TRUE : ATOM_FALSE;
+            Dynamic #{item_var} = (Dynamic){0};
             if(!#{result_var_pointer}) {
               // #{item_var} = ATOM_NIL;
               op_result = (OpResult){.exception = 1, .exception_msg = "(KeyNotFound) The key provided was not found in the map '#{str_map_name}'."};
@@ -171,7 +171,7 @@ defmodule Honey.Bpf_helpers do
               goto CATCH;
             }
             int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, #{flags_str});
-            Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
+            Dynamic #{result_var} = (Dynamic){.type = INTEGER, .value.integer = #{result_var_c}};
             """
             |> gen()
             |> TranslatedCode.new(result_var)
@@ -183,7 +183,7 @@ defmodule Honey.Bpf_helpers do
       :bpf_get_current_pid_tgid ->
         result_var = Translator.unique_helper_var()
 
-        "Generic #{result_var} = {.type = INTEGER, .value.integer = bpf_get_current_pid_tgid()};\n"
+        "Dynamic #{result_var} = {.type = INTEGER, .value.integer = bpf_get_current_pid_tgid()};\n"
         |> gen()
         |> TranslatedCode.new(result_var)
     end

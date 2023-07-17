@@ -18,10 +18,10 @@ defmodule Honey.TypePropagation do
 
   defp add_type_info(ast, arguments, env = %Macro.Env{}) when is_list(arguments) do
     # Get the type of the arguments
-    {_ebpf_options, sec, _license, _maps} = Info.get_backend_info(env)
+    {_ebpf_options, sec_module, _license, _maps} = Info.get_backend_info(env)
 
     tp_context =
-      get_types_of_arguments(sec)
+      get_types_of_arguments(sec_module)
       |> Enum.zip(arguments)
       |> Enum.reduce(TPContext.new(env), fn {types, arg}, tp_context ->
         TPContext.add_var_types(tp_context, arg, TypeSet.new(types))
@@ -74,7 +74,7 @@ defmodule Honey.TypePropagation do
     ast
   end
 
-  defp get_types_of_arguments(sec) do
+  defp get_types_of_arguments(sec_module) do
     [ElixirType.new(:type_ctx)]
     # TODO: This will be implemented in the SEC file
   end

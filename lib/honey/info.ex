@@ -14,10 +14,11 @@ defmodule Honey.Info do
     ebpf_options = Module.get_attribute(env.module, :ebpf_options)
     sections = Module.get_attribute(env.module, :sections)
     sec_name = Map.get(sections, {:def, target_func, target_arity})
+    sec_module = Honey.ExportedSecs.get_from_sec_name!(sec_name)
     license = Keyword.fetch!(ebpf_options, :license)
     maps = Module.get_attribute(env.module, :ebpf_maps)
 
-    {ebpf_options, sec_name, license, maps}
+    {ebpf_options, sec_module, license, maps}
   end
 
   @doc """

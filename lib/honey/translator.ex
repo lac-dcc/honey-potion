@@ -163,14 +163,13 @@ defmodule Honey.Translator do
   #Translates the main function.
   """
 
-  def translate(func_name, ast, sec_name, license, elixir_maps) do
+  def translate(func_name, ast, sec_module, license, elixir_maps) do
     case func_name do
       "main" ->
         context = Honey.TranslatorContext.new(elixir_maps)
         translated_code = honeys_ast_to_c(ast, context)
 
-        Honey.ExportedSecs.get_from_sec_name!(sec_name)
-        |> Boilerplates.config("ctx_arg", license, elixir_maps, translated_code)
+        Boilerplates.config(sec_module, "ctx_arg", license, elixir_maps, translated_code)
         |> Boilerplates.generate_whole_code()
 
       _ ->

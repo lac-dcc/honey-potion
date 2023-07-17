@@ -1,4 +1,4 @@
-defmodule Honey.DCE do
+defmodule Honey.DeadCodeElimination do
   import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1]
 
   @moduledoc """

@@ -49,7 +49,7 @@ struct
   __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
   __uint(max_entries, 1);
   __uint(key_size, sizeof(int));
-  __uint(value_size, sizeof(Generic[HEAP_SIZE]));
+  __uint(value_size, sizeof(Dynamic[HEAP_SIZE]));
 } heap_map SEC(".maps");
 
 struct

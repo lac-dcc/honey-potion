@@ -12,8 +12,8 @@ defmodule Honey.Generator do
   """
 
   def generate_code(env, final_ast) do
-    {_ebpf_options, sec_name, license, maps} = Info.get_backend_info(env)
-    backend_code = Translator.translate("main", final_ast, sec_name, license, maps)
+    {_ebpf_options, sec_module, license, maps} = Info.get_backend_info(env)
+    backend_code = Translator.translate("main", final_ast, sec_module, license, maps)
 
     frontend_code = Boilerplates.generate_frontend_code(env)
 

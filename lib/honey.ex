@@ -4,7 +4,7 @@ defmodule Honey do
   alias Honey.Guard
   # Unrolls function calls.
   alias Honey.Fuel
-  # Optimizes the AST with DCE and CP and does variable analysis.
+  # Optimizes the AST with DeadCodeElimination and CP and does variable analysis.
   alias Honey.Optimizer
   # Gathers Info about the AST.
   alias Honey.Info

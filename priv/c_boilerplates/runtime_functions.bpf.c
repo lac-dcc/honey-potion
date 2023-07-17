@@ -2,7 +2,7 @@
 #include <bpf/bpf_helpers.h>
 #include <runtime_structures.bpf.h>
 
-static int to_bool(Generic *var)
+static int to_bool(Dynamic *var)
 {
   if (var->type == ATOM)
   {
@@ -28,7 +28,7 @@ static int to_bool(Generic *var)
   return 1;
 }
 
-static int values_are_equal(Generic *var1, Generic *var2)
+static int values_are_equal(Dynamic *var1, Dynamic *var2)
 {
   if (var1->type == INTEGER)
   {
@@ -48,7 +48,7 @@ static int values_are_equal(Generic *var1, Generic *var2)
   return 0;
 }
 
-/*(static char get_str_format_specifier(Generic *g, StrFormatSpec *result)
+/*(static char get_str_format_specifier(Dynamic *g, StrFormatSpec *result)
 {
   // TODO
   if (g->type == INTEGER)
@@ -58,13 +58,13 @@ static int values_are_equal(Generic *var1, Generic *var2)
 }*/
 
 // Unary operations
-static void negate(Generic *var, Generic *result)
+static void negate(Dynamic *var, Dynamic *result)
 {
   // TODO
 }
 
 // Binary operations
-static void Subtract(OpResult *result, Generic *var1, Generic *var2)
+static void Subtract(OpResult *result, Dynamic *var1, Dynamic *var2)
 {
   result->exception = 0;
 
@@ -100,7 +100,7 @@ static void Subtract(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Sum)."};
 }
 
-static __inline void Sum(OpResult *result, Generic *var1, Generic *var2)
+static __inline void Sum(OpResult *result, Dynamic *var1, Dynamic *var2)
 {
   result->exception = 0;
 
@@ -136,7 +136,7 @@ static __inline void Sum(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Sum)."};
 }
 
-static void Divide(OpResult *result, Generic *var1, Generic *var2)
+static void Divide(OpResult *result, Dynamic *var1, Dynamic *var2)
 {
   result->exception = 0;
   if (var1->type == DOUBLE || var2->type == DOUBLE)
@@ -182,7 +182,7 @@ static void Divide(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Divide)."};
 }
 
-static void Multiply(OpResult *result, Generic *var1, Generic *var2)
+static void Multiply(OpResult *result, Dynamic *var1, Dynamic *var2)
 {
   result->exception = 0;
   if (var1->type == DOUBLE || var2->type == DOUBLE)
@@ -239,7 +239,7 @@ static void Multiply(OpResult *result, Generic *var1, Generic *var2)
   *result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (function Multiply)."};
 }
 
-static void Copy(OpResult *result, Generic *to, Generic *from)
+static void Copy(OpResult *result, Dynamic *to, Dynamic *from)
 {
   if (from->type == STRING)
   {
@@ -273,13 +273,13 @@ static void Copy(OpResult *result, Generic *to, Generic *from)
   }
 }
 
-static int pattern_match(Generic *var1, Generic *var2)
+static int pattern_match(Dynamic *var1, Dynamic *var2)
 {
   // TODO
   return 0;
 }
 
-static void Equals(OpResult *result, Generic *var1, Generic *var2) {
+static void Equals(OpResult *result, Dynamic *var1, Dynamic *var2) {
   result->exception = 0;
 
   if(var1->type != var2->type) {
