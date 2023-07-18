@@ -15,10 +15,7 @@ defmodule Honey.Guard do
 
     # If the main function isn't defined raise an error.
     if !(main_def = Module.get_definition(env.module, {target_func, target_arity})) do
-      Utils.compile_error!(
-        env,
-        "Module #{env.module} is using eBPF but does not contain #{target_func}/#{target_arity}."
-      )
+      raise "Module #{env.module} is using eBPF but does not contain #{target_func}/#{target_arity}."
     end
 
     # Otherwise return its definiton.

@@ -5,7 +5,7 @@ defmodule Honey.CNativeType.Struct do
   alias Honey.CExpr.{Utils, CVariable}
   alias Honey.CNativeType.Struct
 
-  defimpl Honey.CNativeType do
+  defimpl Honey.CType do
     def get_type_definition_str(struct) do
       "struct #{struct.name}"
     end
@@ -14,14 +14,25 @@ defmodule Honey.CNativeType.Struct do
         when is_struct(value) and is_atom(field) do
       struct = CExpr.get_type(value)
 
-      if(Keyword.fetch(struct.fields, field) == :error) do
-        # concat_fields = Enum.join(struct.fields, "\", \"")
+      field_type =
+        case Keyword.fetch(struct.fields, field) do
+          :error ->
+            concat_fields =
+              struct.fields
+              |> dbg()
+              |> Enum.map(fn {field, type} ->
+                Atom.to_string(field)
+              end)
+              |> Enum.join(", :")
 
-        raise "'struct #{struct.name}' does not contain the field #{field}. Available fields are: [\"#{""}\"]"
-      end
+            raise "'struct #{struct.name}' does not contain the field #{field}. Available fields are: [:#{concat_fields}]"
+
+          {:ok, type} ->
+            type
+        end
 
       repr = CExpr.get_c_representation(value)
-      "#{repr}.#{field}"
+      {field_type, "#{repr}.#{field}"}
     end
 
     def op(_, operator, _value, value2) do

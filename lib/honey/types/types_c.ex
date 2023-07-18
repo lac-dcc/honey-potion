@@ -5,7 +5,7 @@ defprotocol Honey.CExpr do
   def get_type(value)
 end
 
-defprotocol Honey.CNativeType do
+defprotocol Honey.CType do
 
   def get_type_definition_str(type)
 
@@ -16,10 +16,10 @@ defmodule Honey.CExpr.CConstant do
   defstruct c_type: nil, c_code: ""
 
   alias Honey.CExpr.{CConstant, Utils}
-  alias Honey.CNativeType
+  alias Honey.CType
 
   def new(type, code) when is_struct(type) and is_bitstring(code) do
-    Utils.check_protocol(type, CNativeType)
+    Utils.check_protocol(type, CType)
 
     %CConstant{c_type: type, c_code: code}
   end
@@ -39,7 +39,7 @@ defmodule Honey.CExpr.CVariable do
   defstruct name: "", type: nil
 
   alias Honey.CExpr.{CVariable, Utils}
-  alias Honey.CNativeType
+  alias Honey.CType
 
   defimpl Honey.CExpr do
     def get_c_representation(var) do
@@ -52,7 +52,7 @@ defmodule Honey.CExpr.CVariable do
   end
 
   def new(name, type) when is_bitstring(name) and is_struct(type) do
-    Utils.check_protocol(type, CNativeType)
+    Utils.check_protocol(type, CType)
     %CVariable{name: name, type: type}
   end
 
@@ -63,7 +63,7 @@ defmodule Honey.CExpr.CVariable do
 end
 
 defmodule Honey.CExpr.Utils do
-  alias Honey.CNativeType
+  alias Honey.CType
   alias Honey.CExpr
   alias Honey.CExpr.{CConstant}
 
@@ -79,16 +79,22 @@ defmodule Honey.CExpr.Utils do
     Protocol.assert_impl!(protocol, var.__struct__)
   end
 
-  def op(operator, value1, value2) when is_atom(operator) and is_struct(value1) and is_struct(value2) do
+  def op(operator, value) when is_atom(operator) and is_struct(value) do
+    check_protocol(value, CExpr)
+
+    type = CExpr.get_type(value)
+    CType.op(type, operator, value, nil)
+  end
+
+  def op(operator, value1, value2) when is_atom(operator) and is_struct(value1) do
     check_protocol(value1, CExpr)
-    check_protocol(value2, CExpr)
 
     type1 = CExpr.get_type(value1)
-    CNativeType.op(type1, operator, value1, value2)
+    CType.op(type1, operator, value1, value2)
   end
 
   def check_type(value, type) do
-    check_protocol(type, CNativeType)
+    check_protocol(type, CType)
 
     CExpr.get_type(value) == type
   end

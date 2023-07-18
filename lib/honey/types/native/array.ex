@@ -3,7 +3,7 @@ defmodule Honey.CNativeType.Array do
 
   alias Honey.CExpr
   alias Honey.CExpr.Utils
-  alias Honey.CNativeType
+  alias Honey.CType
   alias Honey.CNativeType.{Array, Int}
 
   def op(:access, rep_1, %Int{}, index_repr, array) do
@@ -14,12 +14,13 @@ defmodule Honey.CNativeType.Array do
     Utils.operator_not_defined_error!(__MODULE__, operator, type.__struct__)
   end
 
-  defimpl Honey.CNativeType do
-  alias Honey.CNativeType
+  defimpl Honey.CType do
+    alias Honey.CType
+
     def get_type_definition_str(array) do
       type_array = array.type
 
-      type_str = CNativeType.get_type_definition_str(type_array)
+      type_str = CType.get_type_definition_str(type_array)
       {"#{type_str}", "[#{array.size}]"}
     end
 
@@ -33,7 +34,7 @@ defmodule Honey.CNativeType.Array do
   end
 
   def new(type, size) when is_struct(type) and is_integer(size) do
-    Utils.check_protocol(type, CNativeType)
+    Utils.check_protocol(type, CType)
 
     %Array{type: type, size: size}
   end

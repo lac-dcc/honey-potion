@@ -1,5 +1,6 @@
 defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
+  alias Honey.CType
   alias Honey.Utils
   alias Honey.Info
 
@@ -336,7 +337,8 @@ defmodule Honey.Boilerplates do
   """
 
   def generate_main_arguments(config) do
-    Enum.at(config.sec_module.__info__(:attributes)[:c_argument_type], 0) <> config.func_arg
+    type = Enum.at(config.sec_module.__info__(:attributes)[:c_ctx_arg_type], 0)
+    CType.get_type_definition_str(type) <> " " <> config.func_arg
   end
 
   @doc """
@@ -344,8 +346,9 @@ defmodule Honey.Boilerplates do
   """
 
   def generate_main(config) do
+    sec_name = Enum.at(config.sec_module.__info__(:attributes)[:name], 0)
     gen("""
-    SEC("#{config.sec_module}")
+    SEC("#{sec_name}")
     int main_func(#{generate_main_arguments(config)}) {
       #{leading_main_code()}
       // =============== beginning of user code ===============

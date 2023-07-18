@@ -2,9 +2,9 @@ defmodule Honey.ExportedSecs do
   def get() do
     [
       Honey.Sec.Xdp,
-      Honey.Sec.SysEnter,
-      Honey.Sec.SysEnterWrite,
-      Honey.Sec.SysEnterKill
+      Honey.Sec.Sys_enter,
+      Honey.Sec.Sys_enter_write,
+      Honey.Sec.Sys_enter_kill
     ]
   end
 

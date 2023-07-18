@@ -1,6 +1,8 @@
 # IN PROGRESS
 
-defmodule XdpExample do
+defmodule TypeTesting do
+  alias Honey.CExpr
+  alias Honey.CType
   alias Honey.CExpr.CVariable
   alias Honey.StructType
   alias Honey.CNativeType
@@ -37,6 +39,7 @@ defmodule XdpExample do
   end
 
   def test_structs() do
+    alias Honey.CType
     alias Honey.CExpr.{CVariable}
     alias Honey.CNativeType.{Int, Struct}
 
@@ -44,64 +47,69 @@ defmodule XdpExample do
     struct_type = Struct.new("my_struct", [f1: int_type, f2: int_type])
     var = CVariable.new("a_var", struct_type)
 
-    CNativeType.op(struct_type, :access, var, :f3)
+    CType.op(struct_type, :access, var, :f3)
   end
 
   def test_array() do
+    alias Honey.CType
     alias Honey.CExpr.{CVariable, CConstant}
-    alias Honey.CNativeType.{Int, Struct, Array}
+    alias Honey.CNativeType.{Int, Array}
 
     int_type = Int.new()
     array_int_5 = Array.new(int_type, 5)
     int_const1 = CConstant.new(int_type, "1")
     var = CVariable.new("a_var", array_int_5)
 
-    CNativeType.op(array_int_5, :access, var, int_const1)
-    CNativeType.get_type_definition_str(array_int_5)
+    CType.op(array_int_5, :access, var, int_const1)
+    CType.get_type_definition_str(array_int_5)
   end
 
   def test_pointer() do
+    alias Honey.CType
     alias Honey.CExpr.{CVariable, CConstant}
-    alias Honey.CNativeType.{Int, Struct, Pointer}
+    alias Honey.CNativeType.{Int, Pointer}
 
     int_type = Int.new()
     pointer_int = Pointer.new(int_type)
     int_const5 = CConstant.new(int_type, "5")
     var = CVariable.new("a_var", pointer_int)
 
-    CNativeType.op(pointer_int, :dereference, var, nil)
+    CType.op(pointer_int, :dereference, var, nil)
     |> dbg()
 
-    CNativeType.op(pointer_int, :+, var, int_const5)
+    CType.op(pointer_int, :+, var, int_const5)
     |> dbg()
   end
 
-  @sec "xdp"
+  def ctx_xdp_md() do
+    alias Honey.CType.{Ctx_xdp_md}
+    alias Honey.CExpr.{CVariable, Utils}
+    alias Honey.CNativeType.{Int, Pointer}
+
+    int_type = Int.new()
+    pointer_int_type = Pointer.new(int_type)
+
+    ctx = Ctx_xdp_md.new()
+    var = CVariable.new("ctx", ctx)
+
+    {datapointer_type, _code} = Utils.op(:access, var, :data)
+    var2 = CVariable.new("data", datapointer_type)
+    Utils.op(:cast, var2, pointer_int_type)
+  end
+
+  def ctx_sys_enter() do
+    alias Honey.CType.Structs.{Sys_enter}
+    alias Honey.CExpr.{CVariable, Utils}
+
+    ctx = Sys_enter.new()
+    var = CVariable.new("ctx", ctx)
+
+    Utils.op(:access, var, :id)
+    |> dbg()
+  end
+
+  @sec "tracepoint/syscalls/sys_enter_kill"
   def main(ctx) do
-    x = cond do
-      true ->
-        1
 
-      false ->
-        5.0
-    end
-    a = 1
-    b = 2
-    c = a + b
-    # eth = Honey.Helpers.parse_ethhdr(ctx.data)
-    # src = eth.h_source
-
-    # item = Honey.Bpf_helpers.bpf_map_lookup_elem(:map, 1)
-
-    # count = cond do
-    #   item ->
-    #     item
-    #   true ->
-    #     true
-    # end
-
-    # Honey.Bpf_helpers.bpf_map_update_elem(:map, 1, count)
-
-    # 2
   end
 end

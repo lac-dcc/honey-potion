@@ -5,16 +5,16 @@ defmodule Honey.Sec do
       The SEC name is required when defining a new Sec. Try:
       use Honey.Sec,
         name: "sec_name",
-        c_argument_type: "type"
+        c_ctx_arg_type: "type"
       """
     end
 
-    with :error <- Keyword.fetch(options, :c_argument_type) do
+    with :error <- Keyword.fetch(options, :c_ctx_arg_type) do
       raise """
       The argument type is required when defining a new Sec. Try:
       use Honey.Sec,
         name: "sec_name",
-        c_argument_type: "type"
+        c_ctx_arg_type: "type"
       """
     end
 
@@ -30,8 +30,8 @@ defmodule Honey.Sec do
       Module.register_attribute(__MODULE__, :name, persist: true)
       @name unquote(options[:name])
 
-      Module.register_attribute(__MODULE__, :c_argument_type, persist: true)
-      @c_argument_type unquote(options[:c_argument_type] || [])
+      Module.register_attribute(__MODULE__, :c_ctx_arg_type, persist: true)
+      @c_ctx_arg_type unquote(options[:c_ctx_arg_type] || [])
 
       Module.register_attribute(__MODULE__, :c_includes, persist: true)
       @c_includes unquote(options[:c_includes] || [])
