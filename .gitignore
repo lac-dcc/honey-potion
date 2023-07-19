@@ -44,3 +44,4 @@ examples/*.c
 /test/bin/
 /test/obj/
 /test/src/
+/test/Makefile
