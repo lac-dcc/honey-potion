@@ -8,7 +8,7 @@ defmodule Honey.Write do
 
   @doc """
   Writes all of the relevant files post-translation, which include module.c and module.bpf.c. Also makes sure write directories exist.
-  """ 
+  """
 
   def write_ouput_files(backend_code, frontend_code, env) do
     Directories.create_all(env)
@@ -19,12 +19,12 @@ defmodule Honey.Write do
 
   @doc """
   Writes the .bpf.c output file. This is the part that we translate from elixir code.
-  """ 
+  """
 
   def write_backend_code(env, backend_code) do
-    mod_name = Utils.module_name(env) 
+    mod_name = Utils.formatted_module_name(env)
     clang_format = Utils.clang_format(env)
-    
+
     backend_path = Directories.userdir(env) |> Path.join("src/#{mod_name}.bpf.c")
 
     {:ok, file} = File.open(backend_path, [:write])
@@ -36,21 +36,21 @@ defmodule Honey.Write do
 
     true
   end
-  
+
   @doc """
   Writes the frontend code into the right directory.
   """
 
   def write_frontend_code(env, frontend_code) do
-    mod_name = Utils.module_name(env) 
-    userdir = Directories.userdir(env) 
+    mod_name = Utils.formatted_module_name(env)
+    userdir = Directories.userdir(env)
 
     File.write(userdir |> Path.join("./src/#{mod_name}.c"), frontend_code)
   end
 
   @doc """
   Writes a makefile into the user directory. Used to compile the bpf program later.
-  """ 
+  """
 
   def write_makefile(env) do
     userdir = Directories.userdir(env)

@@ -12,7 +12,7 @@ defmodule Honey.Compiler do
 
   def compile_bpf(env) do
     IO.puts("Compiling generated C file into eBPF objects and executable...")
-    mod_name = Utils.module_name(env)
+    mod_name = Utils.formatted_module_name(env)
 
     userdir = Directories.userdir(env)
     libsdir = Directories.libsdir()

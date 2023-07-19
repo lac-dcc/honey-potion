@@ -92,10 +92,12 @@ defmodule Honey.Utils do
   Returns the name of the module that we are translating.
   """
 
-  def module_name(env) do
+  def formatted_module_name(env) do
     mod_name = env.module
-    mod_name = Atom.to_string(mod_name)
-    "Elixir." <> mod_name = "#{mod_name}"
+    |> Atom.to_string()
+    |> String.replace(".", "_")
+
+    "Elixir_" <> mod_name = mod_name
     mod_name
   end
 
@@ -111,8 +113,8 @@ defmodule Honey.Utils do
   @doc """
   Get an atom name and formats it to a string, removing the leading "Elixir."
   """
-  def custom_atom_to_string(module_name) do
-    Atom.to_string(module_name)
+  def custom_atom_to_string(uppercase_atom) do
+    Atom.to_string(uppercase_atom)
     |> String.replace("Elixir.", "")
   end
 

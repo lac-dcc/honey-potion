@@ -42,7 +42,7 @@ defmodule Honey.Boilerplates do
   """
 
   def generate_frontend_code(env) do
-    module_name = Utils.module_name(env)
+    formatted_module_name = Utils.formatted_module_name(env)
 
     include = """
     #include <bpf/bpf.h>
@@ -50,33 +50,33 @@ defmodule Honey.Boilerplates do
     #include <stdio.h>
     #include <unistd.h>
     #include <runtime_generic.bpf.h>
-    #include "#{module_name}.skel.h"\n
+    #include "#{formatted_module_name}.skel.h"\n
     """
 
     {output_decl, output_func} = generate_output_function(env)
 
     main = """
     \nint main(int argc, char **argv) {
-      struct #{module_name}_bpf *skel;
+      struct #{formatted_module_name}_bpf *skel;
       int err;
 
-      skel = #{module_name}_bpf__open();
+      skel = #{formatted_module_name}_bpf__open();
       if(!skel){
         fprintf(stderr, "Skeleton failed opening.\\n");
         return 1;
       }
 
-      err = #{module_name}_bpf__load(skel);
+      err = #{formatted_module_name}_bpf__load(skel);
       if(err){
         fprintf(stderr, "Failed loading or verification of BPF skeleton.\\n");
-        #{module_name}_bpf__destroy(skel);
+        #{formatted_module_name}_bpf__destroy(skel);
         return -err;
       }
 
-      err = #{module_name}_bpf__attach(skel);
+      err = #{formatted_module_name}_bpf__attach(skel);
       if(err){
         fprintf(stderr, "Failed attaching BPF skeleton.\\n");
-        #{module_name}_bpf__destroy(skel);
+        #{formatted_module_name}_bpf__destroy(skel);
         return -err;
       }
 
@@ -137,10 +137,10 @@ defmodule Honey.Boilerplates do
       {decl, File.read!(path)}
     else
       # Else, add the prefix and the suffix to the output.
-      module_name = Utils.module_name(env)
+      formatted_module_name = Utils.formatted_module_name(env)
 
       prefix = """
-        void output(struct #{module_name}_bpf* skel) {
+        void output(struct #{formatted_module_name}_bpf* skel) {
           int key, success;
           Dynamic value = (Dynamic){0};
       """
@@ -151,7 +151,7 @@ defmodule Honey.Boilerplates do
           }
       """
 
-      decl = "void output(struct #{module_name}_bpf* skel);\n"
+      decl = "void output(struct #{formatted_module_name}_bpf* skel);\n"
 
       {decl, prefix <> output <> suffix}
     end
