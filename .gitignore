@@ -39,3 +39,8 @@ examples/*.c
 # clangd cleanup.
 **/compile_commands.json
 **/.cache/**
+
+# Files generated during the test phase
+/test/bin/
+/test/obj/
+/test/src/
