@@ -3,7 +3,7 @@ defmodule Forcekill do
 
   defmap(
     :kills,
-    %{type: BPF_MAP_TYPE_HASH, max_entries: 64}
+    %{type: BPF_MAP_TYPE_HASH, max_entries: 64, print: true}
   )
 
   @sec "tracepoint/syscalls/sys_enter_kill"

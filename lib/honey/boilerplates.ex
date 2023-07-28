@@ -96,33 +96,52 @@ alias Honey.Boilerplates
       if(!(print == true)) do
         ""
       else
-        if(print_elem == nil) do
-          raise "RuntimeError: When :print is true, make sure to specify :print_elem."
+        case print_elem do
+          nil -> 
+            """
+                /* Printing map of name #{name} */
+                struct bpf_map* #{name} = skel->maps.#{name};
+                int #{name}_fd = bpf_map__fd(#{name});
+                printf("#{name}:\\n");
+                key = 0;
+                int* #{name}_old_key = NULL;
+                while(bpf_map_get_next_key(#{name}_fd, #{name}_old_key, &key) == 0){
+                  int success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                  if (success == 0) {
+                    printf("Entry %d: %ld\\n", key, value.value.integer);
+                  }
+                  #{name}_old_key = &key;
+                }
+            """
+          _ ->
+            if(print_elem == nil) do
+              raise "RuntimeError: When :print is true, make sure to specify :print_elem."
+            end
+            name = Atom.to_string(name)
+            # Please ignore the weird intentation of the #{Enum.map}, it is needed to print correctly.
+            """
+                /* Printing map of name #{name} */
+                struct bpf_map* #{name} = skel->maps.#{name};
+                int #{name}_fd = bpf_map__fd(#{name});
+                printf("#{name}:\\n");
+            #{Enum.map(print_elem, fn elem ->
+                  case elem do
+                    {elem_name, key} when is_binary(elem_name) and is_integer(key)->
+                      """
+                          key = #{Integer.to_string(key)};
+                          success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                          if(success == 0){
+                            printf("%s %ld\\n", "#{elem_name}", value.value.integer);
+                          } else {
+                            printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
+                          }
+                      """
+                    _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
+                    end
+                  end
+                ) |> Enum.join}
+            """
         end
-        name = Atom.to_string(name)
-        # Please ignore the weird intentation of the #{Enum.map}, it is needed to print correctly.
-        """
-            /* Printing map of name #{name} */
-            struct bpf_map* #{name} = skel->maps.#{name};
-            int #{name}_fd = bpf_map__fd(#{name});
-            printf("#{name}:\\n");
-        #{Enum.map(print_elem, fn elem ->
-              case elem do
-                {elem_name, key} when is_binary(elem_name) and is_integer(key)->
-                  """
-                      key = #{Integer.to_string(key)};
-                      success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
-                      if(success == 0){
-                        printf("%s %ld\\n", "#{elem_name}", value.value.integer);
-                      } else {
-                        printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
-                      }
-                  """
-                _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
-                end
-              end
-            ) |> Enum.join}
-        """
       end
     end) |> Enum.join
 

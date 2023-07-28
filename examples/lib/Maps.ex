@@ -21,7 +21,7 @@ defmodule Honey_Maps do
 
   defmap(
     :Second_Example_map,
-    %{type: BPF_MAP_TYPE_ARRAY, max_entries: 3, print: true, print_elem: printlist}
+    %{type: BPF_MAP_TYPE_ARRAY, max_entries: 5, print: true}
   )
 
   @sec "tracepoint/syscalls/sys_enter_write"
