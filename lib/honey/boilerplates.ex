@@ -104,13 +104,15 @@ alias Honey.Boilerplates
                 int #{name}_fd = bpf_map__fd(#{name});
                 printf("#{name}:\\n");
                 key = 0;
-                int* #{name}_old_key = NULL;
-                while(bpf_map_get_next_key(#{name}_fd, #{name}_old_key, &key) == 0){
-                  int success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                int #{name}_prev_key = 0;
+                success = bpf_map_get_next_key(#{name}_fd, NULL, &key); 
+                while(success == 0){
+                  success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
                   if (success == 0) {
                     printf("Entry %d: %ld\\n", key, value.value.integer);
                   }
-                  #{name}_old_key = &key;
+                  #{name}_prev_key = key;
+                  success = bpf_map_get_next_key(#{name}_fd, &#{name}_prev_key, &key);
                 }
             """
           _ ->

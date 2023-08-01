@@ -13,6 +13,9 @@ defmodule Honey_Maps do
     # max_entries: defines the size of the map.
     # print: true defines that there will be a print (optional) and
     # print_elem: [{...}] defines the names and keys of the print. (optional) 
+  # If print_elem is not set, Honey will attempt to print as much as possible of the map.
+  # See Forcekill for an example.
+  
 
   defmap(
     :Example_map,
