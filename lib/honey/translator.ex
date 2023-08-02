@@ -1,5 +1,5 @@
 defmodule Honey.TranslatorContext do
-  defstruct [:maps, :sec_module, :c_libraries_modules, :user_custom_translators]
+  defstruct [:maps, :sec_module, :c_libraries_modules, :user_custom_translators, :ident_level]
 
   def new(maps) do
     %__MODULE__{maps: maps}
@@ -7,10 +7,11 @@ defmodule Honey.TranslatorContext do
 end
 
 defmodule Honey.Translator do
+  require Honey.Utils
+
   alias Honey.{
     TranslatorContext,
     Boilerplates,
-    Guard,
     CoreElixirToC,
     Utils
   }
@@ -33,6 +34,27 @@ defmodule Honey.Translator do
         IO.inspect(func_ast)
         raise "Invalid function ast passed to get_function_ast_without_guards!"
     end
+  end
+
+  defp add_underscore_to_args(func_ast) do
+    Macro.postwalk(func_ast, fn node ->
+      if(Utils.is_var(node)) do
+        {var_name, meta, ctx} = node
+        var_name_str = Atom.to_string(var_name)
+
+        new_var_name =
+          if(var_name_str != "_") do
+            ("_" <> var_name_str)
+            |> String.to_atom()
+          else
+            var_name
+          end
+
+        {new_var_name, meta, ctx}
+      else
+        node
+      end
+    end)
   end
 
   defp change_func_name_in_ast!(func_ast, new_name) when is_atom(new_name) do
@@ -135,28 +157,30 @@ defmodule Honey.Translator do
 
   """
   defmacro __before_compile__(env) do
-    ast_to_c_defs =
-      Module.get_attribute(env.module, :ast_to_c_definitions)
-      |> Enum.reverse()
-      |> Enum.map(fn {translation_order, call, expr} ->
-        assert_valid_translation_order!(translation_order)
-        check_call = change_func_name_in_ast!(call, :ast_to_c_CHECK)
+    Module.get_attribute(env.module, :ast_to_c_definitions)
+    |> Enum.reverse()
+    |> Enum.map(fn {translation_order, call, expr} ->
+      assert_valid_translation_order!(translation_order)
 
-        quote do
-          # unquote real ast_to_c
-          def unquote(call), unquote(expr)
+      check_call =
+        change_func_name_in_ast!(call, :ast_to_c_CHECK)
+        |> add_underscore_to_args()
 
-          # unquote the ast_to_c_CHECK
-          def unquote(check_call) do
-            unquote(translation_order)
-          end
+      quote do
+        # unquote real ast_to_c
+        def unquote(call), unquote(expr)
 
-          #
-          def ast_to_c_CHECK(_, _) do
-            false
-          end
+        # unquote the ast_to_c_CHECK
+        def unquote(check_call) do
+          unquote(translation_order)
         end
-      end)
+
+        #
+        def ast_to_c_CHECK(_, _) do
+          false
+        end
+      end
+    end)
   end
 
   @doc """
@@ -230,7 +254,7 @@ defmodule Honey.Translator do
         end
       end)
 
-    right_module = right_module || CoreElixirToC
+    right_module || CoreElixirToC
   end
 
   @doc """
@@ -244,9 +268,7 @@ defmodule Honey.Translator do
       rescue
         # To my understanding, if it gets to this point, it's because it reached CoreElixirToC and not even it implements this ast pattern
         FunctionClauseError ->
-          IO.puts(
-            "Honey is not capable of translating this AST pattern yet:"
-          )
+          IO.puts("Honey is not capable of translating this AST pattern yet:")
 
           IO.inspect(ast)
 

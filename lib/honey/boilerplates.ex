@@ -338,7 +338,7 @@ defmodule Honey.Boilerplates do
 
   def generate_main_arguments(config) do
     type = Enum.at(config.sec_module.__info__(:attributes)[:c_ctx_arg_type], 0)
-    CType.get_type_definition_str(type) <> " " <> config.func_arg
+    CType.get_type_declaration_str(type) <> " " <> config.func_arg
   end
 
   @doc """

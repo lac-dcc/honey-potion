@@ -48,7 +48,7 @@ defmodule Honey.ElixirType do
   end
 
   def type_struct(name) do
-    %Honey.ElixirType{name: name, struct: Honey.StructType.new()}
+    %Honey.ElixirType{name: name, struct: Honey.ElixirStructType.new()}
   end
 
   def type_function() do
@@ -93,7 +93,7 @@ end
 defmodule Honey.ElixirStructField do
   defstruct name: "", type: nil
 
-  def new(name, type) do
+  def new(_name, _type) do
   end
 end
 
@@ -104,7 +104,7 @@ defmodule Honey.ElixirStructType do
     %Honey.ElixirStructType{}
   end
 
-  def add_field(field = %Honey.ElixirStructField{}) do
+  def add_field(_field = %Honey.ElixirStructField{}) do
   end
 end
 

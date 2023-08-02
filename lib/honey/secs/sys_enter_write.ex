@@ -1,10 +1,8 @@
 defmodule Honey.CType.Structs.Sys_enter_write do
   def new() do
-    alias Honey.CType
-    alias Honey.CExpr.{CVariable}
-    alias Honey.CNativeType.{Int, Struct}
+    alias Honey.CNativeType.{Integer, Struct}
 
-    int_type = Int.new()
+    int_type = Integer.new(32)
 
     # field:unsigned short common_type;    offset:0;    size:2;    signed:0;
     # field:unsigned char common_flags;    offset:2;    size:1;    signed:0;

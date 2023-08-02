@@ -1,10 +1,9 @@
 defmodule Honey.CType.Structs.Xdp_md do
   def new() do
     alias Honey.CType
-    alias Honey.CExpr.{CVariable}
-    alias Honey.CNativeType.{Int, Struct}
+    alias Honey.CNativeType.{Integer, Struct}
 
-    int_type = Int.new()
+    int_type = Integer.new(32)
 
     fields = [
       data: int_type,
@@ -22,22 +21,22 @@ end
 defmodule Honey.CType.Ctx_xdp_md do
   defstruct xdp_md_pointer: nil
 
-  alias Honey.CType.{Ctx_xdp_md, DataPointer, Structs.Xdp_md}
-  alias Honey.CExpr
-  alias Honey.CExpr.Utils
   alias Honey.CType
-  alias Honey.CNativeType.{Pointer, Int}
+  alias Honey.CValue
+  alias Honey.CAst.Utils
+  alias CType.{Ctx_xdp_md, DataPointer, Structs.Xdp_md}
+  alias Honey.CNativeType.{Pointer}
 
   defimpl Honey.CType do
-    def get_type_definition_str(struct) do
-      "struct xdp_md*"
+    def get_type_declaration_str(_struct) do
+      raise "Cannot get the type of wrapper type Ctx_xdp_md."
     end
 
     def op(_, :access, value, field)
         when is_struct(value) and is_atom(field) do
       case field do
         :data ->
-          repr = CExpr.get_c_representation(value)
+          repr = CValue.get_c_representation(value)
 
           data_pointer_type = DataPointer.new("#{repr}->data", "#{repr}->data_end")
           {data_pointer_type, "#{repr}->#{field}"}
@@ -48,8 +47,12 @@ defmodule Honey.CType.Ctx_xdp_md do
     end
 
     def op(_, operator, _value, value2) do
-      type = CExpr.get_type(value2)
+      type = CValue.get_type(value2)
       Utils.operator_not_defined_error!(__MODULE__, operator, type.__struct__)
+    end
+
+    def is_native?(_self) do
+      false
     end
   end
 

@@ -27,7 +27,7 @@ defmodule Honey.TypePropagation do
         TPContext.add_var_types(tp_context, arg, TypeSet.new(types))
       end)
 
-    {ast, tp_context} = Macro.postwalk(ast, tp_context, fn segment, tp_context ->
+    {ast, _tp_context} = Macro.postwalk(ast, tp_context, fn segment, tp_context ->
       case segment do
         {:=, meta, [lhs, rhs]} = pm ->
           if(is_var(lhs)) do
@@ -74,7 +74,7 @@ defmodule Honey.TypePropagation do
     ast
   end
 
-  defp get_types_of_arguments(sec_module) do
+  defp get_types_of_arguments(_sec_module) do
     [ElixirType.new(:type_ctx)]
     # TODO: This will be implemented in the SEC file
   end
@@ -240,7 +240,7 @@ defmodule Honey.TypePropagation do
     end)
   end
 
-  defp extract_types_from_segment(seg, _context) do
+  defp extract_types_from_segment(_seg, _context) do
     # IO.puts("Type propagation: We cannot analyze this structure yet:")
     # IO.inspect(seg)
     # raise "Type propagation: We cannot analyze this structure yet."

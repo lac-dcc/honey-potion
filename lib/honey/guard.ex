@@ -1,6 +1,4 @@
 defmodule Honey.Guard do
-  alias Honey.Utils
-
   @moduledoc """
   Contains functions used to guard certain parts of code.
   """

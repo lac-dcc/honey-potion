@@ -1,10 +1,10 @@
 defmodule Honey.Bpf_helpers do
-  alias Honey.{Translator, TranslatedCode, FunctionData, FunctionArgument, ElixirType, CLibrary}
+  alias Honey.{Translator, TranslatedCode, FunctionData, ElixirType, CLibrary, ElixirFunctionArgument}
   import Honey.Utils, only: [gen: 1]
   use CLibrary
 
   def bpf_printk(_str) do
-    arguments = [FunctionArgument.new("str", ElixirType.type_bitstring())]
+    arguments = [ElixirFunctionArgument.new("str", ElixirType.type_bitstring())]
     return_type = ElixirType.type_integer()
     FunctionData.new("bpf_printk", arguments, return_type)
   end

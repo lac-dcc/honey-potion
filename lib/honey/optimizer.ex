@@ -1,5 +1,10 @@
 defmodule Honey.Optimizer do
-  alias Honey.{TypePropagation, ConstantPropagation, DeadCodeElimination, Analyze}
+  alias Honey.{
+    TypePropagation,
+    # ConstantPropagation,
+    # DeadCodeElimination,
+    # Analyze
+  }
 
   @moduledoc """
   Module to define and run the optimization pipeline that runs over elixirs AST.
@@ -15,6 +20,7 @@ defmodule Honey.Optimizer do
     # |> ConstantPropagation.run()
     # |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
+
     # |> IO.inspect()
   end
 end

@@ -1,8 +1,8 @@
 defmodule Honey.CoreElixirToC do
-  alias Honey.{TranslatedCode, TypeSet, ElixirType, Translator}
+  alias Honey.{TranslatedCode, TypeSet, Translator}
 
   import Honey.Utils,
-    only: [gen: 1, var_to_string: 1, is_var: 1, ctx_var_to_generic: 1, is_constant: 1]
+    only: [gen: 1, var_to_string: 1, is_var: 1, is_constant: 1]
 
   @doc """
   Default translation of an Elixir AST to C, divided by segments. This is the default implementation,
@@ -28,7 +28,7 @@ defmodule Honey.CoreElixirToC do
   end
 
   # Erlang functions
-  def ast_to_c(ast = {{:., _, [:erlang, function]}, _, [constant]}, _context)
+  def ast_to_c({{:., _, [:erlang, function]}, _, [constant]}, _context)
       when is_integer(constant) do
     case function do
       :- ->
@@ -109,9 +109,10 @@ defmodule Honey.CoreElixirToC do
 
   # General dot operator
   # Let's only accept one level for now. So var.field is allowed but var.field1.field2 is not.
-  def default_ast_to_c({{:., _, [var, field]}, _, _}, _context) do
+  def ast_to_c({{:., _, [var, _field]}, _, _}, _context) do
     # TODO
-    typeset = TypeSet.get_typeset_from_var_ast(var)
+    raise "Should we be using this pattern?"
+    _typeset = TypeSet.get_typeset_from_var_ast(var)
   end
 
   # def ast_to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context)

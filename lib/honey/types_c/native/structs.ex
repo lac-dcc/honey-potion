@@ -1,26 +1,25 @@
 defmodule Honey.CNativeType.Struct do
   defstruct name: "", fields: []
 
-  alias Honey.CExpr
-  alias Honey.CExpr.{Utils, CVariable}
+  alias Honey.CValue
+  alias Honey.CAst.Utils
   alias Honey.CNativeType.Struct
 
   defimpl Honey.CType do
-    def get_type_definition_str(struct) do
+    def get_type_declaration_str(struct) do
       "struct #{struct.name}"
     end
 
     def op(_, :access, value, field)
         when is_struct(value) and is_atom(field) do
-      struct = CExpr.get_type(value)
+      struct = CValue.get_type(value)
 
       field_type =
         case Keyword.fetch(struct.fields, field) do
           :error ->
             concat_fields =
               struct.fields
-              |> dbg()
-              |> Enum.map(fn {field, type} ->
+              |> Enum.map(fn {field, _type} ->
                 Atom.to_string(field)
               end)
               |> Enum.join(", :")
@@ -31,13 +30,17 @@ defmodule Honey.CNativeType.Struct do
             type
         end
 
-      repr = CExpr.get_c_representation(value)
+      repr = CValue.get_c_representation(value)
       {field_type, "#{repr}.#{field}"}
     end
 
     def op(_, operator, _value, value2) do
-      type = CExpr.get_type(value2)
+      type = CValue.get_type(value2)
       Utils.operator_not_defined_error!(__MODULE__, operator, type.__struct__)
+    end
+
+    def is_native?(_self) do
+      true
     end
   end
 
