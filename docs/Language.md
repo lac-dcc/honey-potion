@@ -18,7 +18,7 @@ Maps in eBPF can be created using the `defmap` macro. A typical map can be repre
 ```
 defmap{
 :NameOfMap,
-%{type: TypeOfMap, max_entries: MaxMapEntries, @print = true, @print_elem = {("name1", key1), ("name2", key2), ...}}
+%{type: TypeOfMap, max_entries: MaxMapEntries, @print = true, @print_elem = [{"name1", key1}, {"name2", key2}, ...]}
 }
 ```
 

@@ -1,27 +1,20 @@
 defmodule CountSysCalls do
   use Honey, license: "Dual BSD/GPL"
-  
-  # This module is meant to follow the CountSysCalls benchmark.
-  # It counts the system calls under sys_enter and prints it every second.
-  # To add more system calls to the print list just add them to the variable below!
 
   printlist = [{"Syscall: enter_read (0) | Qtt:", 0}, {"Syscall: enter_write (1) | Qtt:", 1},
   {"SysCall: enter_kill (62) | Qtt:", 62}, {"SysCall: enter_mkdir (83) | Qtt:", 83},
-  {"SysCall: enter_getrandom (318) | Qtt:", 318}]
+  {"SysCall: enter_getrandom (318) | Qtt:", 318}] # Defines the {"Name", key} of each printed element
   
-  defmap(
+  defmap( # Defines a map with BPF_MAP_TYPE_ARRAY type, 335 entries and the above printlist
     :Count_Sys_Calls_Invoked,
     %{type: BPF_MAP_TYPE_ARRAY, max_entries: 335, print: true, print_elem: printlist}
   )
 
-  @sec "tracepoint/raw_syscalls/sys_enter"
+  @sec "tracepoint/raw_syscalls/sys_enter" # Sets our trigger to sys_enter
   def main(ctx) do
-    id = ctx.id
+    id = ctx.id # Grabs the ID of the sys_enter, which represents what sys_enter call was done
 
-    id_count = Honey.Bpf_helpers.bpf_map_lookup_elem(:Count_Sys_Calls_Invoked, id)
-
-    Honey.Bpf_helpers.bpf_map_update_elem(:Count_Sys_Calls_Invoked, id, id_count + 1)
-
-    0
+    id_count = Honey.Bpf_helpers.bpf_map_lookup_elem(:Count_Sys_Calls_Invoked, id) # Grabs the old value in the map
+    Honey.Bpf_helpers.bpf_map_update_elem(:Count_Sys_Calls_Invoked, id, id_count + 1) # and increments it by one
   end
 end

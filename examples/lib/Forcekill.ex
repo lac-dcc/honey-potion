@@ -1,30 +1,19 @@
 defmodule Forcekill do
   use Honey, license: "Dual BSD/GPL"
 
-  # Here we see an example where we can't describe a print_elem because it's a hash.
-  # In this case, we can leave print_elem out to print the map.
-  # See Maps.ex for more information on maps.
-  # This file represents the Forcekill benchmark.
-  # Run the program and try doing <kill -9 PID> and see the ID's that were force-killed!
-
-  defmap(
-    :kills,
+  defmap( # Defines an eBPF map of the BPF_MAP_TYPE_HASH with 64 entries
+    :ForceKills,
     %{type: BPF_MAP_TYPE_HASH, max_entries: 64, print: true}
   )
 
-  @sec "tracepoint/syscalls/sys_enter_kill"
+  @sec "tracepoint/syscalls/sys_enter_kill" # Sets our trigger to be sys_enter_kill
   def main(ctx) do
-    sig = ctx.sig
+    sig = ctx.sig # Grabs the sig and pid from the ctx variable
     pid = ctx.pid
 
     cond do
-      sig == 9 ->
-        Honey.Bpf_helpers.bpf_map_update_elem(:kills, pid, 1, :BPF_NOEXIST)
-
-        0
-      true ->
-        0
+      sig == 9 -> # In case the kill had the sig of 9 (kill -9 <PID>)
+        Honey.Bpf_helpers.bpf_map_update_elem(:ForceKills, pid, 1, :BPF_NOEXIST) # Keeps 1 in the <pid> key of the map
     end
-    0
   end
 end
