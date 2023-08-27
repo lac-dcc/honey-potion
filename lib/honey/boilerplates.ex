@@ -53,10 +53,23 @@ alias Honey.Boilerplates
     #include "#{module_name}.skel.h"\n
     """
 
-    {output_decl, output_func} = generate_output_function(env)
+    {chooser_decl, chooser_func} = generate_output_chooser(env)
+    {output_decl, output_func} = generate_output_func_decl(env)
 
     main = """
     \nint main(int argc, char **argv) {
+
+      bool printAll = false; // Prints only print:true otherwise
+      uint lifeTime = 0; // If 0 -> infinite.
+
+      int opt;
+      while((opt = getopt(argc, argv, "pt:")) != -1){
+        switch(opt){
+          case 'p': printAll = true; break;
+          case 't': lifeTime = atoi(optarg);
+        }
+      } 
+
       struct #{module_name}_bpf *skel;
       int err;
 
@@ -80,96 +93,148 @@ alias Honey.Boilerplates
         return -err;
       }
 
-      output(skel);
+      output(skel, lifeTime, printAll);
     }\n
     """
 
-    include <> output_decl <> main <> output_func
+    include <> chooser_decl <> output_decl <> main <> chooser_func <> output_func
   end
 
-  def generate_output_function(env) do
+  def generate_output_chooser(env) do
+    module_name = Utils.module_name(env)
+    output = """
+    void output(struct #{module_name}_bpf* skel, uint time, bool all){
+      if(time == 0){
+        while(1){
+          choose_output(skel, all);
+          sleep(1);
+        }
+      } else {
+        time++;
+        while(1){
+          choose_output(skel, all);
+          if(!--time) break;
+          sleep(1);
+        }
+      }
+    }
+
+    void choose_output(struct #{module_name}_bpf* skel, bool all){
+      if(all) output_all(skel);
+      else output_opt(skel);
+    }\n
+    """
+    decl = """
+    void output(struct #{module_name}_bpf* skel, uint time, bool all);
+    void choose_output(struct #{module_name}_bpf* skel, bool all);
+    """
+    {decl, output}
+  end
+
+  def generate_output_func_decl(env) do
+    output = generate_output_func(env)
+    output_always = generate_output_func(env, true)
+    
+    module_name = Utils.module_name(env)
+
+    decl = "void output_opt(struct #{module_name}_bpf* skel);\n"
+    decl_always = "void output_all(struct #{module_name}_bpf* skel);\n"
+
+    {decl <> decl_always, output <> "\n" <> output_always}
+  end
+
+  def generate_output_func(env, printAll \\ false) do
     {_,_,_,maps} = Info.get_backend_info(env)
 
-    # Enumerate through functions and return the print of the elements that were requested.
     output = Enum.map(maps, fn map ->
       {name, _type, _max_entries, print, print_elem} = Info.get_maps_attributes(map)
-      if(!(print == true)) do
+      if(!(print == true) and !printAll) do
         ""
       else
         case print_elem do
           nil -> 
             """
-                /* Printing map of name #{name} */
-                struct bpf_map* #{name} = skel->maps.#{name};
-                int #{name}_fd = bpf_map__fd(#{name});
-                printf("#{name}:\\n");
-                key = 0;
-                int #{name}_prev_key = 0;
-                success = bpf_map_get_next_key(#{name}_fd, NULL, &key); 
-                while(success == 0){
-                  success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
-                  if (success == 0) {
-                    printf("Entry %d: %ld\\n", key, value.value.integer);
-                  }
-                  #{name}_prev_key = key;
-                  success = bpf_map_get_next_key(#{name}_fd, &#{name}_prev_key, &key);
+              /* Printing map of name #{name} */
+              struct bpf_map* #{name} = skel->maps.#{name};
+              int #{name}_fd = bpf_map__fd(#{name});
+              printf("#{name}:\\n");
+              key = 0;
+              int #{name}_prev_key = 0;
+              success = bpf_map_get_next_key(#{name}_fd, NULL, &key); 
+              while(success == 0){
+                success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                if (success == 0) {
+                  printf("Entry %d: %ld\\n", key, value.value.integer);
                 }
+                #{name}_prev_key = key;
+                success = bpf_map_get_next_key(#{name}_fd, &#{name}_prev_key, &key);
+              }
             """
           _ ->
-            if(print_elem == nil) do
-              raise "RuntimeError: When :print is true, make sure to specify :print_elem."
-            end
             name = Atom.to_string(name)
-            # Please ignore the weird intentation of the #{Enum.map}, it is needed to print correctly.
+            # Please ignore the weird intentation of the #{Enum.map}, it is needed to print with correct indentation.
             """
-                /* Printing map of name #{name} */
-                struct bpf_map* #{name} = skel->maps.#{name};
-                int #{name}_fd = bpf_map__fd(#{name});
-                printf("#{name}:\\n");
-            #{Enum.map(print_elem, fn elem ->
-                  case elem do
-                    {elem_name, key} when is_binary(elem_name) and is_integer(key)->
-                      """
-                          key = #{Integer.to_string(key)};
-                          success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
-                          if(success == 0){
-                            printf("%s %ld\\n", "#{elem_name}", value.value.integer);
-                          } else {
-                            printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
-                          }
-                      """
-                    _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
-                    end
+              /* Printing map of name #{name} */
+              struct bpf_map* #{name} = skel->maps.#{name};
+              int #{name}_fd = bpf_map__fd(#{name});
+              printf("#{name}:\\n");
+          #{Enum.map(print_elem, fn elem ->
+                case elem do
+                  {elem_name, key} when is_binary(elem_name) and is_integer(key)->
+                    """
+                        key = #{Integer.to_string(key)};
+                        success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                        if(success == 0){
+                          printf("%s %ld\\n", "#{elem_name}", value.value.integer);
+                        } else {
+                          printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
+                        }
+                    """
+                  _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
                   end
-                ) |> Enum.join}
+                end
+              ) |> Enum.join}
             """
         end
       end
     end) |> Enum.join
 
-    #If no print has been generated, return to the standard output.
-    if(output == "") do
-      path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
-      decl = "void output();\n"
-      {decl, File.read!(path)}
+    module_name = Utils.module_name(env)
+
+    if(printAll == false) do
+      if(output == "") do
+        path = Path.join(:code.priv_dir(:honey), "BPF_Boilerplates/OutputFunc.c")
+        prefix = "void output_opt(struct #{module_name}_bpf* skel){"
+        prefix <> File.read!(path)
+      else
+        prefix = """
+        void output_opt(struct #{module_name}_bpf* skel) {
+          int key, success;
+          Generic value = (Generic){0};
+
+          printf("\\e[1;1H\\e[2J");\n
+        """
+
+        suffix = """
+        }
+        """
+
+        prefix <> output <> suffix
+      end
     else
-      #Else, add the prefix and the suffix to the output.
-      module_name = Utils.module_name(env)
+
       prefix = """
-      void output(struct #{module_name}_bpf* skel) {
+      void output_all(struct #{module_name}_bpf* skel) {
         int key, success;
         Generic value = (Generic){0};
-        while(1){
-          printf("\\e[1;1H\\e[2J");\n
-      """
-      suffix = """
-          sleep(1);
-        }
-      }
-      """
-      decl = "void output(struct #{module_name}_bpf* skel);\n"
 
-      {decl, prefix <> output <> suffix}
+        printf("\\e[1;1H\\e[2J");\n
+      """
+
+      suffix = """
+        }
+      """
+      prefix <> output <> suffix
     end
   end
 

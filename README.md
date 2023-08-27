@@ -66,6 +66,8 @@ Will generate a few new sub-directories for you:
 
 To run your program, just go into the bin directory and run the executable with privileges.
 
+You may run the program with the `-p` flag to print all maps and the `-t <seconds>` flag to set how many seconds the program will run.
+
 Notice the `license` option: as eBPF demands, we need to specify a license to our program.
 Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the C file generated.
 

@@ -1,4 +1,3 @@
-void output() {
     int maxPoints = 3;
     int points = 0;
     while(1) {
