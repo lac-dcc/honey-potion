@@ -31,7 +31,7 @@ $(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
 
 # Object Files
 $(SRC_DIR)/obj/$(TARGET).bpf.o: $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c
-	mkdir obj bin
+	mkdir -p obj bin
 	clang -S \
 			-target bpf \
 			-D__BPF_TRACING__ \
