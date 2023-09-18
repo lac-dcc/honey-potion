@@ -10,6 +10,6 @@ defmodule XdpExample do
     ethhdr = Honey.Ethhdr.from_binary(ctx.data)
     ethhdr = put_in(ethhdr.h_source, ethhdr.h_dest)
     Honey.Xdp.update_data(ethhdr)
-    1
+    2
   end
 end
