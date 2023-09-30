@@ -1,5 +1,5 @@
 defmodule Honey.EType.Binary do
-  defstruct size: :unknown, types: Keyword.new()
+  defstruct size: :unknown, segments: Keyword.new()
 
   alias Honey.EType
   alias Honey.CAst.Utils

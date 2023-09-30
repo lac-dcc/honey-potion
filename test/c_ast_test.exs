@@ -20,7 +20,7 @@ defmodule Honey.Test.CAst do
     --------------- End of Code ---------------
 
     """
-    # |> IO.puts()
+    |> IO.puts()
   end
 
   test "Test C Ast" do
