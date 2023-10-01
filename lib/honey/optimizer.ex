@@ -1,9 +1,9 @@
 defmodule Honey.Optimizer do
   alias Honey.{
     TypePropagation,
-    # ConstantPropagation,
-    # DeadCodeElimination,
-    # Analyze
+    ConstantPropagation,
+    DeadCodeElimination,
+    Analyze
   }
 
   @moduledoc """
@@ -16,9 +16,9 @@ defmodule Honey.Optimizer do
 
   def run(fun_def, arguments, env) do
     fun_def
-    # |> Analyze.run()
-    # |> ConstantPropagation.run()
-    # |> DeadCodeElimination.run()
+    |> Analyze.run()
+    |> ConstantPropagation.run()
+    |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
 
     # |> IO.inspect()
