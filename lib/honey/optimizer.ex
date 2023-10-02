@@ -21,6 +21,6 @@ defmodule Honey.Optimizer do
     |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
 
-    # |> IO.inspect()
+    |> IO.inspect()
   end
 end

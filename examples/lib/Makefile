@@ -33,7 +33,7 @@ $(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/src/$(TARGET).c $(SRC_DIR)/obj/$(TARGET)
 
 # Skeleton Generation
 $(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
-	$(BPFTOOL) gen skeleton $< > $@
+	bpftool gen skeleton $< > $@
 
 # Object Files
 $(SRC_DIR)/obj/$(TARGET).bpf.o: $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)/runtime_functions.bpf.c
