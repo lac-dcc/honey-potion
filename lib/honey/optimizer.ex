@@ -16,11 +16,11 @@ defmodule Honey.Optimizer do
 
   def run(fun_def, arguments, env) do
     fun_def
-    |> Analyze.run()
+    #|> Analyze.run()
     |> ConstantPropagation.run()
     |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
 
-    |> IO.inspect()
+    #|> IO.inspect()
   end
 end
