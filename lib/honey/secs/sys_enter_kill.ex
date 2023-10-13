@@ -32,11 +32,11 @@ defmodule Honey.Sec.Sys_enter_kill do
   alias Honey.{Sec}
 
   struct_type = Honey.CType.Structs.Sys_enter_kill.new()
-  # pointer_type = Honey.CNativeType.Pointer.new(struct_type)
+  pointer_type = Honey.CNativeType.Pointer.new(struct_type)
 
   use Sec,
     name: "tracepoint/syscalls/sys_enter_kill",
-    c_ctx_arg_type: struct_type,
+    c_ctx_arg_type: pointer_type,
     c_structs: [
       """
       typedef struct syscalls_enter_kill_args
