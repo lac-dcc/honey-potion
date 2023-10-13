@@ -8,7 +8,6 @@ PRIV_DIR ?= $(SRC_DIR)/../../priv
 C_BOILERPLATES ?= $(PRIV_DIR)/c_boilerplates/
 OBJ_FOLDER ?= $(SRC_DIR)/obj/
 CFLAGS ?=  -I'$(OBJ_FOLDER)' -I'$(C_BOILERPLATES)'
-BPFTOOL ?= $(PRIV_DIR)/../benchmarks/tools/bpftool
 
 LIBS = -lbpf -lelf -lz
 
@@ -28,7 +27,7 @@ $(SRC_DIR)/bin/$(TARGET): %: $(SRC_DIR)/src/$(TARGET).c $(SRC_DIR)/obj/$(TARGET)
 
 # Skeleton Generation
 $(SRC_DIR)/obj/$(TARGET).skel.h: $(SRC_DIR)/obj/$(TARGET).bpf.o
-	$(BPFTOOL) gen skeleton $< > $@
+	bpftool gen skeleton $< > $@
 
 # Object Files
 $(SRC_DIR)/obj/$(TARGET).bpf.o: $(SRC_DIR)/src/$(TARGET).bpf.c $(C_BOILERPLATES)runtime_functions.bpf.c

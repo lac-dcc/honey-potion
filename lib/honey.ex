@@ -26,7 +26,7 @@ defmodule Honey do
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
-    final_ast = func_ast |> Fuel.burn_fuel(env) |> Optimizer.run()
+    final_ast = func_ast |> Fuel.burn_fuel(env) |> Optimizer.run(arguments, env)
 
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 
