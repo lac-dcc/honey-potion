@@ -72,9 +72,8 @@ defmodule Honey.Translator do
   end
 
   # Erlang functions
-  def to_c(ast = {{:., _, [:erlang, function]}, _, [constant]}, _context)
+  def to_c({{:., _, [:erlang, function]}, _, [constant]}, _context)
       when is_integer(constant) do
-    IO.inspect(ast)
 
     case function do
       :- ->
