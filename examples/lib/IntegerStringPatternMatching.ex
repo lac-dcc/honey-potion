@@ -14,5 +14,6 @@ defmodule Integer_String_Pattern_Matching do
 
     # The following line raises an error:
     "bar" = str
+    0
   end
 end
