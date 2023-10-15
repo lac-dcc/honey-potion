@@ -358,9 +358,9 @@ defmodule Honey.Translator do
       :bpf_get_current_pid_tgid ->
         result_var = unique_helper_var()
 
-        "Generic #{result_var} = {.type = INTEGER, .value.integer = bpf_get_current_pid_tgid()};\n"
+        "int #{result_var} = bpf_get_current_pid_tgid();\n"
         |> gen()
-        |> TranslatedCode.new(result_var)
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirType.type_integer()))
     end
   end
 
