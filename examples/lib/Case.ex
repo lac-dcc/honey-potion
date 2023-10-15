@@ -14,6 +14,7 @@ defmodule Case do
         nil -> 0
         false -> 0
         true -> 1
+        1 -> 3
         _ -> x + 1
       end
 

@@ -57,9 +57,10 @@ defmodule Honey.Translator do
   def to_c(tree, context \\ {})
 
   # Variables
-  def to_c({var, var_meta, var_context}, _context) when is_atom(var) and is_atom(var_context) do
-    c_var_name = var_to_string({var, var_meta, var_context})
-    TranslatedCode.new("", c_var_name)
+  def to_c(var, _context) when is_var(var) do
+    c_var_name = var_to_string(var)
+    c_var_type = TypeSet.get_typeset_from_var_ast(var)
+    TranslatedCode.new("", c_var_name, c_var_type)
   end
 
   # Blocks
@@ -156,7 +157,16 @@ defmodule Honey.Translator do
 
         vars =
           Enum.reduce(code_vars, "", fn translated, so_far ->
-            so_far <> ", " <> translated.return_var_name <> ".value.integer"
+            if TypeSet.has_type(translated.return_var_type, ElixirType.type_any()) do
+              so_far <> ", " <> translated.return_var_name <> ".value.integer"
+            else
+              if TypeSet.has_unique_type(translated.return_var_type, ElixirType.type_integer()) do
+                so_far <> ", " <> translated.return_var_name
+              else
+                # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
+                so_far <> ", " <> translated.return_var_name <> ".value.integer"
+              end
+            end
           end)
 
         result_var = unique_helper_var()
@@ -506,22 +516,26 @@ defmodule Honey.Translator do
   # Case
   def to_c({:case, _, [case_input, [do: cases]]} = _case_exp, _context) do
     case_input_translated = to_c(case_input)
+
+    # We might not get a generic. We want a generic to operate on Case, as Case can have any type:
+    generic_case_input =  translated_code_to_generic(case_input_translated)
     case_return_var = unique_helper_var()
 
     case_code =
       case_statements_to_c(
-        case_input_translated.return_var_name,
+        generic_case_input.return_var_name,
         case_return_var,
         cases
       )
 
     """
     #{case_input_translated.code}
+    #{generic_case_input.code}
     Generic #{case_return_var};
     #{case_code}
     """
     |> gen()
-    |> TranslatedCode.new(case_return_var)
+    |> TranslatedCode.new(case_return_var, TypeSet.new(ElixirType.type_any()))
   end
 
   # Other structures
@@ -742,10 +756,12 @@ defmodule Honey.Translator do
       get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label)
   end
 
-  defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label) when is_var(var),
+  defp pattern_matching(segment, var_name, exit_label, generic \\ false)
+
+  defp pattern_matching({:_, _meta, _} = var, _helper_var_name, _exit_label, _generic) when is_var(var),
     do: ""
 
-  defp pattern_matching({:{}, _meta, tuple_elements}, helper_var_name, exit_label)
+  defp pattern_matching({:{}, _meta, tuple_elements}, helper_var_name, exit_label, _generic)
        when is_list(tuple_elements) do
     """
     if(#{helper_var_name}.type != TUPLE){
@@ -756,7 +772,7 @@ defmodule Honey.Translator do
       get_tuple_element_from_heap(helper_var_name, tuple_elements, 0, exit_label)
   end
 
-  defp pattern_matching({first, second}, helper_var_name, exit_label) do
+  defp pattern_matching({first, second}, helper_var_name, exit_label, _generic) do
     """
     if(#{helper_var_name}.type != TUPLE){
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -767,9 +783,10 @@ defmodule Honey.Translator do
   end
 
   defp pattern_matching(
-         [{:|, _meta, [header_assignment, tail_assignments]}],
-         helper_var_name,
-         exit_label
+          [{:|, _meta, [header_assignment, tail_assignments]}],
+          helper_var_name,
+          exit_label,
+          _generic
        ) do
     head_element_code =
       generate_code_for_list_head_element_assignment(
@@ -791,7 +808,7 @@ defmodule Honey.Translator do
       pattern_matching(tail_assignments, next_list_header.return_var_name, exit_label)
   end
 
-  defp pattern_matching(list_handlers, helper_var_name, exit_label) when is_list(list_handlers) do
+  defp pattern_matching(list_handlers, helper_var_name, exit_label, _generic) when is_list(list_handlers) do
     """
     if(#{helper_var_name}.type != LIST){
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -801,15 +818,36 @@ defmodule Honey.Translator do
       get_list_elements_from_heap(helper_var_name, list_handlers, exit_label)
   end
 
-  defp pattern_matching(var, helper_var_name, _exit_label) when is_var(var) do
+  defp pattern_matching(var, helper_var_name, _exit_label, generic) when is_var(var) do
     c_var_name = var_to_string(var)
-
+    # Check variable type, if has 1 type, it's that type, else it's generic. Generic flag nullifies this.
+    var_typeset = TypeSet.get_typeset_from_var_ast(var)
+    
+    if generic do 
     """
     Generic #{c_var_name} = #{helper_var_name};
     """
+    else
+      cond do
+        TypeSet.has_unique_type(var_typeset, ElixirType.type_integer()) ->
+          """
+          int #{c_var_name} = #{helper_var_name};
+          """
+        TypeSet.has_unique_type(var_typeset, ElixirType.type_bitstring()) ->
+          """
+          String #{c_var_name} = #{helper_var_name};
+          """
+        # TODO: Other types.
+        true ->
+          """
+          Generic #{c_var_name} = #{helper_var_name};
+          """
+      end
+    end
+
   end
 
-  defp pattern_matching(true, helper_var_name, exit_label) do
+  defp pattern_matching(true, helper_var_name, exit_label, _generic) do
     """
     if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 8 ) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -818,7 +856,7 @@ defmodule Honey.Translator do
     """
   end
 
-  defp pattern_matching(false, helper_var_name, exit_label) do
+  defp pattern_matching(false, helper_var_name, exit_label, _generic) do
     """
     if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 3 ) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -827,7 +865,7 @@ defmodule Honey.Translator do
     """
   end
 
-  defp pattern_matching(nil, helper_var_name, exit_label) do
+  defp pattern_matching(nil, helper_var_name, exit_label, _generic) do
     """
     if(#{helper_var_name}.type != ATOM || #{helper_var_name}.value.string.start != 0 ) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -836,17 +874,38 @@ defmodule Honey.Translator do
     """
   end
 
-  # No verification needed for integers.
-  defp pattern_matching(constant, _helper_var_name, _exit_label) when is_integer(constant) do
-    """
-    """
+  defp pattern_matching(constant, helper_var_name, exit_label, generic) when is_integer(constant) do
+    if generic do 
+      """
+      if(#{helper_var_name}.type != INTEGER || #{constant} != #{helper_var_name}.value.integer) {
+        op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+        goto #{exit_label};
+      }
+      """
+    else
+      """
+      """
+    end
   end
 
-  defp pattern_matching(constant, helper_var_name, exit_label) when is_bitstring(constant) do
+  defp pattern_matching(constant, helper_var_name, exit_label, generic) when is_bitstring(constant) do
+    if generic do
+    string_var_name = unique_helper_var()
+      """
+        if(#{helper_var_name}.type != STRING) {
+          op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+          goto #{exit_label};
+        }
 
-    """
-    """ <>
-      generate_bitstring_checker_at_position(constant, helper_var_name, 0, exit_label)
+        String #{string_var_name} = #{helper_var_name}.value.string;
+        if(#{String.length(constant)} != (#{string_var_name}.end - #{string_var_name}.start)){
+          op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
+          goto #{exit_label};
+        }
+      """ <> generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
+    else 
+      "" <> generate_bitstring_checker_at_position(constant, helper_var_name, 0, exit_label)
+    end
   end
 
   # Compare if a given constant string `constant` is equals to a given variable by checking
@@ -883,13 +942,16 @@ defmodule Honey.Translator do
     exit_label = unique_helper_label()
     translated_case_code_block = to_c(case_code_block)
 
+    generic_translated_case = translated_code_to_generic(translated_case_code_block)
+
     """
     op_result.exception = 0;
-    #{pattern_matching(lhs_expression, case_input_var_name, exit_label)}
+    #{pattern_matching(lhs_expression, case_input_var_name, exit_label, true)}
     #{exit_label}:
     if(op_result.exception == 0) {
       #{translated_case_code_block.code}
-      #{return_var_name} = #{translated_case_code_block.return_var_name};
+      #{generic_translated_case.code}
+      #{return_var_name} = #{generic_translated_case.return_var_name};
     } else {
       #{case_statements_to_c(case_input_var_name, return_var_name, further_cases)}
     }
@@ -901,7 +963,8 @@ defmodule Honey.Translator do
   Generic being a struct used to represent many different datatypes with the same type.
   """
 
-  def constant_to_code(item) do
+  def constant_to_code(item, generic \\ false)
+  def constant_to_code(item, false) do
     var_name_in_c = unique_helper_var()
 
     cond do
@@ -950,7 +1013,7 @@ defmodule Honey.Translator do
           *string_pool_index = #{end_var_name} + 1;
           """)
 
-        {:ok, TranslatedCode.new(code, var_name_in_c)}
+        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirType.type_bitstring()))}
 
       is_atom(item) ->
         # TODO: Convert arbitrary atoms
@@ -981,6 +1044,88 @@ defmodule Honey.Translator do
         :error
     end
   end
+
+  def constant_to_code(item, true) do
+    var_name_in_c = unique_helper_var()
+
+    cond do
+      is_integer(item) ->
+        {:ok,
+         TranslatedCode.new(
+            "Generic #{var_name_in_c} = {.type = INTEGER, .value.integer = #{item}};",
+            var_name_in_c,
+            TypeSet.new(ElixirType.type_any())
+         )}
+
+      is_number(item) ->
+        {:ok,
+         TranslatedCode.new(
+            "Generic #{var_name_in_c} = {.type = DOUBLE, .value.double_precision = #{item}};",
+            var_name_in_c,
+            TypeSet.new(ElixirType.type_any())
+         )}
+
+      # Considering only strings for now
+      is_bitstring(item) ->
+        # TODO: Check whether the zero-termination is ok the way it is
+
+        # TODO: consider other special chars
+        # You can use `Macro.unescape_string/2` for this, but please check it
+        str = String.replace(item, "\n", "\\n")
+        str_len = String.length(str) + 1
+        new_var_name = unique_helper_var()
+        end_var_name = "end_#{new_var_name}"
+        len_var_name = "len_#{new_var_name}"
+
+        code =
+          gen("""
+          unsigned #{len_var_name} = #{str_len};
+          unsigned #{end_var_name} = *string_pool_index + #{len_var_name} - 1;
+          if(#{end_var_name} + 1 >= STRING_POOL_SIZE) {
+            op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to create string, the string pool is full."};
+            goto CATCH;
+          }
+
+          if(*string_pool_index < STRING_POOL_SIZE - #{len_var_name}) {
+            __builtin_memcpy(&(*string_pool)[*string_pool_index], "#{str}", #{len_var_name});
+          }
+
+          Generic #{var_name_in_c} = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = #{end_var_name}}};
+          *string_pool_index = #{end_var_name} + 1;
+          """)
+
+        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirType.type_any()))}
+
+      is_atom(item) ->
+        # TODO: Convert arbitrary atoms
+        value =
+          case item do
+            true ->
+              "ATOM_TRUE"
+
+            false ->
+              "ATOM_FALSE"
+
+            nil ->
+              "ATOM_NIL"
+
+            _ ->
+              raise "We cannot convert arbitrary atoms yet (only 'true', 'false' and 'nil')."
+          end
+
+        code = "Generic #{var_name_in_c} = #{value};"
+        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirType.type_any()))}
+
+      is_binary(item) ->
+        raise "We cannot convert binary yet."
+
+      # TODO: create an option for tuples and arrays
+
+      true ->
+        :error
+    end
+  end
+
 
   @doc """
   Transforms conditional statements to C.
@@ -1033,4 +1178,29 @@ defmodule Honey.Translator do
     |> gen()
     |> TranslatedCode.new(tuple_var)
   end
+
+  defp translated_code_to_generic(typed_var) do
+    if TypeSet.has_type(typed_var.return_var_type, ElixirType.type_any()) do
+      "" |> TranslatedCode.new(typed_var.return_var_name)
+    else
+      generic_var = unique_helper_var()
+      cond do
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_integer()) -> 
+          """
+           Generic #{generic_var} = {.type = INTEGER, .value.integer = #{typed_var.return_var_name}};
+          """ 
+          |> gen() 
+          |> TranslatedCode.new(generic_var, TypeSet.new(ElixirType.type_any()))
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_boolean()) ->
+          raise "TODO"
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_bitstring()) ->
+          raise "TODO"
+        TypeSet.has_unique_type(typed_var.return_var_type,ElixirType.type_binary()) ->
+          raise "TODO"
+        true ->
+          raise "TODO"
+      end
+    end
+  end
+
 end
