@@ -10,6 +10,7 @@ defmodule Honey.Translator do
   alias Honey.Boilerplates
   alias Honey.TranslatedCode
   alias Honey.Guard
+  alias Honey.{ElixirType, TypeSet}
 
   import Honey.Utils, only: [gen: 1, var_to_string: 1, ctx_var_to_generic: 1, is_var: 1]
 
@@ -135,7 +136,7 @@ defmodule Honey.Translator do
     BINARY_OPERATION(#{c_var_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{rhs_in_c.return_var_name})
     """
     |> gen()
-    |> TranslatedCode.new(c_var_name)
+    |> TranslatedCode.new(c_var_name, TypeSet.new(ElixirType.type_any()))
   end
 
   # C libraries
@@ -164,10 +165,10 @@ defmodule Honey.Translator do
         """
         #{code}
         bpf_printk(\"#{string}\"#{vars});
-        Generic #{result_var} = {.type = INTEGER, .value.integer = 0};
+        int #{result_var} = 0;
         """
         |> gen()
-        |> TranslatedCode.new(result_var)
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirType.type_integer()))
 
       :bpf_map_lookup_elem ->
         [map_name, key_ast] = params
@@ -835,12 +836,9 @@ defmodule Honey.Translator do
     """
   end
 
-  defp pattern_matching(constant, helper_var_name, exit_label) when is_integer(constant) do
+  # No verification needed for integers.
+  defp pattern_matching(constant, _helper_var_name, _exit_label) when is_integer(constant) do
     """
-    if(#{helper_var_name}.type != INTEGER || #{constant} != #{helper_var_name}.value.integer) {
-      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto #{exit_label};
-    }
     """
   end
 
@@ -921,15 +919,17 @@ defmodule Honey.Translator do
       is_integer(item) ->
         {:ok,
          TranslatedCode.new(
-           "Generic #{var_name_in_c} = {.type = INTEGER, .value.integer = #{item}};",
-           var_name_in_c
+            "int #{var_name_in_c} = #{item};",
+            var_name_in_c,
+            TypeSet.new(ElixirType.type_integer())
          )}
 
       is_number(item) ->
         {:ok,
          TranslatedCode.new(
-           "Generic #{var_name_in_c} = {.type = DOUBLE, .value.double_precision = #{item}};",
-           var_name_in_c
+            "Generic #{var_name_in_c} = {.type = DOUBLE, .value.double_precision = #{item}};",
+            var_name_in_c,
+            TypeSet.new(ElixirType.type_float())
          )}
 
       # Considering only strings for now

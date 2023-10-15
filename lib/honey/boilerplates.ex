@@ -1,5 +1,7 @@
 defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
+  alias Honey.ElixirType
+  alias Honey.TypeSet
   alias Honey.Utils
   alias Honey.Info
 
@@ -457,6 +459,47 @@ alias Honey.Boilerplates
     """)
   end
 
+  def generate_ending_main_code(return_var_name, return_var_type) do
+    int_type = TypeSet.new(ElixirType.type_integer())
+    return_text = cond do
+      return_var_type == int_type -> (
+        # Inspect debug
+        IO.inspect("We returned an integer!")
+        gen("""
+        return #{return_var_name};
+        """)
+        )
+
+      TypeSet.has_type(return_var_type, ElixirType.type_integer()) -> (
+        # Inspect debug
+        IO.inspect("We can return a non-integer!; Caution.")
+        gen("""
+        if (#{return_var_name}.type != INTEGER) {
+          op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
+          goto CATCH;
+        }
+        return #{return_var_name}.value.integer;
+
+        CATCH:
+          bpf_printk(\"** %s\\n\", op_result.exception_msg);
+          return 0;
+        """)
+      )
+
+    true -> (
+      # Inspect debug
+      IO.inspect("We don't have a valid return :c!")
+      raise "Code should return something that can be an integer. Instead it returned #{return_var_name}."
+    )
+    end
+
+    return_text <> """
+    CATCH:
+      bpf_printk(\"** %s\\n\", op_result.exception_msg);
+      return 0;
+    """
+  end
+
   @doc """
   Creates the struct for the ctx main argument.
   """
@@ -561,7 +604,7 @@ alias Honey.Boilerplates
       // =============== beginning of user code ===============
       #{config.translated_code.code}
       // =============== end of user code ==============
-      #{generate_ending_main_code(config.translated_code.return_var_name)}
+      #{generate_ending_main_code(config.translated_code.return_var_name, config.translated_code.return_var_type)}
     }
     """)
   end

@@ -184,12 +184,12 @@ defmodule Honey.TypePropagation do
 
   defp extract_types_from_segment({{:., _, [Honey.Bpf_helpers, function]}, _, params}, _context) do
     # TODO: Check if function exists
-    func_data = apply(Honey.Bpf_helpers, function, params)
+    func_type = apply(Honey.Bpf_helpers, function, params)
 
-    if(!func_data) do
+    if(!func_type) do
       TypeSet.new()
     else
-      TypeSet.new(func_data.return_type)
+      TypeSet.new(func_type)
     end
   end
 
