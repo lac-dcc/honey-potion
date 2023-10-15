@@ -843,21 +843,10 @@ defmodule Honey.Translator do
   end
 
   defp pattern_matching(constant, helper_var_name, exit_label) when is_bitstring(constant) do
-    string_var_name = unique_helper_var()
 
     """
-    if(#{helper_var_name}.type != STRING) {
-      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto #{exit_label};
-    }
-
-    String #{string_var_name} = #{helper_var_name}.value.string;
-    if(#{String.length(constant)} != (#{string_var_name}.end - #{string_var_name}.start)){
-      op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
-      goto #{exit_label};
-    }
     """ <>
-      generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
+      generate_bitstring_checker_at_position(constant, helper_var_name, 0, exit_label)
   end
 
   # Compare if a given constant string `constant` is equals to a given variable by checking
@@ -957,7 +946,7 @@ defmodule Honey.Translator do
             __builtin_memcpy(&(*string_pool)[*string_pool_index], "#{str}", #{len_var_name});
           }
 
-          Generic #{var_name_in_c} = {.type = STRING, .value.string = (String){.start = *string_pool_index, .end = #{end_var_name}}};
+          String #{var_name_in_c} = (String){.start = *string_pool_index, .end = #{end_var_name}};
           *string_pool_index = #{end_var_name} + 1;
           """)
 
