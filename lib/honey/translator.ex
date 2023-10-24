@@ -131,13 +131,15 @@ defmodule Honey.Translator do
     rhs_in_c = to_c(rhs, context)
     c_var_name = unique_helper_var()
 
+    c_var = typed_binary_operation(lhs_in_c, rhs_in_c, c_var_name, func_string, function)
+
     """
     #{lhs_in_c.code}
     #{rhs_in_c.code}
-    BINARY_OPERATION(#{c_var_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{rhs_in_c.return_var_name})
+    #{c_var.code}
     """
     |> gen()
-    |> TranslatedCode.new(c_var_name, TypeSet.new(ElixirType.type_any()))
+    |> TranslatedCode.new(c_var.return_var_name, c_var.return_var_type)
   end
 
   # C libraries
@@ -837,6 +839,10 @@ defmodule Honey.Translator do
           """
           String #{c_var_name} = #{helper_var_name};
           """
+        TypeSet.has_unique_type(var_typeset, ElixirType.type_binary()) ->
+          """
+          String #{c_var_name} = #{helper_var_name};
+          """
         # TODO: Other types.
         true ->
           """
@@ -1142,16 +1148,30 @@ defmodule Honey.Translator do
     condition_in_c = to_c(condition, context)
 
     block_in_c = to_c(block, context)
+    generic_block = translated_code_to_generic(block_in_c)
 
-    gen("""
-    #{condition_in_c.code}
-    if (to_bool(&#{condition_in_c.return_var_name})) {
-      #{block_in_c.code}
-      #{cond_var_name_in_c} = #{block_in_c.return_var_name};
-    } else {
-      #{cond_statments_to_c(other_conds, cond_var_name_in_c, context)}
-    }
-    """)
+    if TypeSet.has_unique_type(block_in_c.return_var_type, ElixirType.type_integer()) do
+      gen("""
+      #{condition_in_c.code}
+      if (#{condition_in_c.return_var_name}) {
+        #{block_in_c.code}
+        #{generic_block.code}
+        #{cond_var_name_in_c} = #{generic_block.return_var_name};
+      } else {
+        #{cond_statments_to_c(other_conds, cond_var_name_in_c, context)}
+      }
+      """)
+    else
+      gen("""
+      #{condition_in_c.code}
+      if (to_bool(&#{condition_in_c.return_var_name})) {
+        #{block_in_c.code}
+        #{cond_var_name_in_c} = #{block_in_c.return_var_name};
+      } else {
+        #{cond_statments_to_c(other_conds, cond_var_name_in_c, context)}
+      }
+      """)
+    end
   end
 
   # Translates a block of code by calling to_c for each element in that block.
@@ -1177,6 +1197,40 @@ defmodule Honey.Translator do
     """
     |> gen()
     |> TranslatedCode.new(tuple_var)
+  end
+
+  def typed_binary_operation(lhs_in_c, rhs_in_c, return_name, func_string, function) do
+    cond do
+      # LHS is generic
+      TypeSet.has_type(lhs_in_c.return_var_type, ElixirType.type_any()) ->
+        # RHS is generic, we do a BINARY_OPERATION.
+        if TypeSet.has_type(rhs_in_c.return_var_type, ElixirType.type_any()) do
+          "BINARY_OPERATION(#{return_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{rhs_in_c.return_var_name})"
+          |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+          # RHS isn't generic, we need to get it to generic
+        else 
+          generic_rhs = translated_code_to_generic(rhs_in_c)
+          """
+          #{generic_rhs.code}
+          BINARY_OPERATION(#{return_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{generic_rhs.return_var_name})
+          """ |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+        end
+      # RHS is generic and lhs isn't 
+      TypeSet.has_type(rhs_in_c.return_var_type, ElixirType.type_any())->
+        generic_lhs = translated_code_to_generic(lhs_in_c)
+        """
+        #{generic_lhs.code}
+        BINARY_OPERATION(#{return_name}, #{func_string}, #{generic_lhs.return_var_name}, #{rhs_in_c.return_var_name})
+        """ |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+    
+      # Generics have been dealt with. Time to consider the rest.
+      TypeSet.has_unique_type(lhs_in_c.return_var_type, ElixirType.type_integer()) 
+        and TypeSet.has_unique_type(rhs_in_c.return_var_type, ElixirType.type_integer()) ->
+        "int #{return_name} = #{lhs_in_c.return_var_name} #{function} #{rhs_in_c.return_var_name};"  
+        |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_integer()))
+
+      true -> raise "We can't do a typed operation between #{lhs_in_c.return_var_name} and #{rhs_in_c.return_var_name}."
+    end
   end
 
   defp translated_code_to_generic(typed_var) do
