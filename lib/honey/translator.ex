@@ -159,10 +159,10 @@ defmodule Honey.Translator do
 
         vars =
           Enum.reduce(code_vars, "", fn translated, so_far ->
-            if TypeSet.has_type(translated.return_var_type, ElixirType.type_any()) do
+            if TypeSet.is_generic?(translated.return_var_type) do
               so_far <> ", " <> translated.return_var_name <> ".value.integer"
             else
-              if TypeSet.has_unique_type(translated.return_var_type, ElixirType.type_integer()) do
+              if TypeSet.is_integer?(translated.return_var_type) do
                 so_far <> ", " <> translated.return_var_name
               else
                 # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
@@ -202,6 +202,7 @@ defmodule Honey.Translator do
 
         map_content = map[:content]
 
+        item_var = unique_helper_var()
         found_var = unique_helper_var()
         item_var = unique_helper_var()
 
@@ -210,7 +211,6 @@ defmodule Honey.Translator do
         key = to_c(key_ast, context)
 
         result_var_pointer = unique_helper_var()
-        result_var = unique_helper_var()
 
         cond do
           map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
@@ -234,9 +234,6 @@ defmodule Honey.Translator do
             }
             Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
 
-            Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = 0};
-
-            Generic #{found_var} = #{result_var_pointer} ? ATOM_TRUE : ATOM_FALSE;
             Generic #{item_var} = (Generic){0};
             if(!#{result_var_pointer}) {
               // #{item_var} = ATOM_NIL;
@@ -824,18 +821,18 @@ defmodule Honey.Translator do
     c_var_name = var_to_string(var)
     # Check variable type, if has 1 type, it's that type, else it's generic. Generic flag nullifies this.
     var_typeset = TypeSet.get_typeset_from_var_ast(var)
-    
-    if generic do 
+
+    if generic do
     """
     Generic #{c_var_name} = #{helper_var_name};
     """
     else
       cond do
-        TypeSet.has_unique_type(var_typeset, ElixirType.type_integer()) ->
+        TypeSet.is_integer?(var_typeset) ->
           """
           int #{c_var_name} = #{helper_var_name};
           """
-        TypeSet.has_unique_type(var_typeset, ElixirType.type_bitstring()) ->
+        TypeSet.is_string?(var_typeset, ElixirType.type_bitstring()) ->
           """
           String #{c_var_name} = #{helper_var_name};
           """
@@ -881,7 +878,7 @@ defmodule Honey.Translator do
   end
 
   defp pattern_matching(constant, helper_var_name, exit_label, generic) when is_integer(constant) do
-    if generic do 
+    if generic do
       """
       if(#{helper_var_name}.type != INTEGER || #{constant} != #{helper_var_name}.value.integer) {
         op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
@@ -909,7 +906,7 @@ defmodule Honey.Translator do
           goto #{exit_label};
         }
       """ <> generate_bitstring_checker_at_position(constant, string_var_name, 0, exit_label)
-    else 
+    else
       "" <> generate_bitstring_checker_at_position(constant, helper_var_name, 0, exit_label)
     end
   end
@@ -1150,7 +1147,7 @@ defmodule Honey.Translator do
     block_in_c = to_c(block, context)
     generic_block = translated_code_to_generic(block_in_c)
 
-    if TypeSet.has_unique_type(block_in_c.return_var_type, ElixirType.type_integer()) do
+    if TypeSet.is_integer?(block_in_c.return_var_type) do
       gen("""
       #{condition_in_c.code}
       if (#{condition_in_c.return_var_name}) {
@@ -1202,31 +1199,31 @@ defmodule Honey.Translator do
   def typed_binary_operation(lhs_in_c, rhs_in_c, return_name, func_string, function) do
     cond do
       # LHS is generic
-      TypeSet.has_type(lhs_in_c.return_var_type, ElixirType.type_any()) ->
+      TypeSet.is_generic?(lhs_in_c.return_var_type) ->
         # RHS is generic, we do a BINARY_OPERATION.
-        if TypeSet.has_type(rhs_in_c.return_var_type, ElixirType.type_any()) do
+        if TypeSet.is_generic?(rhs_in_c.return_var_type) do
           "BINARY_OPERATION(#{return_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{rhs_in_c.return_var_name})"
           |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
           # RHS isn't generic, we need to get it to generic
-        else 
+        else
           generic_rhs = translated_code_to_generic(rhs_in_c)
           """
           #{generic_rhs.code}
           BINARY_OPERATION(#{return_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{generic_rhs.return_var_name})
           """ |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
         end
-      # RHS is generic and lhs isn't 
-      TypeSet.has_type(rhs_in_c.return_var_type, ElixirType.type_any())->
+      # RHS is generic and lhs isn't
+      TypeSet.is_generic?(rhs_in_c.return_var_type)->
         generic_lhs = translated_code_to_generic(lhs_in_c)
         """
         #{generic_lhs.code}
         BINARY_OPERATION(#{return_name}, #{func_string}, #{generic_lhs.return_var_name}, #{rhs_in_c.return_var_name})
         """ |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
-    
+
       # Generics have been dealt with. Time to consider the rest.
-      TypeSet.has_unique_type(lhs_in_c.return_var_type, ElixirType.type_integer()) 
-        and TypeSet.has_unique_type(rhs_in_c.return_var_type, ElixirType.type_integer()) ->
-        "int #{return_name} = #{lhs_in_c.return_var_name} #{function} #{rhs_in_c.return_var_name};"  
+      TypeSet.is_integer?(lhs_in_c.return_var_type)
+        and TypeSet.is_integer?(rhs_in_c.return_var_type) ->
+        "int #{return_name} = #{lhs_in_c.return_var_name} #{function} #{rhs_in_c.return_var_name};"
         |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_integer()))
 
       true -> raise "We can't do a typed operation between #{lhs_in_c.return_var_name} and #{rhs_in_c.return_var_name}."
@@ -1234,20 +1231,20 @@ defmodule Honey.Translator do
   end
 
   defp translated_code_to_generic(typed_var) do
-    if TypeSet.has_type(typed_var.return_var_type, ElixirType.type_any()) do
+    if TypeSet.is_generic?(typed_var.return_var_type) do
       "" |> TranslatedCode.new(typed_var.return_var_name)
     else
       generic_var = unique_helper_var()
       cond do
-        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_integer()) -> 
+        TypeSet.is_integer?(typed_var.return_var_type) ->
           """
            Generic #{generic_var} = {.type = INTEGER, .value.integer = #{typed_var.return_var_name}};
-          """ 
-          |> gen() 
+          """
+          |> gen()
           |> TranslatedCode.new(generic_var, TypeSet.new(ElixirType.type_any()))
         TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_boolean()) ->
           raise "TODO"
-        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_bitstring()) ->
+        TypeSet.is_string?(typed_var.return_var_type) ->
           raise "TODO"
         TypeSet.has_unique_type(typed_var.return_var_type,ElixirType.type_binary()) ->
           raise "TODO"

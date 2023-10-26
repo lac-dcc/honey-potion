@@ -161,6 +161,18 @@ defmodule Honey.TypeSet do
     size(set) == 1 and has_type(set, type)
   end
 
+  def is_generic?(set = %TypeSet{}) do
+    size(set) > 1 or size(set) == 0 or has_type(set, ElixirType.type_integer())
+  end
+
+  def is_integer?(set = %TypeSet{}) do
+    has_unique_type(set, ElixirType.type_integer())
+  end
+
+  def is_string?(set = %TypeSet{}) do
+    has_unique_type(set, ElixirType.type_bitstring())
+  end
+
   def size(set = %TypeSet{}) do
     MapSet.size(set.types)
   end
