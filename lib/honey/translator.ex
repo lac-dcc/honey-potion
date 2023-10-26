@@ -203,8 +203,7 @@ defmodule Honey.Translator do
         map_content = map[:content]
 
         item_var = unique_helper_var()
-        found_var = unique_helper_var()
-        item_var = unique_helper_var()
+        # found_var = unique_helper_var()
 
         str_map_name = Atom.to_string(map_name)
 
@@ -215,39 +214,50 @@ defmodule Honey.Translator do
         cond do
           map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
               map_content.type == BPF_MAP_TYPE_ARRAY ->
-            tuple_translation = generate_c_tuple_from_variables([found_var, item_var])
+            # This used to be commented in the end of the translated code. I decided to remove it to reduce clutter.
+            # tuple_translation = generate_c_tuple_from_variables([found_var, item_var])
 
-            # Ideally this will return a tuple with two values: A boolean representing whether the value was found
-            # and the value itself (:nil if it wasn't found).
-            # At this moment however, I'm having trouble because 1) Storing the value in a stack variable is only
-            # being possible if I stop the program when the key isn't found and 2) The pattern matching for
-            # tuples seems bugged.
-            # So currently, the program throws an exception if the key is not found and only returns the value
-            # as a single variable. But I'm commeting some code to make it easier to convert it to the the original
-            # idea once it's possible.
+            # I am going to temporarely assume that everything that is stored in a map is an integer.
+            # This assumption should be broken eventually and it should be done within this cond.
 
-            """
-            #{key.code}
-            if(#{key.return_var_name}.type != INTEGER) {
-              op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not integer."};
-              goto CATCH;
-            }
-            Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
+            key_code = cond do
+              TypeSet.is_integer?(key.return_var_type) ->
+                """
+                #{key.code}\n
+                Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}));
+                """
+              TypeSet.is_generic?(key.return_var_type) ->
+                """
+                #{key.code}
+                if(#{key.return_var_name}.type != INTEGER) {
+                  op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not integer."};
+                  goto CATCH;
+                }
+                Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer));
+                """
+            end
 
-            Generic #{item_var} = (Generic){0};
+            key_code <> """
+            int #{item_var};
             if(!#{result_var_pointer}) {
-              // #{item_var} = ATOM_NIL;
               op_result = (OpResult){.exception = 1, .exception_msg = "(KeyNotFound) The key provided was not found in the map '#{str_map_name}'."};
               goto CATCH;
             } else {
-              #{item_var} = *#{result_var_pointer};
-              #{item_var}.type = #{item_var}.type == INVALID_TYPE ? INTEGER : #{item_var}.type;
+              #{item_var} = #{result_var_pointer}->value.integer;
             }
-            /* #{tuple_translation.code} */
             """
             |> gen()
             # |> TranslatedCode.new(tuple_translation.return_var_name)
-            |> TranslatedCode.new(item_var)
+            |> TranslatedCode.new(item_var, TypeSet.new(ElixirType.type_integer()))
+
+          # Ideally this will return a tuple with two values: A boolean representing whether the value was found
+          # and the value itself (:nil if it wasn't found).
+          # At this moment however, I'm having trouble because 1) Storing the value in a stack variable is only
+          # being possible if I stop the program when the key isn't found and 2) The pattern matching for
+          # tuples seems bugged.
+          # So currently, the program throws an exception if the key is not found and only returns the value
+          # as a single variable. But I'm commeting some code to make it easier to convert it to the the original
+          # idea once it's possible.
 
           true ->
             raise "bpf_map_lookup_elem: In this verison of Honey Potion, we cannot use this function with map type #{map_content.type}."
@@ -328,27 +338,42 @@ defmodule Honey.Translator do
 
         key = to_c(key_ast, context)
         value = to_c(value_ast, context)
+        generic_value = translated_code_to_generic(value)
 
         result_var_c = unique_helper_var()
-        result_var = unique_helper_var()
 
         cond do
+
+            # I am going to temporarely assume that everything that is stored in a map is an integer.
+            # This assumption should be broken eventually and it should be done within this cond.
+
           map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
             map_content.type == BPF_MAP_TYPE_ARRAY or
             map_content.type == BPF_MAP_TYPE_PERCPU_HASH or
               map_content.type == BPF_MAP_TYPE_HASH ->
-            """
+            start = """
             #{key.code}
             #{value.code}
-            if(#{key.return_var_name}.type != INTEGER) {
-              op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
-              goto CATCH;
-            }
-            int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{value.return_var_name}, #{flags_str});
-            Generic #{result_var} = (Generic){.type = INTEGER, .value.integer = #{result_var_c}};
+            #{generic_value.code}
             """
+            update = cond do 
+              TypeSet.is_integer?(key.return_var_type) ->
+              """
+              #{generic_value.return_var_name}.value.integer = #{value.return_var_name};
+              int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}), &#{generic_value.return_var_name}, #{flags_str});
+              """
+              true ->
+              """
+              if(#{key.return_var_name}.type != INTEGER) {
+                op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
+                goto CATCH;
+              }
+              int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, &(#{key.return_var_name}.value.integer), &#{generic_value.return_var_name}, #{flags_str});
+              """
+            end
+            start <> update
             |> gen()
-            |> TranslatedCode.new(result_var)
+            |> TranslatedCode.new(result_var_c, TypeSet.new(ElixirType.type_integer()))
 
           true ->
             raise "bpf_map_update_elem: In this verison of Honey Potion, we cannot use this function with map type #{map_content.type}."
@@ -832,7 +857,7 @@ defmodule Honey.Translator do
           """
           int #{c_var_name} = #{helper_var_name};
           """
-        TypeSet.is_string?(var_typeset, ElixirType.type_bitstring()) ->
+        TypeSet.is_string?(var_typeset) ->
           """
           String #{c_var_name} = #{helper_var_name};
           """
@@ -1238,7 +1263,8 @@ defmodule Honey.Translator do
       cond do
         TypeSet.is_integer?(typed_var.return_var_type) ->
           """
-           Generic #{generic_var} = {.type = INTEGER, .value.integer = #{typed_var.return_var_name}};
+           Generic #{generic_var} = {0};
+           #{generic_var}.type = INTEGER; #{generic_var}.value.integer = #{typed_var.return_var_name};
           """
           |> gen()
           |> TranslatedCode.new(generic_var, TypeSet.new(ElixirType.type_any()))

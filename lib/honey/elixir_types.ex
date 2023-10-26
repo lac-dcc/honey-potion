@@ -162,7 +162,7 @@ defmodule Honey.TypeSet do
   end
 
   def is_generic?(set = %TypeSet{}) do
-    size(set) > 1 or size(set) == 0 or has_type(set, ElixirType.type_integer())
+    size(set) > 1 or size(set) == 0 or has_type(set, ElixirType.type_any())
   end
 
   def is_integer?(set = %TypeSet{}) do

@@ -182,14 +182,21 @@ defmodule Honey.TypePropagation do
     end
   end
 
-  defp extract_types_from_segment({{:., _, [Honey.Bpf_helpers, function]}, _, params}, _context) do
-    # TODO: Check if function exists
-    func_type = apply(Honey.Bpf_helpers, function, params)
+  defp extract_types_from_segment({{:., _, [Honey.Bpf_helpers, function]}, _, _params}, _context) do
+    # # TODO: Check if function exists
+    # func_type = apply(Honey.Bpf_helpers, function, params)
 
-    if(!func_type) do
-      TypeSet.new()
-    else
-      TypeSet.new(func_type)
+    # if(!func_type) do
+    #   TypeSet.new()
+    # else
+    #   TypeSet.new(func_type)
+    # end
+    case function do
+      :bpf_printk -> TypeSet.new(ElixirType.type_integer())
+      :bpf_get_current_pid_tgid -> TypeSet.new(ElixirType.type_integer())
+      :bpf_map_update_elem -> TypeSet.new(ElixirType.type_integer())
+      :bpf_map_lookup_elem -> TypeSet.new(ElixirType.type_integer())
+      _ -> TypeSet.new()
     end
   end
 
