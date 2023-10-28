@@ -224,13 +224,13 @@ defmodule Honey.TypePropagation do
               TypeSet.put_type(typeset, ElixirType.new(:type_ctx_data))
 
             :id ->
-              TypeSet.put_type(typeset, ElixirType.new(:type_ctx_id))
+              TypeSet.put_type(typeset, ElixirType.type_integer())
 
             :sig ->
-              TypeSet.put_type(typeset, ElixirType.new(:type_ctx_sig))
+              TypeSet.put_type(typeset, ElixirType.type_integer())
 
             :pid ->
-              TypeSet.put_type(typeset, ElixirType.new(:type_ctx_pid))
+              TypeSet.put_type(typeset, ElixirType.type_integer())
 
             _ ->
               raise "Invalid field access. Tried accessing inexisting field '#{field}' of variable '#{var_name}'."
@@ -243,7 +243,7 @@ defmodule Honey.TypePropagation do
   end
 
   defp extract_types_from_segment(_seg, _context) do
-    # Segments that fall into this have no type. This includes __block__, :->, ({:., ...), etc. Ideally we don't fall back into this in the future.
+    # Segments that fall into this have no type. This includes __block__, :->, etc. Ideally we don't fall back into this in the future.
     TypeSet.new()
   end
 

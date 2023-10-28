@@ -15,5 +15,6 @@ defmodule Forcekill do
       sig == 9 -> # In case the kill had the sig of 9 (kill -9 <PID>)
         Honey.Bpf_helpers.bpf_map_update_elem(:ForceKills, pid, 1, :BPF_NOEXIST) # Keeps 1 in the <pid> key of the map
     end
+    0
   end
 end

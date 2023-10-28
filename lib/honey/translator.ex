@@ -12,7 +12,7 @@ defmodule Honey.Translator do
   alias Honey.Guard
   alias Honey.{ElixirType, TypeSet}
 
-  import Honey.Utils, only: [gen: 1, var_to_string: 1, ctx_var_to_generic: 1, is_var: 1]
+  import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
 
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
@@ -402,10 +402,25 @@ defmodule Honey.Translator do
   end
 
   # Dot operator to access ctx_arg
-  def to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, _, _}, _context)
+  def to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, access_meta, _}, _context)
       when is_atom(var_context) do
-    generic_name = ctx_var_to_generic(element)
-    TranslatedCode.new("", generic_name)
+    access_type = Keyword.get(access_meta, :types, TypeSet.new(ElixirType.type_any()))
+    helper_var = unique_helper_var()
+    cond do
+      TypeSet.is_integer?(access_type) ->
+        """
+        int #{helper_var} = ctx_arg->#{element}; 
+        """
+        |> gen()
+        |> TranslatedCode.new(helper_var, TypeSet.new(ElixirType.type_integer())) 
+
+      TypeSet.is_generic?(access_type) ->
+        """
+        Generic #{helper_var} = {.type = INTEGER, .value.integer = ctx_arg->#{element}}; 
+        """
+        |> gen()
+        |> TranslatedCode.new(helper_var, TypeSet.new(ElixirType.type_any())) 
+    end
   end
 
   # General dot operator
