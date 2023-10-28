@@ -471,15 +471,17 @@ defmodule Honey.Translator do
 
   def to_c({:{}, _, tuple_values}, _context) when is_list(tuple_values) do
     tuple_translations_to_c = Enum.map(tuple_values, fn element -> to_c(element) end)
+    generic_tuple_elements = Enum.map(tuple_translations_to_c, fn element -> translated_code_to_generic(element) end)
 
     tuple_var_names =
-      Enum.map(tuple_translations_to_c, fn translation -> translation.return_var_name end)
+      Enum.map(generic_tuple_elements, fn translation -> translation.return_var_name end)
 
     {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(tuple_var_names, 0)
 
     tuple_values_code =
-      Enum.reduce(tuple_translations_to_c, "", fn tuple_to_c, acc ->
-        acc <> "\n" <> tuple_to_c.code
+      Enum.reduce(Enum.zip(tuple_translations_to_c, generic_tuple_elements), "", fn tuple_to_c, acc ->
+        {typed_translation, generic_translation} = tuple_to_c
+        acc <> "\n" <> typed_translation.code <> "\n" <> generic_translation.code
       end)
 
     tuple_var = unique_helper_var()
@@ -493,26 +495,8 @@ defmodule Honey.Translator do
     |> TranslatedCode.new(tuple_var)
   end
 
-  def to_c({first_element, second_element}, _context) do
-    first_element_c_code = to_c(first_element)
-    second_element_c_code = to_c(second_element)
-
-    {heap_allocation_code, heap_allocated_size} =
-      allocate_tuple_in_heap(
-        [first_element_c_code.return_var_name, second_element_c_code.return_var_name],
-        0
-      )
-
-    tuple_var = unique_helper_var()
-
-    """
-    #{first_element_c_code.code}
-    #{second_element_c_code.code}
-    #{heap_allocation_code}
-    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
-    """
-    |> gen()
-    |> TranslatedCode.new(tuple_var)
+  def to_c({first_element, second_element}, context) do
+    to_c({:{}, [], [first_element, second_element]}, context)
   end
 
   def to_c([], _context) do
@@ -654,9 +638,11 @@ defmodule Honey.Translator do
 
   def allocate_list_header_into_heap(header_element) do
     list_element_in_c = to_c(header_element)
+    generic_list_element = translated_code_to_generic(list_element_in_c)
     list_var = unique_helper_var()
 
     (list_element_in_c.code <>
+     generic_list_element.code <>
        """
        if(*tuple_pool_index < TUPLE_POOL_SIZE && *tuple_pool_index >= 0) {
          (*tuple_pool)[(*tuple_pool_index)] = (*heap_index);
@@ -675,7 +661,7 @@ defmodule Honey.Translator do
 
        Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
        if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
-         (*heap)[(*heap_index)] = #{list_element_in_c.return_var_name};
+         (*heap)[(*heap_index)] = #{generic_list_element.return_var_name};
        } else {
          op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
          goto CATCH;
@@ -773,15 +759,15 @@ defmodule Honey.Translator do
   defp get_tuple_element_from_heap(_tuple_var_name, [], _index, _exit_label), do: ""
 
   defp get_tuple_element_from_heap(tuple_var_name, [first_tuple_elm | tail], index, exit_label) do
-    first_tuple_elm_name = unique_helper_var()
+    rhs_var = unique_helper_var()
     heap_index_var_name = unique_helper_var()
 
     """
-    Generic #{first_tuple_elm_name};
+    Generic #{rhs_var};
     if(#{tuple_var_name}.value.tuple.start + #{index} < TUPLE_POOL_SIZE && #{tuple_var_name}.value.tuple.start + #{index}>= 0) {
       unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{tuple_var_name}.value.tuple.start + #{index}));
       if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
-        #{first_tuple_elm_name} = *(*(heap)+(#{heap_index_var_name}));
+        #{rhs_var} = *(*(heap)+(#{heap_index_var_name}));
       } else {
         op_result = (OpResult){.exception = 1, .exception_msg = "HEAP(MatchError) No match of right hand side value."};
         goto #{exit_label};
@@ -791,8 +777,30 @@ defmodule Honey.Translator do
       goto #{exit_label};
     }
     """ <>
-      pattern_matching(first_tuple_elm, first_tuple_elm_name, exit_label) <>
-      get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label)
+    if is_var(first_tuple_elm) and not TypeSet.is_generic?(TypeSet.get_typeset_from_var_ast(first_tuple_elm)) do
+      lhs_var_type = TypeSet.get_typeset_from_var_ast(first_tuple_elm)
+      typed_rhs = unique_helper_var()
+      # TODO: Add type verification before grabbing rhs_var and go to exit label
+      cond do
+        TypeSet.is_integer?(lhs_var_type)->
+          """
+          int #{typed_rhs} = #{rhs_var}.value.integer;
+          """ <>
+          pattern_matching(first_tuple_elm, typed_rhs, exit_label) <>
+          get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label)
+        TypeSet.is_string?(lhs_var_type)->
+          """
+          STRING #{typed_rhs} = {rhs_var}.vale.string;
+          """
+          pattern_matching(first_tuple_elm, typed_rhs, exit_label) <>
+          get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label)
+        true -> raise "TODO"
+
+      end
+    else
+        pattern_matching(first_tuple_elm, rhs_var, exit_label, true) <>
+        get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label)
+    end
   end
 
   defp pattern_matching(segment, var_name, exit_label, generic \\ false)
@@ -1281,17 +1289,20 @@ defmodule Honey.Translator do
            Generic #{generic_var} = {0};
            #{generic_var}.type = INTEGER; #{generic_var}.value.integer = #{typed_var.return_var_name};
           """
-          |> gen()
-          |> TranslatedCode.new(generic_var, TypeSet.new(ElixirType.type_any()))
         TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_boolean()) ->
           raise "TODO"
         TypeSet.is_string?(typed_var.return_var_type) ->
-          raise "TODO"
+          """
+            Generic #{generic_var} = {0};
+            #{generic_var}.type = STRING; #{generic_var}.value.string = #{typed_var.return_var_name};
+          """
         TypeSet.has_unique_type(typed_var.return_var_type,ElixirType.type_binary()) ->
           raise "TODO"
         true ->
           raise "TODO"
       end
+    |> gen()
+    |> TranslatedCode.new(generic_var, TypeSet.new(ElixirType.type_any()))
     end
   end
 

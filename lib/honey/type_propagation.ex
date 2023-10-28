@@ -271,7 +271,7 @@ defmodule Honey.TypePropagation do
   end
 
   # Base case. If rhs is a variable we can't expand anymore.
-  # This isn't implemented properly yet!!! That is why it returns invalid
+  # This isn't implemented properly yet!!! That is why it returns invalid type.
   defp resolve_typeset_from_match([lhs, rhs], tp_context) 
     when is_var(rhs) do
     rhs_typeset = get_typeset_from_segment(rhs, tp_context)
