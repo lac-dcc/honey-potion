@@ -461,7 +461,7 @@ defmodule Honey.Translator do
         [port] = params 
         port_var = to_c(port)
         """
-        #{port_var.code()}
+        #{port_var.code}
         {
         struct udphdr *udph = data + nh_off;
 
