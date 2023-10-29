@@ -200,6 +200,19 @@ defmodule Honey.TypePropagation do
     end
   end
 
+  defp extract_types_from_segment({{:., _, [Honey.Ethhdr, function]}, _, _params}, _context) do
+    case function do
+      :init -> TypeSet.new(ElixirType.type_invalid())
+      :const_udp -> TypeSet.new(ElixirType.type_integer())
+      :drop -> TypeSet.new(ElixirType.type_integer())
+      :pass -> TypeSet.new(ElixirType.type_integer())
+      :ip_protocol -> TypeSet.new(ElixirType.type_integer())
+      :destination_port -> TypeSet.new(ElixirType.type_integer())
+      :set_destination_port -> TypeSet.new(ElixirType.type_integer())
+      _ -> TypeSet.new()
+    end
+  end
+
   defp extract_types_from_segment({{:., _, [Honey.Helpers, function]}, _, params}, _context) do
     # TODO: Check if function exists
     func_data = apply(Honey.Helpers, function, params)

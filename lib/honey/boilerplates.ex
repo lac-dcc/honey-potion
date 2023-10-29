@@ -45,6 +45,7 @@ alias Honey.Boilerplates
 
   def generate_frontend_code(env) do
     module_name = Utils.module_name(env)
+    {_, sec,_,_} = Info.get_backend_info(env)
 
     include = """
     #include <bpf/bpf.h>
@@ -53,10 +54,29 @@ alias Honey.Boilerplates
     #include <unistd.h>
     #include <runtime_generic.bpf.h>
     #include "#{module_name}.skel.h"\n
+    // xdp_md includes
+    #include <net/if.h>
+    #include <linux/if_link.h> 
+    #include <signal.h>
     """
+
+    boilerplate = case sec do
+      "xdp_md" -> 
+        """
+        static __u32 XDPFLAGS = XDP_FLAGS_SKB_MODE;
+        static int IFINDEX;
+        void _unloadProg() {
+            bpf_xdp_attach(IFINDEX, -1, XDPFLAGS, NULL);
+            printf("Unloading the eBPF program...");
+            exit(0);
+        }
+        """
+      _ -> ""
+    end
 
     {chooser_decl, chooser_func} = generate_output_chooser(env)
     {output_decl, output_func} = generate_output_func_decl(env)
+
 
     main = """
     \nint main(int argc, char **argv) {
@@ -81,6 +101,16 @@ alias Honey.Boilerplates
         return 1;
       }
 
+      #{
+      case sec do
+        "xdp_md" -> 
+          """
+          bpf_program__set_type(skel->progs.main_func, BPF_PROG_TYPE_XDP);
+          """
+        _ -> ""
+      end
+      }
+
       err = #{module_name}_bpf__load(skel);
       if(err){
         fprintf(stderr, "Failed loading or verification of BPF skeleton.\\n");
@@ -88,18 +118,37 @@ alias Honey.Boilerplates
         return -err;
       }
 
-      err = #{module_name}_bpf__attach(skel);
-      if(err){
-        fprintf(stderr, "Failed attaching BPF skeleton.\\n");
-        #{module_name}_bpf__destroy(skel);
-        return -err;
-      }
+
+      #{case sec do
+        "xdp_md" -> 
+          """
+          signal(SIGINT, _unloadProg);
+          signal(SIGTERM , _unloadProg);
+
+          int prog_fd = bpf_program__fd(skel->progs.main_func);
+
+          IFINDEX = if_nametoindex("lo");
+          if(bpf_xdp_attach(IFINDEX, prog_fd, XDPFLAGS, NULL) < 0){
+            printf("Failed to link set xdp_fd.");
+            return -1;
+          }
+          """
+        _ ->
+          """
+          err = #{module_name}_bpf__attach(skel);
+          if(err){
+            fprintf(stderr, "Failed attaching BPF skeleton.\\n");
+            #{module_name}_bpf__destroy(skel);
+            return -err;
+          }
+          """
+      end}
 
       output(skel, lifeTime, printAll);
     }\n
     """
 
-    include <> chooser_decl <> output_decl <> main <> chooser_func <> output_func
+    include <> boilerplate <> chooser_decl <> output_decl <> main <> chooser_func <> output_func
   end
 
   def generate_output_chooser(env) do
@@ -257,11 +306,15 @@ alias Honey.Boilerplates
 
   def dependant_includes(config) do
     case config.libbpf_prog_type do
-      "xdp_traffic_count" ->
+      "xdp_md" ->
         gen("""
         #include <linux/if_ether.h>
         #include <linux/ip.h>
+        #include <linux/ipv6.h>
         #include <linux/icmp.h>
+        #include <arpa/inet.h>
+        #include <linux/udp.h>
+        #include <linux/tcp.h>
         """)
       _ -> ""
     end
@@ -587,7 +640,7 @@ alias Honey.Boilerplates
       "tracepoint/syscalls/sys_enter_write" ->
         "syscalls_enter_write_args *ctx_arg"
 
-      "xdp_traffic_count" ->
+      "xdp_md" ->
         "struct xdp_md *ctx_arg"
     end
   end

@@ -385,6 +385,91 @@ defmodule Honey.Translator do
         "int #{result_var} = bpf_get_current_pid_tgid();\n"
         |> gen()
         |> TranslatedCode.new(result_var, TypeSet.new(ElixirType.type_integer()))
+
+    end
+  end
+
+  # TODO: Move some of the Ethhdr to a better name.
+  def to_c({{:., _, [Honey.Ethhdr, function]}, _, params}, context) do
+    return_var = unique_helper_var()
+    case function do
+      :init -> 
+        """
+        void *data_end = (void *)(long)ctx_arg->data_end;
+        void *data = (void *)(long)ctx_arg->data;
+        struct ethhdr *eth = data;
+
+        __u64 nh_off = sizeof(*eth);
+
+        if (data + nh_off > data_end)
+        return XDP_ABORTED;
+        """
+        |> gen() |> TranslatedCode.new("", TypeSet.new(ElixirType.type_invalid()))
+
+      :const_udp -> # We don't need code to initialize a constant.
+        "" |> TranslatedCode.new("IPPROTO_UDP", TypeSet.new(ElixirType.type_integer()))
+      :drop ->
+        """
+        return XDP_DROP;
+        """ 
+        |> gen() |> TranslatedCode.new("XDP_DROP", TypeSet.new(ElixirType.type_integer()))
+      :pass ->
+        """
+        return XDP_PASS;
+        """
+        |> gen() |> TranslatedCode.new("XDP_PASS", TypeSet.new(ElixirType.type_integer()))
+      :ip_protocol ->
+        """
+        int #{return_var};
+        if (eth->h_proto == htons(ETH_P_IP)){
+            struct iphdr *iph = data + nh_off;
+
+            // Again verifier check our boundary checks
+            if (data + nh_off + sizeof(struct iphdr) > data_end)
+                return 0;
+
+            nh_off += sizeof(struct iphdr);
+            #{return_var} = iph->protocol;
+        } else if (eth->h_proto == htons(ETH_P_IPV6)) {
+        
+            struct ipv6hdr *ip6h = data + nh_off;
+
+            // Again verifier check our boundary checks
+            if (data + nh_off + sizeof(struct ipv6hdr) > data_end)
+                return 0;
+
+            nh_off += sizeof(struct ipv6hdr);
+            #{return_var} = ip6h->nexthdr;
+        } else {
+            return XDP_PASS;
+        }
+        """
+        |> gen() |> TranslatedCode.new(return_var, TypeSet.new(ElixirType.type_integer()))
+      :destination_port ->
+        """
+        int #{return_var};
+        {
+        struct udphdr *udph = data + nh_off;
+
+        if (data + nh_off + sizeof(struct udphdr) > data_end)
+            return 0;
+        #{return_var} = ntohs(udph->dest);
+        }
+        """
+        |> gen() |> TranslatedCode.new(return_var, TypeSet.new(ElixirType.type_integer()))
+      :set_destination_port ->
+        [port] = params 
+        port_var = to_c(port)
+        """
+        #{port_var.code()}
+        {
+        struct udphdr *udph = data + nh_off;
+
+        if (data + nh_off + sizeof(struct udphdr) <= data_end)
+            udph->dest = ntohs(#{port_var.return_var_name});
+        }
+        """ 
+      |> gen() |> TranslatedCode.new(port_var.return_var_name, TypeSet.new(ElixirType.type_integer()))
     end
   end
 
@@ -1195,10 +1280,19 @@ defmodule Honey.Translator do
     block_in_c = to_c(block, context)
     generic_block = translated_code_to_generic(block_in_c)
 
+    if_cond = cond do
+      TypeSet.is_integer?(condition_in_c.return_var_type) ->
+        "if (#{condition_in_c.return_var_name}) {"
+      TypeSet.is_generic?(condition_in_c.return_var_type) ->
+        "if (to_bool(&#{condition_in_c.return_var_name})) {"
+    end
+      
+
+
     if TypeSet.is_integer?(block_in_c.return_var_type) do
       gen("""
-      #{condition_in_c.code}
-      if (#{condition_in_c.return_var_name}) {
+        #{condition_in_c.code}
+        #{if_cond}
         #{block_in_c.code}
         #{generic_block.code}
         #{cond_var_name_in_c} = #{generic_block.return_var_name};
@@ -1209,7 +1303,6 @@ defmodule Honey.Translator do
     else
       gen("""
       #{condition_in_c.code}
-      if (to_bool(&#{condition_in_c.return_var_name})) {
         #{block_in_c.code}
         #{cond_var_name_in_c} = #{block_in_c.return_var_name};
       } else {
@@ -1271,8 +1364,21 @@ defmodule Honey.Translator do
       # Generics have been dealt with. Time to consider the rest.
       TypeSet.is_integer?(lhs_in_c.return_var_type)
         and TypeSet.is_integer?(rhs_in_c.return_var_type) ->
-        "int #{return_name} = #{lhs_in_c.return_var_name} #{function} #{rhs_in_c.return_var_name};"
-        |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_integer()))
+        case function do
+          :== ->
+            """
+            Generic #{return_name};
+            if (#{lhs_in_c.return_var_name} == #{rhs_in_c.return_var_name}){
+              #{return_name} = ATOM_TRUE;
+            } else {
+              #{return_name} = ATOM_FALSE;
+            }
+            """
+            |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+          _ ->
+            "int #{return_name} = #{lhs_in_c.return_var_name} #{function} #{rhs_in_c.return_var_name};"
+            |> gen() |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_integer()))
+        end
 
       true -> raise "We can't do a typed operation between #{lhs_in_c.return_var_name} and #{rhs_in_c.return_var_name}."
     end
@@ -1296,9 +1402,10 @@ defmodule Honey.Translator do
             Generic #{generic_var} = {0};
             #{generic_var}.type = STRING; #{generic_var}.value.string = #{typed_var.return_var_name};
           """
-        TypeSet.has_unique_type(typed_var.return_var_type,ElixirType.type_binary()) ->
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_binary()) ->
           raise "TODO"
         true ->
+          IO.inspect(typed_var)
           raise "TODO"
       end
     |> gen()

@@ -10,11 +10,14 @@ defmodule Honey.Bpf_helpers do
   end
 
   def bpf_map_lookup_elem(_map, _key) do
+    ElixirType.type_integer()
   end
 
   def bpf_map_update_elem(_map, _key, _value, _flags) do
+    ElixirType.type_integer()
   end
 
   def bpf_map_update_elem(_map, _key, _value) do
+    Elixirntype.type_integer()
   end
 end
