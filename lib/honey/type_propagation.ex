@@ -131,19 +131,19 @@ defmodule Honey.TypePropagation do
           for rhs_type <- rhs_typeset do
             case {lhs_type, rhs_type} do
               {^type_integer, ^type_integer} ->
-                TypeSet.new(type_integer)
+                type_integer
 
               {^type_integer, ^type_float} ->
-                TypeSet.new(type_float)
+                type_float
 
               {^type_float, ^type_integer} ->
-                TypeSet.new(type_float)
+                type_float
 
               {^type_float, ^type_float} ->
-                TypeSet.new(type_float)
+                type_float
 
               _ ->
-                TypeSet.new(ElixirType.type_invalid())
+                ElixirType.type_invalid()
             end
           end
           |> TypeSet.new()
@@ -209,6 +209,7 @@ defmodule Honey.TypePropagation do
       :ip_protocol -> TypeSet.new(ElixirType.type_integer())
       :destination_port -> TypeSet.new(ElixirType.type_integer())
       :set_destination_port -> TypeSet.new(ElixirType.type_integer())
+      :h_source -> TypeSet.new(ElixirType.type_void())
       _ -> TypeSet.new()
     end
   end

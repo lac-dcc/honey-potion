@@ -51,6 +51,10 @@ defmodule Honey.ElixirType do
     new(:binary)
   end
 
+  def type_void() do
+    new(:void)
+  end
+
   def type_struct(name) do
     %Honey.ElixirType{name: name, struct: Honey.ElixirStructType.new()}
   end

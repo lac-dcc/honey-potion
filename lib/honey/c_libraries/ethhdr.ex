@@ -28,4 +28,8 @@ defmodule Honey.Ethhdr do
   def set_destination_port(_dest_port) do
     ElixirType.type_integer()
   end
+
+  def h_source() do
+    ElixirType.type_void()
+  end
 end

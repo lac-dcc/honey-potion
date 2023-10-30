@@ -197,11 +197,33 @@ alias Honey.Boilerplates
   def generate_output_func(env, printAll \\ false) do
     {_,_,_,maps} = Info.get_backend_info(env)
 
+
     output = Enum.map(maps, fn map ->
-      {name, _type, _max_entries, print, print_elem} = Info.get_maps_attributes(map)
+      {name, _type, _max_entries, print, print_elem, key_size} = Info.get_maps_attributes(map)
       if(!(print == true) and !printAll) do
         ""
       else
+        {printf, key_var, prev_key_var} = case key_size do
+          :int -> 
+            {"""
+            printf("Entry %d: %ld\\n", key, value.value.integer);
+            """, "&key", "&#{name}_prev_key"}
+          :char6 ->
+            {"""
+              printf("Entry %02x:%02x:%02x:%02x:%02x:%02x: %d",
+                chkey[0], chkey[1], chkey[2], chkey[3], chkey[4], chkey[5], value.value.integer
+              );
+            """, "chkey", "#{name}_prev_key"}
+          _ -> raise "This key_size is not supported. Try :int or :char6."
+        end
+
+        copy_code = case key_size do
+          :int ->
+            "#{name}_prev_key = key;"
+          :char6 ->
+            "memcpy(#{name}_prev_key, chkey, 6);"
+        end
+
         case print_elem do
           nil -> 
             """
@@ -210,15 +232,18 @@ alias Honey.Boilerplates
               int #{name}_fd = bpf_map__fd(#{name});
               printf("#{name}:\\n");
               key = 0;
-              int #{name}_prev_key = 0;
-              success = bpf_map_get_next_key(#{name}_fd, NULL, &key); 
+              #{case key_size do
+                :int -> "int #{name}_prev_key = 0;"
+                :char6 -> "char #{name}_prev_key[6];"
+              end}
+              success = bpf_map_get_next_key(#{name}_fd, NULL, #{key_var}); 
               while(success == 0){
-                success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
                 if (success == 0) {
-                  printf("Entry %d: %ld\\n", key, value.value.integer);
+                  #{printf}
                 }
-                #{name}_prev_key = key;
-                success = bpf_map_get_next_key(#{name}_fd, &#{name}_prev_key, &key);
+                #{copy_code}
+                success = bpf_map_get_next_key(#{name}_fd, #{prev_key_var}, #{key_var});
               }
             """
           _ ->
@@ -234,9 +259,9 @@ alias Honey.Boilerplates
                   {elem_name, key} when is_binary(elem_name) and is_integer(key)->
                     """
                         key = #{Integer.to_string(key)};
-                        success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                        success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
                         if(success == 0){
-                          printf("%s %ld\\n", "#{elem_name}", value.value.integer);
+                          #{printf}
                         } else {
                           printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
                         }
@@ -260,7 +285,9 @@ alias Honey.Boilerplates
       else
         prefix = """
         void output_opt(struct #{module_name}_bpf* skel) {
-          int key, success;
+          int key;
+          char chkey[6];
+          int success;
           Generic value = (Generic){0};
 
           printf("\\e[1;1H\\e[2J");\n
@@ -276,7 +303,9 @@ alias Honey.Boilerplates
 
       prefix = """
       void output_all(struct #{module_name}_bpf* skel) {
-        int key, success;
+        int key;
+        char chkey[6];
+        int success;
         Generic value = (Generic){0};
 
         printf("\\e[1;1H\\e[2J");\n
@@ -338,6 +367,8 @@ alias Honey.Boilerplates
         map_name = elixir_map[:name]
         map_content = elixir_map[:content]
 
+        key_size = Map.get(elixir_map, :key_size, :int)
+
         fields =
           Enum.map(map_content, fn {key, value} ->
             case key do
@@ -357,10 +388,9 @@ alias Honey.Boilerplates
         """
         struct {
           #{fields}
-          #{if(map_content.type == BPF_MAP_TYPE_ARRAY or map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY) do
-            "__uint(key_size, sizeof(int));"
-          else
-            "__uint(key_size, sizeof(long));"
+          #{case key_size do
+          :int -> "__uint(key_size, sizeof(int));"
+          :char6 -> "__uint(key_size, sizeof(long));"
           end}
           __uint(value_size, sizeof(Generic));
         } #{map_name} SEC(".maps");

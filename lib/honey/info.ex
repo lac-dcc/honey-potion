@@ -45,6 +45,7 @@ defmodule Honey.Info do
     max_entries = Map.get(content, :max_entries)
     print = Map.get(content, :print)
     print_elem = Map.get(content, :print_elem)
-    {name, type, max_entries, print, print_elem}
+    key_size = Map.get(content, :key_size, :int)
+    {name, type, max_entries, print, print_elem, key_size}
   end
 end

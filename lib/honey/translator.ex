@@ -183,7 +183,11 @@ defmodule Honey.Translator do
         |> TranslatedCode.new(result_var, TypeSet.new(ElixirType.type_integer()))
 
       :bpf_map_lookup_elem ->
-        [map_name, key_ast] = params
+        params = case params do
+          [map_name, key_ast] -> [map_name, key_ast, :panic]
+          _ -> params
+        end
+        [map_name, key_ast, default_value] = params
 
         if !is_atom(map_name) do
           raise "bpf_map_lookup_elem: 'map' must be an atom. Received: #{Macro.to_string(map_name)}"
@@ -213,7 +217,9 @@ defmodule Honey.Translator do
 
         cond do
           map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
-              map_content.type == BPF_MAP_TYPE_ARRAY ->
+              map_content.type == BPF_MAP_TYPE_ARRAY or
+            map_content.type == BPF_MAP_TYPE_PERCPU_HASH or
+              map_content.type == BPF_MAP_TYPE_HASH ->
             # This used to be commented in the end of the translated code. I decided to remove it to reduce clutter.
             # tuple_translation = generate_c_tuple_from_variables([found_var, item_var])
 
@@ -221,6 +227,11 @@ defmodule Honey.Translator do
             # This assumption should be broken eventually and it should be done within this cond.
 
             key_code = cond do
+              TypeSet.has_unique_type(key.return_var_type, ElixirType.type_void()) ->
+                """
+                #{key.code}
+                Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, #{key.return_var_name});
+                """
               TypeSet.is_integer?(key.return_var_type) ->
                 """
                 #{key.code}\n
@@ -237,11 +248,24 @@ defmodule Honey.Translator do
                 """
             end
 
+            not_found_code = if default_value == :panic do
+            """
+              op_result = (OpResult){.exception = 1, .exception_msg = "(KeyNotFound) The key provided was not found in the map '#{str_map_name}'."};
+              goto CATCH;
+            """
+            else
+              # Here the assumption that maps keeps ints is also maintained. 
+              default_value_translated = to_c(default_value)
+              """
+                #{default_value_translated.code()}
+                #{item_var} = #{default_value_translated.return_var_name};
+              """
+            end
+
             key_code <> """
             int #{item_var};
             if(!#{result_var_pointer}) {
-              op_result = (OpResult){.exception = 1, .exception_msg = "(KeyNotFound) The key provided was not found in the map '#{str_map_name}'."};
-              goto CATCH;
+            #{not_found_code}
             } else {
               #{item_var} = #{result_var_pointer}->value.integer;
             }
@@ -357,6 +381,11 @@ defmodule Honey.Translator do
             #{generic_value.code}
             """
             update = cond do 
+              TypeSet.has_unique_type(key.return_var_type, ElixirType.type_void()) ->
+                """
+                #{generic_value.return_var_name}.value.integer = #{value.return_var_name};
+                int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, (#{key.return_var_name}), &#{generic_value.return_var_name}, #{flags_str});
+                """
               TypeSet.is_integer?(key.return_var_type) ->
               """
               #{generic_value.return_var_name}.value.integer = #{value.return_var_name};
@@ -390,7 +419,7 @@ defmodule Honey.Translator do
   end
 
   # TODO: Move some of the Ethhdr to a better name.
-  def to_c({{:., _, [Honey.Ethhdr, function]}, _, params}, context) do
+  def to_c({{:., _, [Honey.Ethhdr, function]}, _, params}, _context) do
     return_var = unique_helper_var()
     case function do
       :init -> 
@@ -470,6 +499,16 @@ defmodule Honey.Translator do
         }
         """ 
       |> gen() |> TranslatedCode.new(port_var.return_var_name, TypeSet.new(ElixirType.type_integer()))
+
+      :h_source ->
+        """
+        void* #{return_var} = eth->h_source;
+
+        if (#{return_var} == 0) return XDP_PASS;
+        if (#{return_var} + 7 >= data_end) return XDP_PASS;
+        
+        """
+      |> gen() |> TranslatedCode.new(return_var, TypeSet.new(ElixirType.type_void()))
     end
   end
 
@@ -973,6 +1012,10 @@ defmodule Honey.Translator do
           """
           String #{c_var_name} = #{helper_var_name};
           """
+        TypeSet.has_unique_type(var_typeset, ElixirType.type_void()) ->
+          """
+          void* #{c_var_name} = #{helper_var_name};
+          """
         # TODO: Other types.
         true ->
           """
@@ -1404,6 +1447,8 @@ defmodule Honey.Translator do
           """
         TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_binary()) ->
           raise "TODO"
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_void()) ->
+          raise "A void* type can't be translated to Generic. Make sure not to use it in tuples or the return of case/cond/if."
         true ->
           IO.inspect(typed_var)
           raise "TODO"
