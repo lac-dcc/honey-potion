@@ -210,7 +210,7 @@ alias Honey.Boilerplates
             """, "&key", "&#{name}_prev_key"}
           :char6 ->
             {"""
-              printf("Entry %02x:%02x:%02x:%02x:%02x:%02x: %d",
+              printf("Entry %02x:%02x:%02x:%02x:%02x:%02x: %ld\\n",
                 chkey[0], chkey[1], chkey[2], chkey[3], chkey[4], chkey[5], value.value.integer
               );
             """, "chkey", "#{name}_prev_key"}
