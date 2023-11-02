@@ -7,8 +7,8 @@ defmodule Honey_List_Linked do
     t = [2 | t]
     t = [3 | t]
 
-    [three | a] = t
-    [two | a] = a
+    [_three | a] = t
+    [two | _a] = a
     Honey.Bpf_helpers.bpf_printk(["%d", two])
     0
   end

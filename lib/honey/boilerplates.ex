@@ -547,7 +547,7 @@ alias Honey.Boilerplates
     return_text = cond do
       return_var_type == int_type -> (
         # Inspect debug
-        IO.inspect("We returned an integer!")
+        #IO.inspect("We returned an integer!")
         gen("""
         return #{return_var_name};
         """)

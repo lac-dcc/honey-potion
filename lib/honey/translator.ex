@@ -257,7 +257,7 @@ defmodule Honey.Translator do
               # Here the assumption that maps keeps ints is also maintained. 
               default_value_translated = to_c(default_value)
               """
-                #{default_value_translated.code()}
+                #{default_value_translated.code}
                 #{item_var} = #{default_value_translated.return_var_name};
               """
             end
