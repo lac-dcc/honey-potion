@@ -9,10 +9,11 @@ defmodule ListSysCalls do
     # See https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/ for translation.
 
     id = ctx.id
+    enter_kill = 62; enter_mkdir = 83; enter_getrandom = 318;
     cond do
-      id == 62 -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_kill"])
-      id == 83 -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_mkdir"])
-      id == 318 -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_getrandom"])
+      id == enter_kill -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_kill"])
+      id == enter_mkdir -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_mkdir"])
+      id == enter_getrandom -> Honey.Bpf_helpers.bpf_printk(["Syscall of type enter_getrandom"])
       # true ->  #These ignored types are recursive as they are created from the process and lead to another call of itself.
       #   if !(id == 0) and !(id == 1) and !(id == 7) and !(id == 47) do
       #     Honey.Bpf_helpers.bpf_printk(["Syscall of type %d", id])
