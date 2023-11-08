@@ -16,6 +16,6 @@ defmodule TrafficCount do
 
     Honey.Bpf_helpers.bpf_map_update_elem(:TrafficCount, src, count)
     
-    Honey.Ethhdr.pass()
+    Honey.XDP.pass()
   end
 end

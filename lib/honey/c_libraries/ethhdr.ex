@@ -9,14 +9,6 @@ defmodule Honey.Ethhdr do
     ElixirType.type_integer()
   end
 
-  def drop() do
-    ElixirType.type_integer()
-  end
-
-  def pass() do
-    ElixirType.type_integer()
-  end
-
   def ip_protocol() do
     ElixirType.type_integer()
   end

@@ -437,16 +437,6 @@ defmodule Honey.Translator do
 
       :const_udp -> # We don't need code to initialize a constant.
         "" |> TranslatedCode.new("IPPROTO_UDP", TypeSet.new(ElixirType.type_integer()))
-      :drop ->
-        """
-        return XDP_DROP;
-        """ 
-        |> gen() |> TranslatedCode.new("XDP_DROP", TypeSet.new(ElixirType.type_integer()))
-      :pass ->
-        """
-        return XDP_PASS;
-        """
-        |> gen() |> TranslatedCode.new("XDP_PASS", TypeSet.new(ElixirType.type_integer()))
       :ip_protocol ->
         """
         int #{return_var};
@@ -512,6 +502,21 @@ defmodule Honey.Translator do
     end
   end
 
+  def to_c({{:., _, [Honey.XDP, function]}, _, _params}, _context) do
+    case function do
+      :drop ->
+        """
+        return XDP_DROP;
+        """ 
+        |> gen() |> TranslatedCode.new("XDP_DROP", TypeSet.new(ElixirType.type_integer()))
+      :pass ->
+        """
+        return XDP_PASS;
+        """
+        |> gen() |> TranslatedCode.new("XDP_PASS", TypeSet.new(ElixirType.type_integer()))
+    end
+
+  end
   # Here for future possibility of global variables. Incomplete.
   def to_c({{:., _, [Honey.Bpf.Global, function]}, _, _params}, _context) do
     case function do

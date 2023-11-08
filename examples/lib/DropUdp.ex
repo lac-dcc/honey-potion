@@ -10,11 +10,11 @@ defmodule DropUdp do
     if protocol == Honey.Ethhdr.const_udp() do # If it's udp
       port = Honey.Ethhdr.destination_port() # Grab the destination port
        cond do
-        port == drop_port -> Honey.Ethhdr.drop() # Drop port 3000
+        port == drop_port -> Honey.XDP.drop() # Drop port 3000
         port == redirect_port -> Honey.Ethhdr.set_destination_port(drop_port) # Redirect 3001 to 3000
         true -> 0 # Do nothing
       end
     end
-    Honey.Ethhdr.pass() # Pass all other cases
+    Honey.XDP.pass() # Pass all other cases
   end
 end
