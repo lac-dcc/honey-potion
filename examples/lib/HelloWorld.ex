@@ -4,11 +4,11 @@ defmodule HelloWorld do
   @sec "tracepoint/syscalls/sys_enter_write"
   def main(_ctx) do
 
-    str = "Hello world!"
+    nil_var = nil
 
     # Shows how to print to /sys/kernel/debug/tracing/trace_pipe.
     # Run "sudo cat /sys/kernel/debug/tracing/trace_pipe" to see the output!
 
-    Honey.Bpf_helpers.bpf_printk([str, nil])
+    Honey.Bpf_helpers.bpf_printk(["Hello World", nil_var])
   end
 end

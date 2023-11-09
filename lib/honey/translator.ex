@@ -707,11 +707,24 @@ defmodule Honey.Translator do
   def to_c({:=, _, [lhs, rhs]}, context, raise_exception) do
     exit_label = unique_helper_label()
     rhs_in_c = to_c(rhs, context)
+    # This section assumes that var = block means that var is generic.
+    # If this code ever breaks, that is likely why.
+    return_rhs = case rhs do
+      {:__block__, _, _} ->
+        if TypeSet.is_generic?(rhs_in_c.return_var_type) do
+          TranslatedCode.new("", rhs_in_c.return_var_name, rhs_in_c.return_var_type)
+        else
+          translated_code_to_generic(rhs_in_c)
+        end
+      _ ->
+          TranslatedCode.new("", rhs_in_c.return_var_name, rhs_in_c.return_var_type)
+    end
 
     pattern_matching_code = """
     #{rhs_in_c.code}
+    #{return_rhs.code}
     op_result.exception = 0;
-    #{pattern_matching(lhs, rhs_in_c.return_var_name, exit_label)}
+    #{pattern_matching(lhs, return_rhs.return_var_name, exit_label)}
     #{exit_label}:
     """
 
@@ -733,7 +746,7 @@ defmodule Honey.Translator do
 
     (pattern_matching_code <> exit_code)
     |> gen()
-    |> TranslatedCode.new(rhs_in_c.return_var_name)
+    |> TranslatedCode.new(return_rhs.return_var_name)
   end
 
   defp allocate_tuple_in_heap([], index) do
