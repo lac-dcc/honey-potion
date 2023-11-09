@@ -6,8 +6,9 @@ defmodule DCE do
     if true do
       1
     else
-      Honey.Bpf_helpers.bpf_printk([["This will never print!"]])
-      Honey.Bpf_helpers.bpf_printk([["This will also not be in the AST after DCE!"]])
+      Honey.Bpf_helpers.bpf_printk(["This will never print!"])
+      Honey.Bpf_helpers.bpf_printk(["This will also not be in the AST after DCE!"])
     end
   end
+  0
 end
