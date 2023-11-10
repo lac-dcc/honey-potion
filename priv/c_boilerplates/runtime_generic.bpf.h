@@ -48,7 +48,6 @@ typedef enum Type
   TUPLE,
   LIST,
   STRUCT,
-  TYPE_Syscalls_enter_kill_arg
 } Type;
 
 typedef struct Tuple
@@ -68,22 +67,11 @@ typedef struct StrToPrint
   char str[MAX_STR_SIZE + 6];
 } StrToPrint;
 
-typedef struct struct_Syscalls_enter_kill_args
-{
-  unsigned pos_pad;
-  unsigned pos_syscall_nr;
-  unsigned pos_pid;
-  unsigned pos_sig;
-} struct_Syscalls_enter_kill_args;
-
 typedef union ElixirValue
 {
   long integer;
-  unsigned u_integer;
-  double double_precision;
   Tuple tuple;
   String string;
-  struct_Syscalls_enter_kill_args syscalls_enter_kill_args;
 } ElixirValue;
 
 typedef struct Generic

@@ -1,5 +1,7 @@
 defmodule Honey.Boilerplates do
   import Honey.Utils, only: [gen: 1]
+  alias Honey.ElixirType
+  alias Honey.TypeSet
   alias Honey.Utils
   alias Honey.Info
 
@@ -43,6 +45,7 @@ alias Honey.Boilerplates
 
   def generate_frontend_code(env) do
     module_name = Utils.module_name(env)
+    {_, sec,_,_} = Info.get_backend_info(env)
 
     include = """
     #include <bpf/bpf.h>
@@ -51,10 +54,29 @@ alias Honey.Boilerplates
     #include <unistd.h>
     #include <runtime_generic.bpf.h>
     #include "#{module_name}.skel.h"\n
+    // xdp_md includes
+    #include <net/if.h>
+    #include <linux/if_link.h> 
+    #include <signal.h>
     """
+
+    boilerplate = case sec do
+      "xdp_md" -> 
+        """
+        static __u32 XDPFLAGS = XDP_FLAGS_SKB_MODE;
+        static int IFINDEX;
+        void _unloadProg() {
+            bpf_xdp_attach(IFINDEX, -1, XDPFLAGS, NULL);
+            printf("Unloading the eBPF program...");
+            exit(0);
+        }
+        """
+      _ -> ""
+    end
 
     {chooser_decl, chooser_func} = generate_output_chooser(env)
     {output_decl, output_func} = generate_output_func_decl(env)
+
 
     main = """
     \nint main(int argc, char **argv) {
@@ -79,6 +101,16 @@ alias Honey.Boilerplates
         return 1;
       }
 
+      #{
+      case sec do
+        "xdp_md" -> 
+          """
+          bpf_program__set_type(skel->progs.main_func, BPF_PROG_TYPE_XDP);
+          """
+        _ -> ""
+      end
+      }
+
       err = #{module_name}_bpf__load(skel);
       if(err){
         fprintf(stderr, "Failed loading or verification of BPF skeleton.\\n");
@@ -86,18 +118,37 @@ alias Honey.Boilerplates
         return -err;
       }
 
-      err = #{module_name}_bpf__attach(skel);
-      if(err){
-        fprintf(stderr, "Failed attaching BPF skeleton.\\n");
-        #{module_name}_bpf__destroy(skel);
-        return -err;
-      }
+
+      #{case sec do
+        "xdp_md" -> 
+          """
+          signal(SIGINT, _unloadProg);
+          signal(SIGTERM , _unloadProg);
+
+          int prog_fd = bpf_program__fd(skel->progs.main_func);
+
+          IFINDEX = if_nametoindex("lo");
+          if(bpf_xdp_attach(IFINDEX, prog_fd, XDPFLAGS, NULL) < 0){
+            printf("Failed to link set xdp_fd.");
+            return -1;
+          }
+          """
+        _ ->
+          """
+          err = #{module_name}_bpf__attach(skel);
+          if(err){
+            fprintf(stderr, "Failed attaching BPF skeleton.\\n");
+            #{module_name}_bpf__destroy(skel);
+            return -err;
+          }
+          """
+      end}
 
       output(skel, lifeTime, printAll);
     }\n
     """
 
-    include <> chooser_decl <> output_decl <> main <> chooser_func <> output_func
+    include <> boilerplate <> chooser_decl <> output_decl <> main <> chooser_func <> output_func
   end
 
   def generate_output_chooser(env) do
@@ -146,11 +197,33 @@ alias Honey.Boilerplates
   def generate_output_func(env, printAll \\ false) do
     {_,_,_,maps} = Info.get_backend_info(env)
 
+
     output = Enum.map(maps, fn map ->
-      {name, _type, _max_entries, print, print_elem} = Info.get_maps_attributes(map)
+      {name, _type, _max_entries, print, print_elem, key_size} = Info.get_maps_attributes(map)
       if(!(print == true) and !printAll) do
         ""
       else
+        {printf, key_var, prev_key_var} = case key_size do
+          :int -> 
+            {"""
+            printf("Entry %d: %ld\\n", key, value.value.integer);
+            """, "&key", "&#{name}_prev_key"}
+          :char6 ->
+            {"""
+              printf("Entry %02x:%02x:%02x:%02x:%02x:%02x: %ld\\n",
+                chkey[0], chkey[1], chkey[2], chkey[3], chkey[4], chkey[5], value.value.integer
+              );
+            """, "chkey", "#{name}_prev_key"}
+          _ -> raise "This key_size is not supported. Try :int or :char6."
+        end
+
+        copy_code = case key_size do
+          :int ->
+            "#{name}_prev_key = key;"
+          :char6 ->
+            "memcpy(#{name}_prev_key, chkey, 6);"
+        end
+
         case print_elem do
           nil -> 
             """
@@ -159,15 +232,18 @@ alias Honey.Boilerplates
               int #{name}_fd = bpf_map__fd(#{name});
               printf("#{name}:\\n");
               key = 0;
-              int #{name}_prev_key = 0;
-              success = bpf_map_get_next_key(#{name}_fd, NULL, &key); 
+              #{case key_size do
+                :int -> "int #{name}_prev_key = 0;"
+                :char6 -> "char #{name}_prev_key[6];"
+              end}
+              success = bpf_map_get_next_key(#{name}_fd, NULL, #{key_var}); 
               while(success == 0){
-                success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
                 if (success == 0) {
-                  printf("Entry %d: %ld\\n", key, value.value.integer);
+                  #{printf}
                 }
-                #{name}_prev_key = key;
-                success = bpf_map_get_next_key(#{name}_fd, &#{name}_prev_key, &key);
+                #{copy_code}
+                success = bpf_map_get_next_key(#{name}_fd, #{prev_key_var}, #{key_var});
               }
             """
           _ ->
@@ -183,9 +259,9 @@ alias Honey.Boilerplates
                   {elem_name, key} when is_binary(elem_name) and is_integer(key)->
                     """
                         key = #{Integer.to_string(key)};
-                        success = bpf_map_lookup_elem(#{name}_fd, &key, &value);
+                        success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
                         if(success == 0){
-                          printf("%s %ld\\n", "#{elem_name}", value.value.integer);
+                          #{printf}
                         } else {
                           printf("Element %s failed to print with key %d.\\n", "#{elem_name}", #{Integer.to_string(key)});
                         }
@@ -209,7 +285,9 @@ alias Honey.Boilerplates
       else
         prefix = """
         void output_opt(struct #{module_name}_bpf* skel) {
-          int key, success;
+          int key;
+          char chkey[6];
+          int success;
           Generic value = (Generic){0};
 
           printf("\\e[1;1H\\e[2J");\n
@@ -225,7 +303,9 @@ alias Honey.Boilerplates
 
       prefix = """
       void output_all(struct #{module_name}_bpf* skel) {
-        int key, success;
+        int key;
+        char chkey[6];
+        int success;
         Generic value = (Generic){0};
 
         printf("\\e[1;1H\\e[2J");\n
@@ -255,11 +335,15 @@ alias Honey.Boilerplates
 
   def dependant_includes(config) do
     case config.libbpf_prog_type do
-      "xdp_traffic_count" ->
+      "xdp_md" ->
         gen("""
         #include <linux/if_ether.h>
         #include <linux/ip.h>
+        #include <linux/ipv6.h>
         #include <linux/icmp.h>
+        #include <arpa/inet.h>
+        #include <linux/udp.h>
+        #include <linux/tcp.h>
         """)
       _ -> ""
     end
@@ -283,6 +367,8 @@ alias Honey.Boilerplates
         map_name = elixir_map[:name]
         map_content = elixir_map[:content]
 
+        key_size = Map.get(elixir_map, :key_size, :int)
+
         fields =
           Enum.map(map_content, fn {key, value} ->
             case key do
@@ -302,10 +388,9 @@ alias Honey.Boilerplates
         """
         struct {
           #{fields}
-          #{if(map_content.type == BPF_MAP_TYPE_ARRAY or map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY) do
-            "__uint(key_size, sizeof(int));"
-          else
-            "__uint(key_size, sizeof(long));"
+          #{case key_size do
+          :int -> "__uint(key_size, sizeof(int));"
+          :char6 -> "__uint(key_size, sizeof(long));"
           end}
           __uint(value_size, sizeof(Generic));
         } #{map_name} SEC(".maps");
@@ -457,6 +542,47 @@ alias Honey.Boilerplates
     """)
   end
 
+  def generate_ending_main_code(return_var_name, return_var_type) do
+    int_type = TypeSet.new(ElixirType.type_integer())
+    return_text = cond do
+      return_var_type == int_type -> (
+        # Inspect debug
+        #IO.inspect("We returned an integer!")
+        gen("""
+        return #{return_var_name};
+        """)
+        )
+
+      TypeSet.has_type(return_var_type, ElixirType.type_integer()) -> (
+        # Inspect debug
+        IO.inspect("We can return a non-integer!; Caution.")
+        gen("""
+        if (#{return_var_name}.type != INTEGER) {
+          op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
+          goto CATCH;
+        }
+        return #{return_var_name}.value.integer;
+
+        CATCH:
+          bpf_printk(\"** %s\\n\", op_result.exception_msg);
+          return 0;
+        """)
+      )
+
+    true -> (
+      # Inspect debug
+      IO.inspect("We don't have a valid return :c!")
+      raise "Code should return something that can be an integer. Instead it returned #{return_var_name}."
+    )
+    end
+
+    return_text <> """
+    CATCH:
+      bpf_printk(\"** %s\\n\", op_result.exception_msg);
+      return 0;
+    """
+  end
+
   @doc """
   Creates the struct for the ctx main argument.
   """
@@ -544,7 +670,7 @@ alias Honey.Boilerplates
       "tracepoint/syscalls/sys_enter_write" ->
         "syscalls_enter_write_args *ctx_arg"
 
-      "xdp_traffic_count" ->
+      "xdp_md" ->
         "struct xdp_md *ctx_arg"
     end
   end
@@ -561,7 +687,7 @@ alias Honey.Boilerplates
       // =============== beginning of user code ===============
       #{config.translated_code.code}
       // =============== end of user code ==============
-      #{generate_ending_main_code(config.translated_code.return_var_name)}
+      #{generate_ending_main_code(config.translated_code.return_var_name, config.translated_code.return_var_type)}
     }
     """)
   end

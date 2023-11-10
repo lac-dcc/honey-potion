@@ -24,6 +24,7 @@ In this alpha version, the framework translates the code to a subset of C that u
 - make - For Makefile compilation
 - llvm - For llc
 - clang - For clang
+- bpftool - For skeleton generation
 
 Note that clang, llc and bpftool can be compiled by the user, as long as they are in the $PATH.
 

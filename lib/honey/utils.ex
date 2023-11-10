@@ -34,6 +34,14 @@ defmodule Honey.Utils do
     String.to_atom(var_to_string({var_name, meta, var_context}))
   end
 
+  @doc """
+  Transforms a variable into a unique atom.
+  """
+
+  def var_to_atom(var) do
+    String.to_atom(var_to_string(var))
+  end
+
   #Gets the value without limits in size or printing.
   defp inspect_no_limit(value) do
     inspect(value, limit: :infinity, printable_limit: :infinity)

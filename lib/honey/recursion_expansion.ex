@@ -77,7 +77,9 @@ defmodule Honey.Fuel do
     {:v1, _kind, _metadata, [clause | _other_clauses]} = fun_def
     {_metadata, formal_args, _guards, func_ast} = clause
 
-    context = String.to_atom("Fuel#{current_fuel}")
+    unique = :erlang.unique_integer([:positive])
+
+    context = String.to_atom("Fuel#{current_fuel}_#{unique}")
 
     formal_into_actual =
       for {formal_arg, actual_arg} <- Enum.zip(formal_args, actual_args) do

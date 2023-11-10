@@ -28,7 +28,7 @@ defmodule Honey.Guard do
   Guarantees we have a valid type in the sec argument for an eBPF program. Only three types in alpha.
   """
 
-  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_traffic_count)
+  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_md)
   def ensure_sec_type!(type) do
     case type do
       type when type in @supported_types ->

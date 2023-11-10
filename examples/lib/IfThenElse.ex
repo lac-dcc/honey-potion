@@ -11,5 +11,6 @@ defmodule If_Then_Else do
     else
       Honey.Bpf_helpers.bpf_printk(["False"])
     end
+    0
   end
 end
