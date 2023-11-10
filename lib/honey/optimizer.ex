@@ -11,13 +11,10 @@ defmodule Honey.Optimizer do
 
   def run(fun_def, arguments, env) do
     fun_def |> Analyze.run()
-    |> AstSize.output(env, " - Start")
     |> ConstantPropagation.run()
-    |> AstSize.output(env, " - CP")
     |> DCE.run()
-    |> AstSize.output(env, " - DCE")
     |> TypePropagation.run(arguments, env)
-    |> AstSize.output(env, " - Final")
+    #|> AstSize.output(env, " - Final")
     #|> IO.inspect()
   end
 end
