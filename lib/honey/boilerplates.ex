@@ -234,7 +234,7 @@ alias Honey.Boilerplates
               key = 0;
               #{case key_size do
                 :int -> "int #{name}_prev_key = 0;"
-                :char6 -> "char #{name}_prev_key[6];"
+                :char6 -> "unsigned char #{name}_prev_key[6];"
               end}
               success = bpf_map_get_next_key(#{name}_fd, NULL, #{key_var}); 
               while(success == 0){
@@ -286,7 +286,7 @@ alias Honey.Boilerplates
         prefix = """
         void output_opt(struct #{module_name}_bpf* skel) {
           int key;
-          char chkey[6];
+          unsigned char chkey[6];
           int success;
           Generic value = (Generic){0};
 
@@ -304,7 +304,7 @@ alias Honey.Boilerplates
       prefix = """
       void output_all(struct #{module_name}_bpf* skel) {
         int key;
-        char chkey[6];
+        unsigned char chkey[6];
         int success;
         Generic value = (Generic){0};
 
