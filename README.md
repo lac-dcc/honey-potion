@@ -107,7 +107,7 @@ There are more, and we are actively working to improve it.
 
 ## Contributing
 Contributions are very welcome! If you are interested in collaborating, let's stay in touch so our work doesn't overlap.
-Feedback and suggestions are also very much appreciated! You can file a [GitHub issue](https://github.com/lac-dcc/honey-potion/issues) or contact us at `vinicpac@gmail.com`.
+Feedback and suggestions are also very much appreciated! You can file a [GitHub issue](https://github.com/lac-dcc/honey-potion/issues) or contact us at `kaelsoaresaugusto@gmail.com`.
 
 ## Copyright & License
 Copyright (C) 2022 Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil
