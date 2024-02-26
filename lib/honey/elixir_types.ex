@@ -7,7 +7,13 @@ defmodule Honey.Type do
   end
 end
 
-defmodule Honey.ElixirType do
+defmodule Honey.ElixirType do  
+  @moduledoc """
+  This module represents a type in the Elixir AST.
+  More specifically this module keeps a struct that represents the details of a
+  type for when it gets translated to C.
+  """
+
   @derive {Inspect, optional: [:name, :struct, :function, :fields]}
   defstruct name: nil, struct: nil, function: nil, fields: nil
 
@@ -117,10 +123,12 @@ defmodule Honey.ElixirStructType do
 end
 
 defmodule Honey.TypeSet do
+
   @moduledoc """
   This module manages the information regarding the types that a variable can assume at
-  a point in the code.
+  a point in the code. Uses Honey.ElixirType to represent the possible types.
   """
+
   alias Honey.{TypeSet, ElixirType}
   import Honey.Utils, only: [is_var: 1]
 

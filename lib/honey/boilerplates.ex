@@ -151,6 +151,11 @@ alias Honey.Boilerplates
     include <> boilerplate <> chooser_decl <> output_decl <> main <> chooser_func <> output_func
   end
 
+  @doc """
+  Creates the "output" function and gives it the functionality of choosing if everything should be output or
+  only what has been requested. This is toggled by adding or removing the -p argument when calling the binary.
+  """
+
   def generate_output_chooser(env) do
     module_name = Utils.module_name(env)
     output = """
@@ -182,6 +187,11 @@ alias Honey.Boilerplates
     {decl, output}
   end
 
+  @doc """
+  Return both the declarations and the functions resposible for outputting maps.
+  Creates both output_opt (only what was requested) and output_all (used when -p).
+  """
+
   def generate_output_func_decl(env) do
     output = generate_output_func(env)
     output_always = generate_output_func(env, true)
@@ -193,6 +203,12 @@ alias Honey.Boilerplates
 
     {decl <> decl_always, output <> "\n" <> output_always}
   end
+
+  @doc """
+  Generates both of the output functions (output_opt and output_all).
+  This takes into consideration the type of the map, what is the type of the elements inside the map,
+  what elements were requested to be printed and more.
+  """
 
   def generate_output_func(env, printAll \\ false) do
     {_,_,_,maps} = Info.get_backend_info(env)
@@ -542,6 +558,9 @@ alias Honey.Boilerplates
     """)
   end
 
+  @doc """
+  Returns the boilerplate ending of the main function of the backend.
+  """
   def generate_ending_main_code(return_var_name, return_var_type) do
     int_type = TypeSet.new(ElixirType.type_integer())
     return_text = cond do

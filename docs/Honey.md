@@ -20,7 +20,7 @@ _fuel: a macro that unrolls recursive calls into a fixed number of repeated call
 
 ## Optimizer
 
-> **DEPENDENCIES**: Uses files for static analysis and optimization of code. Currently: *variable analysis*, *dead_code_elimination* and *constant_propagation*
+> **DEPENDENCIES**: Uses files for static analysis and optimization of code. Currently: *variable analysis*, *dead_code_elimination*, *constant_propagation* and *type_propagation*.
 
 Defines the optimization pipeline for Honey, as in, what modules are called in what order to optimize. Works on the AST of the source. Currently deactivated thanks to conflicts with pattern matching.
 
@@ -37,6 +37,14 @@ Does constant propagation and constant folding, evaluating constant expressions 
 ### dead_code_elimination
 
 Cleans up the code by eliminating/refactoring dead code. For example, it checks variables that aren't being used and removes them or eliminates unnecessary constant expressions (e.g., if true then branch 1 else branch 2 **becomes** branch 1). 
+
+### type_propagation
+
+Annotates the Elixir-AST with type information into the metadata of relevant structures. We annotate the types of CTX variables and constants, then propagate those two throughout variables. As it stands, this is a mandatory step in compilation.
+
+### Extra: ast_size and IO.inspect
+
+In case users wish to see the AST or check it's size, they may uncomment the last two lines of code in `optimizer.ex`. These lines of code refer to the ast_size module and the inspect function of Elixir.
 
 ## Generator
 
