@@ -1,6 +1,7 @@
-# Honey Potion Compiler Setup Guide
+# Reproducing Honey Potion Results
 
-This guide will help you set up your Linux Ubuntu system to run Honey Potion, a compiler that translates Elixir programs into eBPF executables. The guide assumes that `clang` or `gcc` is already installed on your system.
+Honey Potion is described in a [paper](../docs/HoneyPotion2024.pdf). The fourth section of that paper discusses five research questions. This folder contains scripts to reproduce the results related to those questions.
+This guide will help you set up your Linux Ubuntu system to reproduce those results. The guide assumes that `clang` or `gcc` is already installed on your system.
 
 ## Prerequisites
 
