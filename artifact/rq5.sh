@@ -45,10 +45,13 @@ get_user_time() {
 convert_time_to_ms() {
   local time_str="$1"
 
-  # Extract minutes and seconds from the input string
-  local minutes=$(echo "$time_str" | awk -F'[m.]' '{print $1}')
-  local seconds=$(echo "$time_str" | awk -F'[m.]' '{print $2}')
-  local milliseconds=$(echo "$time_str" | awk -F'[.]' '{print $2}' | sed 's/s//')
+  # Normalize the time string by replacing ',' with '.'
+  local normalized_time_str=$(echo "$time_str" | sed 's/,/./')
+
+  # Extract minutes and seconds from the normalized input string
+  local minutes=$(echo "$normalized_time_str" | awk -F'[m.]' '{print $1}')
+  local seconds=$(echo "$normalized_time_str" | awk -F'[m.]' '{print $2}')
+  local milliseconds=$(echo "$normalized_time_str" | awk -F'[.]' '{print $2}' | sed 's/s//')
 
   # Calculate total milliseconds
   local total_milliseconds=$((minutes * 60 * 1000 + seconds * 1000 + milliseconds))
