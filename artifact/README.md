@@ -40,10 +40,12 @@ mkdir build bpf
 BUILT_STATIC_ONLY=y OBJDIR=build DESTDIR=bpf make install
 sudo cp -r ./build/libbpf.a /usr/local/lib
 sudo cp -r ./bpf/usr/include/bpf /usr/local/include
+cd -
 ```
 
 ## Step 3: Update Hex
 
+This step is optional.
 Hex is the package manager for Elixir. Update it using:
 
 ```
