@@ -75,17 +75,12 @@ done
 
 
 # Move to the folder where the C files produced via Honey Potion are located,
-# compile them if they were not already compiled and count LoC:
+# compile them and count LoC:
 #
-if [[ $(find "$bench_path/lib/src" -name "*.c" -print -quit) ]]; then
-	echo ""
-	echo "Elixir files were already compiled - Skipping compilation"
-else
-	cd $bench_path
-	mix deps.get
-	mix compile --force
-	cd -
-fi
+cd $bench_path
+mix deps.get
+mix compile --force
+cd -
 
 echo ""
 echo "Honey Potion benchmark (C), lines_of_c, lines_of_h"
