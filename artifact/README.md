@@ -14,7 +14,9 @@ sudo apt-get install wget
 
 ## Step 1: Install Elixir
 
-To install Elixir, follow these steps:
+Honey Potion requires Elixir 1.9.x or superior.
+If your Linux version already has an earlier distribution, you might consider removing it and updating it from the Erlang Solutions repository.
+To uninstall your distribution of Elixir, simply do `sudo apt-get remove --purge elixir`. Then, to install Elixir from the Erlang Solutions repo, follow these steps:
 
 ```
 sudo apt-get update
