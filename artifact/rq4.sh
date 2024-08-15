@@ -14,9 +14,6 @@
 #
 ##############################################################################
 
-echo "This script reproduces Figure 16 of the paper:"
-echo "Honey Potion: an eBPF Backend for Elixir"
-
 
 # This function extracts the size of the AST, as logged by the Honey Potion
 # compiler:
