@@ -69,10 +69,19 @@ sudo apt install gcc-multilib
 
 ## Step 5: Install BPF Tools
 
-To install the BPF tools, you need to identify the correct package to use. If you simply type `bpftool version`, and it is not installed on your system, you will get the right package to install in the error message. But you can simply try your luck with:
+To install the BPF tools, you need to identify the correct package to use. If you simply type `bpftool version` when BPF Tools are not installed on your system, you will get the right package to install in the error message. But you can simply try your luck with:
 
 ```
 sudo apt-get install linux-tools-$(uname -r)
+```
+
+Notice that Linux Tools may not work if you are using [WSL](https://askubuntu.com/questions/1314136/installing-linux-perf-tools-on-ubuntu-20-04-lts-with-wsl2).
+But you can still compile them from source, e.g.:
+
+```
+git clone --recurse-submodules https://github.com/libbpf/bpftool.git
+cd bpftool/src
+sudo make install
 ```
 
 ## Step 6: Clone and Use Honey Potion
