@@ -14,8 +14,17 @@
 #
 ##############################################################################
 
-echo "This script reproduces Figure 13 of the paper:"
-echo "Honey Potion: an eBPF Backend for Elixir"
+# Print summary of results:
+#
+echo ""
+echo "########################################"
+echo "Data for Figure 13"
+echo "########################################"
+echo ""
+echo " * lines_of_c: lines of code in the .c file"
+echo " * lines_of_h: lines of code in the .h file"
+echo " * lines_of_ex: lines of code in the .ex file"
+echo ""
 
 # Move to the folder where the C files are located, compile them and count LoC:
 #
@@ -25,6 +34,8 @@ echo "Hand-written benchmark, lines_of_c, lines_of_h"
 bench_path="../benchmarks"
 folders=("countsyscalls" "dropudp" "forcekill" "helloworld" "trafficcount")
 
+# Print results for eBPF apps hand-written in C:
+#
 for folder in "${folders[@]}"
 do
 	full_path="$bench_path/${folder}"
@@ -62,6 +73,8 @@ bench_path="../examples"
 echo ""
 echo "Honey Potion benchmark (Elixir), lines_of_ex"
 
+# Print results for eBPF apps implemented in Elixir:
+#
 for folder in "${folders[@]}"
 do
 	full_path="$bench_path/lib"
@@ -74,14 +87,15 @@ do
 done
 
 
-# Move to the folder where the C files produced via Honey Potion are located,
-# compile them and count LoC:
+# Compile the elixir programs:
 #
 cd $bench_path
 mix deps.get
-mix compile --force
-cd -
+mix compile --force >/dev/null 2>&1
+cd - >/dev/null
 
+# Print results for C programs produced with Honey Potion:
+#
 echo ""
 echo "Honey Potion benchmark (C), lines_of_c, lines_of_h"
 
