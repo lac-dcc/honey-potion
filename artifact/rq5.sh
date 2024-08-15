@@ -26,8 +26,15 @@
 #
 ##############################################################################
 
-echo "This script reproduces Figure 17 of the paper:"
-echo "Honey Potion: an eBPF Backend for Elixir"
+# Print summary of results:
+#
+echo ""
+echo "########################################"
+echo "Data for Figure 17"
+echo "########################################"
+echo ""
+echo " * hand_written_time: user time (ms) to make C apps"
+echo " * honey_potion_time: user/sys time (ms) to --force compile Elixir apps"
 
 
 # This function gets user time taken by `command`.
@@ -93,8 +100,8 @@ extract_time() {
 
 cd $bench_path
 mix deps.get
-mix compile --force --profile=time 2> "$script_dir/time_log.txt"
-cd -
+mix compile --force --profile=time > "$script_dir/time_log.txt" 2>&1
+cd - > /dev/null
 
 hp_times=()
 for folder in "${folders[@]}"
