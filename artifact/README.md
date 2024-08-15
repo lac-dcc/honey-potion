@@ -30,6 +30,10 @@ sudo apt-get install esl-erlang
 sudo apt-get install elixir
 ```
 
+Notice that installing `esl-erlang` is optional, given that you've installed `elixir` (which will come with `erlang`).
+To fully benefit from Honey Potion, you should use the extra packages of `esl-erlang`, but that's not required for this experiment.
+Also, `esl-erlang` [might not be available](https://elixirforum.com/t/install-fails-for-ubuntu-21-04/39596) for your kernel.
+
 ## Step 2: Install `libbpf`
 
 `libbpf` is required for eBPF development. Install it by following these commands:
