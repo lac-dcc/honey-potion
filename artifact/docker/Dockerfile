@@ -5,6 +5,9 @@
 # docker run --rm docker-artifact bash rq2.sh
 # docker run --rm docker-artifact bash rq4.sh
 # docker run --rm docker-artifact bash rq5.sh
+#
+# Author: Fernando Magno Quintao Pereira
+# Date: August 16th, 2024
 
 # Use an official Ubuntu as a base image
 FROM ubuntu:20.04
@@ -25,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     python3-matplotlib \
     clang \
     llvm \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Elixir
