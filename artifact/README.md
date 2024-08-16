@@ -1,10 +1,15 @@
 # Reproducing Honey Potion Results
 
 Honey Potion is described in a [paper](../docs/HoneyPotion2024.pdf). The fourth section of that paper discusses five research questions. This folder contains scripts to reproduce the results related to those questions.
-This guide will help you set up your Linux Ubuntu system to reproduce those results. The guide assumes that `clang` or `gcc` is already installed on your system.
-This setup has been successfully reproduced in the following Linux distributions: 
-`Ubuntu 20.04.6 LTS` and `Arch 6.10.4-arch2-1`.
-It failed to install `libbpf` on `Ubuntu 22.04.4 LTS`.
+This guide will help you set up your Linux Ubuntu system to reproduce those results. The guide assumes that `clang` and the `LLVM` tools are already installed on your system.
+This setup has been successfully reproduced in the following Linux distribution:
+ 
+* **Operating System**: Ubuntu 22.04.4 LTS              
+* **Kernel**: Linux 6.8.0-40-generic
+* **Architecture**: x86-64
+* **Hardware Vendor**: Acer
+* **Hardware Model**: Aspire A515-54
+* **Elixir**: Elixir 1.12.2 (compiled with Erlang/OTP 24)
 
 ## Prerequisites
 
