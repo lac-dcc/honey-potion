@@ -1,0 +1,36 @@
+warning: variable "arguments" is unused (if the variable is not meant to be used, prefix it with an underscore)
+... lots
+... of
+... warnings
+
+
+########################################
+Data for Figure 16
+########################################
+
+ * noOptimization: all the optimizations disabled
+ * typeProp: only type propagation (equivalent to no optimization)
+ * constProp_TypeProp: type propagation and constant propagation
+ * constProp_TypeProp_DeadCodeElim: type propagation, constant propagation and dead-code elimination
+
+Benchmark, noOptimization, typeProp, constProp_TypeProp, constProp_DeadCodeElim_TypeProp, 
+Case, 48, 48, 41, 11, 
+Cond, 66, 66, 44, 8, 
+CountSysCalls, 27, 27, 27, 27, 
+CP, 40, 40, 8, 2, 
+CtxAccess, 18, 18, 18, 18, 
+DCE, 28, 28, 28, 2, 
+DropUdp, 83, 83, 79, 77, 
+Forcekill, 41, 41, 37, 35, 
+GetPID, 15, 15, 13, 12, 
+HelloWorld, 11, 11, 9, 8, 
+Honey_Fact, 183, 183, 150, 101, 
+Honey_List, 28, 28, 26, 25, 
+Honey_List_Linked, 38, 38, 38, 38, 
+Honey_Maps, 162, 162, 162, 162, 
+Honey_Tuple, 26, 26, 24, 23, 
+If_Then_Else, 26, 26, 26, 8, 
+Integer_String_Pattern_Matching, 23, 23, 19, 17, 
+ListSysCalls, 64, 64, 58, 55, 
+One, 5, 5, 3, 2, 
+TrafficCount, 39, 39, 39, 39, 

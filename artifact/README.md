@@ -11,6 +11,12 @@ This setup has been successfully reproduced in the following Linux distribution:
 * **Hardware Model**: Aspire A515-54
 * **Elixir**: Elixir 1.12.2 (compiled with Erlang/OTP 24)
 
+The artifact consists of four scripts, each to reproduce a different research question. The expected outputs are:
+[RQ1](expected_outputs/output_rq1.txt),
+[RQ2](expected_outputs/output_rq2.txt),
+[RQ4](expected_outputs/output_rq4.txt), and
+[RQ5](expected_outputs/output_rq5.txt).
+
 ## Prerequisites
 
 Ensure that your system is up to date and has `wget` installed:

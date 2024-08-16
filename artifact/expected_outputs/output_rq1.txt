@@ -1,0 +1,29 @@
+########################################
+Data for Figure 13
+########################################
+
+ * lines_of_c: lines of code in the .c file
+ * lines_of_h: lines of code in the .h file
+ * lines_of_ex: lines of code in the .ex file
+
+
+Hand-written benchmark, lines_of_c, lines_of_h
+countsyscalls, 130, 143
+dropudp, 194, 901
+forcekill, 84, 0
+helloworld, 71, 0
+trafficcount, 136, 636
+
+Honey Potion benchmark (Elixir), lines_of_ex
+CountSysCalls, 20
+DropUdp, 20
+Forcekill, 22
+HelloWorld, 14
+TrafficCount, 21
+
+Honey Potion benchmark (C), lines_of_c, lines_of_h
+CountSysCalls, 158, 0
+DropUdp, 283, 0
+Forcekill, 168, 0
+HelloWorld, 103, 0
+TrafficCount, 180, 0

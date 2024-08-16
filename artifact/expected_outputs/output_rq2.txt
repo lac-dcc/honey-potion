@@ -1,0 +1,13 @@
+########################################
+Data for Figure 14
+########################################
+
+ * hand_written_size: size (bytes) of text segment of hand written C apps
+ * honey_potion_size: size (bytes) of text segment of Honey Potion apps
+
+Benchmark, hand_written_size, honey_potion_size
+CountSysCalls, 295856, 338913
+DropUdp, 306076, 356737
+Forcekill, 295343, 337553
+HelloWorld, 295456, 334333
+TrafficCount, 306468, 349005

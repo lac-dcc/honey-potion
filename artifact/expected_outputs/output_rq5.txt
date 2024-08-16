@@ -1,0 +1,13 @@
+########################################
+Data for Figure 17
+########################################
+
+ * hand_written_time: user time (ms) to make C apps
+ * honey_potion_time: user/sys time (ms) to --force compile Elixir apps
+
+Benchmark, hand_written_time, honey_potion_time
+CountSysCalls, 142, 437
+DropUdp, 203, 470
+Forcekill, 182, 423
+HelloWorld, 170, 419
+TrafficCount, 192, 464
