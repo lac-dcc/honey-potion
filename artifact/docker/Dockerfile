@@ -15,7 +15,7 @@ FROM ubuntu:20.04
 # Set non-interactive mode for apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Install basic dependencies
 RUN apt-get update && apt-get install -y \
     wget \
     git \
@@ -26,10 +26,29 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-matplotlib \
-    clang \
-    llvm \
     sudo \
+    lsb-release \
+    software-properties-common \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# Add LLVM apt repository and install Clang 16
+RUN wget https://apt.llvm.org/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh 16 && \
+    rm llvm.sh
+
+# Install Clang and LLVM tools
+RUN apt-get update && \
+    apt-get install -y clang-16 llvm-16
+
+# Set up update-alternatives for Clang and LLVM tools
+RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-16 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-16 100 && \
+    update-alternatives --install /usr/bin/llc llc /usr/bin/llc-16 100 && \
+    update-alternatives --install /usr/bin/opt opt /usr/bin/opt-16 100 && \
+    update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-16 100 && \
+    update-alternatives --install /usr/bin/llvm-as llvm-as /usr/bin/llvm-as-16 100
 
 # Install Elixir
 RUN wget https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb && \
