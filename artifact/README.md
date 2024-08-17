@@ -1,6 +1,8 @@
 # Reproducing Honey Potion Results
 
 Honey Potion is described in a [paper](../docs/HoneyPotion2024.pdf). The fourth section of that paper discusses five research questions. This folder contains scripts to reproduce the results related to those questions.
+The preferred way to reproduce the experiments is through our [Docker](docker) setup.
+However, if you want to run the eBPF programs, then you will have to do it outside Docker.
 This guide will help you set up your Linux Ubuntu system to reproduce those results. The guide assumes that `clang` and the `LLVM` tools are already installed on your system.
 This setup has been successfully reproduced in the following Linux distribution:
  
@@ -19,11 +21,13 @@ The artifact consists of four scripts, each to reproduce a different research qu
 
 ## Prerequisites
 
-Ensure that your system is up to date and has `wget` installed:
+Ensure that your system is up to date and has `wget` and the `LLVM` tools installed:
 
 ```bash
 sudo apt-get update
 sudo apt-get install wget
+sudo apt-get install clang
+sudo apt-get install llvm
 ```
 
 ## Step 1: Install Elixir
