@@ -14,11 +14,11 @@ Figure 1 explains how to perform these steps.
 
 ![How to profile eBPF programs](../../assets/howToProfile.png "How to profile eBPF programs")
 
-Three of the programs can be profiled using the three first steps of Figure 1: (HelloWorld)[../../examples/lib/HelloWorld.ex], (CountSysCalls)[../../examples/lib/CountSysCalls.ex] and (ForceKill)[../../examples/lib/Forcekill.ex].
+Three of the programs can be profiled using the three first steps of Figure 1: [HelloWorld](../../examples/lib/HelloWorld.ex), [CountSysCalls](../../examples/lib/CountSysCalls.ex) and [ForceKill](../../examples/lib/Forcekill.ex).
 In this case, use `duration 10` when invoking `bpftool prog profile`.
 
-The other two programs, (DropUDP)[../../examples/lib/DropUdp.ex] and (../../examples/lib/TrafficCount.ex) will require some interaction.
+The other two programs, [DropUDP](../../examples/lib/DropUdp.ex) and [TrafficCount](../../examples/lib/TrafficCount.ex) will require some interaction.
 
-* [../../examples/lib/DropUdp.ex]: send a packet to port 3000 using `netcat`, as follows: `echo "Your message" | nc -u -w1 127.0.0.1 3000`
-* [../../examples/lib/TrafficCount.ex]: use the `ping` command to send an ICMP packet to a known IP address on your network. This packet will be processed by the network interface and should trigger the eBPF program.
+* [DropUdp](../../examples/lib/DropUdp.ex): send a packet to port 3000 using `netcat`, as follows: `echo "Your message" | nc -u -w1 127.0.0.1 3000`
+* [TrafficCount](../../examples/lib/TrafficCount.ex): use the `ping` command to send an ICMP packet to a known IP address on your network. This packet will be processed by the network interface and should trigger the eBPF program.
 For instance, `ping -c 1 <destination_ip>`
