@@ -48,3 +48,15 @@ docker run --rm -ti \
     ghcr.io/hemslo/docker-bpf:latest \
     bash
 ```
+
+Then, you can run the programs as usual (but there will be no profiling!)
+
+```
+# Compile everything, e.g., using rq2.sh:
+#
+root@docker:/honey-potion/artifact# bash rq2.sh 
+#
+# Run any of the programs:
+#
+root@docker:/honey-potion/artifact# sudo ../examples/lib/bin/CountSysCalls 
+```
