@@ -2,7 +2,7 @@
 
 Honey Potion is described in a [paper](../docs/HoneyPotion2024.pdf). The fourth section of that paper discusses five research questions. This folder contains scripts to reproduce the results related to those questions.
 The preferred way to reproduce the experiments is through our [Docker](docker) setup.
-However, if you want to run the eBPF programs, then you will have to do it outside Docker.
+However, if you want to run and profile the eBPF programs, then you will have to do it outside Docker.
 This guide will help you set up your Linux Ubuntu system to reproduce those results. The guide assumes that `clang` and the `LLVM` tools are already installed on your system.
 This setup has been successfully reproduced in the following Linux distribution:
  
@@ -12,6 +12,7 @@ This setup has been successfully reproduced in the following Linux distribution:
 * **Hardware Vendor**: Acer
 * **Hardware Model**: Aspire A515-54
 * **Elixir**: Elixir 1.12.2 (compiled with Erlang/OTP 24)
+* **clang**: clang 16.0.0
 
 The artifact consists of four scripts, each to reproduce a different research question. The expected outputs are:
 [RQ1](expected_outputs/output_rq1.txt),
@@ -26,11 +27,30 @@ Ensure that your system is up to date and has `wget` and the `LLVM` tools instal
 ```bash
 sudo apt-get update
 sudo apt-get install wget
-sudo apt-get install clang
-sudo apt-get install llvm
 ```
 
-## Step 1: Install Elixir
+## Step 1: Install clang and the LLVM tools
+
+You might already have clang in your system (minimum clang 16).
+But you will also need to use `llc`, from the LLVM tools, to produce eBPF code.
+
+```
+sudo apt-get install wget gnupg lsb-release software-properties-common
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 16
+sudo apt-get update
+sudo apt-get install clang-16
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-16 100
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-16 100
+sudo apt-get install llvm-16
+sudo update-alternatives --install /usr/bin/llc llc /usr/bin/llc-16 100
+sudo update-alternatives --install /usr/bin/opt opt /usr/bin/opt-16 100
+sudo update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-16 100
+sudo update-alternatives --install /usr/bin/llvm-as llvm-as /usr/bin/llvm-as-16 100
+```
+
+## Step 2: Install Elixir
 
 Honey Potion requires Elixir 1.9.x or superior.
 If your Linux version already has an earlier distribution, you might consider removing it and updating it from the Erlang Solutions repository.
@@ -49,7 +69,7 @@ Notice that installing `esl-erlang` is optional, given that you've installed `el
 To fully benefit from Honey Potion, you should use the extra packages of `esl-erlang`, but that's not required for this experiment.
 Also, `esl-erlang` [might not be available](https://elixirforum.com/t/install-fails-for-ubuntu-21-04/39596) for your kernel.
 
-## Step 2: Install `libbpf`
+## Step 3: Install `libbpf`
 
 `libbpf` is required for eBPF development. Install it by following these commands:
 
@@ -65,7 +85,7 @@ sudo cp -r ./bpf/usr/include/bpf /usr/local/include
 cd -
 ```
 
-## Step 3: Update Hex
+## Step 4: Update Hex
 
 This step is optional.
 Hex is the package manager for Elixir. Update it using:
@@ -74,7 +94,7 @@ Hex is the package manager for Elixir. Update it using:
 mix local.hex
 ```
 
-## Step 4: Install `gcc-multilib` (Optional for GCC Users)
+## Step 5: Install `gcc-multilib` (Optional for GCC Users)
 
 If you are compiling with `gcc`, you'll need to install the multilib package:
 
@@ -82,7 +102,7 @@ If you are compiling with `gcc`, you'll need to install the multilib package:
 sudo apt install gcc-multilib
 ```
 
-## Step 5: Install BPF Tools
+## Step 6: Install BPF Tools
 
 To install the BPF tools, you need to identify the correct package to use. If you simply type `bpftool version` when BPF Tools are not installed on your system, you will get the right package to install in the error message. But you can simply try your luck with:
 
@@ -99,7 +119,7 @@ cd bpftool/src
 sudo make install
 ```
 
-## Step 6: Clone and Use Honey Potion
+## Step 7: Clone and Use Honey Potion
 
 Finally, clone the Honey Potion repository and navigate to the source directory:
 
@@ -109,7 +129,7 @@ git clone https://github.com/lac-dcc/honey-potion.git
 cd honey-potion/artifact
 ```
 
-## Step 7: Reproduce the experiments
+## Step 8: Reproduce the experiments
 
 For instance, if you want to reproduce the results in the first research question, simply do:
 
