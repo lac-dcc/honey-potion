@@ -3,7 +3,7 @@
 Honey Potion is described in a [paper](../docs/HoneyPotion2024.pdf). The fourth section of that paper discusses five research questions. This folder contains scripts to reproduce the results related to those questions.
 The preferred way to reproduce the experiments is through our [Docker](docker) setup.
 However, if you want to run and profile the eBPF programs, then you will have to do it outside Docker.
-This guide will help you set up your Linux Ubuntu system to reproduce those results. The guide assumes that `clang` and the `LLVM` tools are already installed on your system.
+This guide will help you set up your Linux Ubuntu system to reproduce those results.
 This setup has been successfully reproduced in the following Linux distribution:
  
 * **Operating System**: Ubuntu 22.04.4 LTS              
@@ -14,6 +14,8 @@ This setup has been successfully reproduced in the following Linux distribution:
 * **Elixir**: Elixir 1.12.2 (compiled with Erlang/OTP 24)
 * **clang**: clang 16.0.0
 
+Notice that Honey Potion requires a new version of clang.
+It will not run with clang 10.0, for instance.
 The artifact consists of four scripts, each to reproduce a different research question. The expected outputs are:
 [RQ1](expected_outputs/output_rq1.txt),
 [RQ2](expected_outputs/output_rq2.txt),
