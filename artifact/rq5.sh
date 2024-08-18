@@ -55,10 +55,15 @@ convert_time_to_ms() {
   # Normalize the time string by replacing ',' with '.'
   local normalized_time_str=$(echo "$time_str" | sed 's/,/./')
 
-  # Extract minutes and seconds from the normalized input string
-  local minutes=$(echo "$normalized_time_str" | awk -F'[m.]' '{print $1}')
-  local seconds=$(echo "$normalized_time_str" | awk -F'[m.]' '{print $2}')
-  local milliseconds=$(echo "$normalized_time_str" | awk -F'[.]' '{print $2}' | sed 's/s//')
+  # Extract minutes, seconds, and milliseconds from the normalized input string
+  local minutes=$(echo "$normalized_time_str" | awk -F'[m.]' '{print $1}' | sed 's/^0*//')
+  local seconds=$(echo "$normalized_time_str" | awk -F'[m.]' '{print $2}' | sed 's/^0*//')
+  local milliseconds=$(echo "$normalized_time_str" | awk -F'[.]' '{print $2}' | sed 's/s//' | sed 's/^0*//')
+
+  # Default to 0 if the fields are empty (which can happen if the leading zeros are stripped entirely)
+  minutes=${minutes:-0}
+  seconds=${seconds:-0}
+  milliseconds=${milliseconds:-0}
 
   # Calculate total milliseconds
   local total_milliseconds=$((minutes * 60 * 1000 + seconds * 1000 + milliseconds))
