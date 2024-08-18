@@ -40,7 +40,7 @@ RUN wget https://apt.llvm.org/llvm.sh && \
 
 # Install Clang and LLVM tools
 RUN apt-get update && \
-    apt-get install -y clang-16 llvm-16
+    apt-get install -y clang-16 llvm-16 llvm-16-tools
 
 # Set up update-alternatives for Clang and LLVM tools
 RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-16 100 && \
