@@ -35,6 +35,10 @@ echo "########################################"
 echo ""
 echo " * hand_written_time: user time (ms) to make C apps"
 echo " * honey_potion_time: user/sys time (ms) to --force compile Elixir apps"
+echo ""
+echo " Observation: Honey Potion's time will be slightly larger"
+echo "              than in the paper, for it includes system time."
+echo ""
 
 
 # This function gets user time taken by `command`.
