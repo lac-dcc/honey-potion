@@ -47,6 +47,7 @@ RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-16 100 && 
     update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-16 100 && \
     update-alternatives --install /usr/bin/llc llc /usr/bin/llc-16 100 && \
     update-alternatives --install /usr/bin/opt opt /usr/bin/opt-16 100 && \
+    update-alternatives --install /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-16 100 && \
     update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-16 100 && \
     update-alternatives --install /usr/bin/llvm-as llvm-as /usr/bin/llvm-as-16 100
 
