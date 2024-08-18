@@ -15,13 +15,29 @@
 ##############################################################################
 
 
+# Inform the user that this script takes some seconds to finish:
+#
+echo ""
+echo "We are compiling programs with/without optimizations..."
+echo "This will take a few seconds..."
+
+
 # This function extracts the size of the AST, as logged by the Honey Potion
 # compiler:
 #
 extract_ast_size() {
   local log_file="$1"
   local search_string="$2"
-  grep "$search_string" "$log_file" | awk -F' - ' '{print $2}'
+
+  # Search for the string in the log file
+  local result=$(grep "$search_string" "$log_file" | awk -F' - ' '{print $2}')
+
+  # Check if grep found the search string
+  if [ -z "$result" ]; then
+    echo '*'
+  else
+    echo "$result"
+  fi
 }
 
 
@@ -41,8 +57,8 @@ do
 	#
 	cd $bench_path
 	mix deps.get
-	mix compile --force > "$script_dir/$optimizer.txt"
-	cd -
+	mix compile --force > "$script_dir/$optimizer.txt" 2>/dev/null
+	cd - >/dev/null
 
 	# Put back the original optimizer into the honey library:
 	#
@@ -63,7 +79,8 @@ echo "Data for Figure 16"
 echo "########################################"
 echo ""
 echo " * noOptimization: all the optimizations disabled"
-echo " * typeProp: only type propagation (equivalent to no optimization)"
+echo "   - this mode might fail to compile some programs (marked with *)"
+echo " * typeProp: only type propagation"
 echo " * constProp_TypeProp: type propagation and constant propagation"
 echo " * constProp_TypeProp_DeadCodeElim: type propagation, constant propagation and dead-code elimination"
 
