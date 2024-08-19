@@ -1,7 +1,7 @@
 # Reproducing Research Question 3
 
-Research Question Three (RA3) compares the performance of hand-written C programs and programs produced via Honey Potion.
-This is the only research question that we could not automatize in a reproducible artifact.
+Research Question Three (RQ3) compares the performance of [hand-written C programs](../../benchmarks) and [Elixir programs](../../examples/lib/) compiled via Honey Potion.
+This is the only research question that we could not automatize with a single script.
 
 ## Running eBPF programs within Docker
 
@@ -33,9 +33,9 @@ root@docker:/honey-potion/artifact# sudo ../examples/lib/bin/CountSysCalls
 
 If you have compiled the programs outside Docker (follow the instructions [here](../)), then measuring the performance of the BPF programs involves three steps:
 
-1. Activating the program, e.g.: `sudo honey-potion/examples/lib/bin/HelloWorld`
-2. Discovering the program's ID, e.g.: `sudo bpftool prog list`
-3. Profiling the program, e.g.: `sudo bpftool prog profile id 63 duration 5 cycles instructions` (assuming the ID is 63)
+1. (Within shell session 1) Activating the program, e.g.: `sudo honey-potion/examples/lib/bin/HelloWorld`
+2. (Within shell session 2) Discovering the program's ID, e.g.: `sudo bpftool prog list`
+3. (Within shell session 2) Profiling the program, e.g.: `sudo bpftool prog profile id 63 duration 5 cycles instructions` (assuming the ID is 63)
 
 Figure 1 explains how to perform these steps.
 
