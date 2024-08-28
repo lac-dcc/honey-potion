@@ -31,10 +31,16 @@ root@docker:/honey-potion/artifact# sudo ../examples/lib/bin/CountSysCalls
 
 ## Profiling eBPF programs outside Docker
 
-If you have compiled the programs outside Docker (follow the instructions [here](../)), then measuring the performance of the BPF programs involves three steps:
+Measuring the performance of the BPF programs involves three steps:
 
-1. (Within shell session 1) Activating the program, e.g.: `sudo honey-potion/examples/lib/bin/HelloWorld`
-2. (Within shell session 2) Discovering the program's ID, e.g.: `sudo bpftool prog list`
+1. Run the container, with the eBPF privileges (see above).
+2. Now, to open two sessions, install `tmux`, e.g., `sudo apt install tmux`
+3. Open a shell using `tmux`. Just do `tmux`.
+4. Open two sessions. To open two vertical sessions, do `ctrl+b` and then type `%`
+5. Compile the programs, e.g., `root@docker:/honey-potion/artifact# bash rq2.sh`
+6. Start one of the programs, (Within shell session 1) Activating the program, e.g.: `sudo honey-potion/examples/lib/bin/HelloWorld`
+7. Move to the other shell, with `ctrl+b` and then arrows.
+8. (Within shell session 2) Discovering the program's ID, e.g.: `sudo bpftool prog list`
 3. (Within shell session 2) Profiling the program, e.g.: `sudo bpftool prog profile id 63 duration 5 cycles instructions` (assuming the ID is 63)
 
 Figure 1 explains how to perform these steps.
