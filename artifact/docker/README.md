@@ -34,6 +34,12 @@ After running each research question, you should get the following outputs:
 * [RQ4](../expected_outputs/output_rq4.txt).
 * [RQ5](../expected_outputs/output_rq5.txt).
 
+You might get a warning related to the character encoding of the Erlang VM, but this warning is not important to run experiments in this artifact:
+
+```
+Warning: the VM is running with native name encoding of latin1, which may cause Elixir to malfunction as it expects utf8. Please ensure your locale is set to UTF-8 (which can be verified by running "locale" in your shell)
+```
+
 ## Running the eBPF programs
 
 To reproduce RQ3, it is necessary to run the eBPF programs with profiling enabled.
