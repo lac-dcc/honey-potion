@@ -29,7 +29,7 @@ root@docker:/honey-potion/artifact# bash rq2.sh
 root@docker:/honey-potion/artifact# sudo ../examples/lib/bin/CountSysCalls 
 ```
 
-## Profiling eBPF programs outside Docker
+## Profiling eBPF programs within Docker
 
 Measuring the performance of the BPF programs involves opening two shell sessions within the same instance of docker:
 
@@ -39,28 +39,28 @@ Measuring the performance of the BPF programs involves opening two shell session
 root@docker:/honey-potion/artifact# tmux
 ```
 
-2. To split the window into two sessions with vertical panes, you can press `ctrl+b` and then press `%` within your `tmux` session.
+To split the window into two sessions with vertical panes, you can press `ctrl+b` and then press `%` within your `tmux` session.
+So, go ahead and create two panes.
+You can move between panes by pressing `ctrl+b` and then pressing either the left or the right arrow key.
 
-3. (Within window 1) Run the eBPF program. We are assuming that you've already compiled it, e.g., using `bash rq2.sh`, for instance. To run the program, as already mentioned, you can do:
+2. (Within window 1) Run the eBPF program. We are assuming that you've already compiled it, e.g., using `bash rq2.sh`, for instance. To run the program, as already mentioned, you can do:
 
 ```
 root@docker:/honey-potion/artifact# sudo ../examples/lib/bin/HelloWorld
 ```
 
-4. Now, we need to move to the other `tmux` tab. You can move between panes by pressing `ctrl+b` and then pressing the arrow keys. So, go ahead and move to the other pane.
-
-5. (Within shell session 2) We first need to discover the program's ID. You can do this with the command below:
+3. (Within shell session 2) We first need to discover the program's ID. You can find this ID with the command below:
 
 ```
-sudo bpftool prog list
+root@docker:/honey-potion/artifact# sudo bpftool prog list
 ```
 
 See Figure 1 to locate the ID. Most likely, the eBPF process that you want will be the last one in the list.
 
-6. (Within shell session 2) Profile the program using the `bpftool` application. If we assume that the process that you want has ID 63, then you can do it as follows:
+4. (Within shell session 2) Profile the program using the `bpftool` application. If we assume that the process that you want has ID 63, then you can do it as follows:
 
 ```
-sudo bpftool prog profile id 63 duration 5 cycles instructions
+root@docker:/honey-potion/artifact# sudo bpftool prog profile id 63 duration 5 cycles instructions
 ```
 
 This command will print the number of eBPF instructions and cycles executed by the program. See Figure 1 for an explanation of these reports.
