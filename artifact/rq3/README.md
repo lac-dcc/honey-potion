@@ -5,7 +5,7 @@ This is the only research question that we could not automatize with a single sc
 
 ## Running eBPF programs within Docker
 
-To run the eBPF programs within Docker, then you should invoke Docker with sudo privileges, as follows:
+To run the eBPF programs within Docker, you should invoke Docker with sudo privileges, as follows:
 
 ```
 docker run --rm -ti \
@@ -31,19 +31,39 @@ root@docker:/honey-potion/artifact# sudo ../examples/lib/bin/CountSysCalls
 
 ## Profiling eBPF programs outside Docker
 
-Measuring the performance of the BPF programs involves three steps:
+Measuring the performance of the BPF programs involves opening two shell sessions within the same instance of docker:
 
-1. Run the container, with the eBPF privileges (see above).
-2. Now, to open two sessions, install `tmux`, e.g., `sudo apt install tmux`
-3. Open a shell using `tmux`. Just do `tmux`.
-4. Open two sessions. To open two vertical sessions, do `ctrl+b` and then type `%`
-5. Compile the programs, e.g., `root@docker:/honey-potion/artifact# bash rq2.sh`
-6. Start one of the programs, (Within shell session 1) Activating the program, e.g.: `sudo honey-potion/examples/lib/bin/HelloWorld`
-7. Move to the other shell, with `ctrl+b` and then arrows.
-8. (Within shell session 2) Discovering the program's ID, e.g.: `sudo bpftool prog list`
-3. (Within shell session 2) Profiling the program, e.g.: `sudo bpftool prog profile id 63 duration 5 cycles instructions` (assuming the ID is 63)
+1. To open the two sessions, let us use [tmux](https://www.redhat.com/sysadmin/introduction-tmux-linux):
 
-Figure 1 explains how to perform these steps.
+```
+root@docker:/honey-potion/artifact# tmux
+```
+
+2. To split the window into two sessions with vertical panes, you can press `ctrl+b` and then press `%` within your `tmux` session.
+
+3. (Within window 1) Run the eBPF program. We are assuming that you've already compiled it, e.g., using `bash rq2.sh`, for instance. To run the program, as already mentioned, you can do:
+
+```
+root@docker:/honey-potion/artifact# sudo ../examples/lib/bin/HelloWorld
+```
+
+4. Now, we need to move to the other `tmux` tab. You can move between panes by pressing `ctrl+b` and then pressing the arrow keys. So, go ahead and move to the other pane.
+
+5. (Within shell session 2) We first need to discover the program's ID. You can do this with the command below:
+
+```
+sudo bpftool prog list
+```
+
+See Figure 1 to locate the ID. Most likely, the eBPF process that you want will be the last one in the list.
+
+6. (Within shell session 2) Profile the program using the `bpftool` application. If we assume that the process that you want has ID 63, then you can do it as follows:
+
+```
+sudo bpftool prog profile id 63 duration 5 cycles instructions
+```
+
+This command will print the number of eBPF instructions and cycles executed by the program. See Figure 1 for an explanation of these reports.
 
 ![How to profile eBPF programs](../../assets/howToProfile.png "How to profile eBPF programs")
 
