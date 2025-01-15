@@ -1,27 +1,35 @@
 defmodule Honey do
-  alias Mix.Task.Compiler
-  alias Honey.Guard       #Stops execution if main doesn't exist.
-  alias Honey.Fuel        #Unrolls function calls.
-  alias Honey.Optimizer   #Optimizes the AST with DCE and CP and does variable analysis.
-  alias Honey.Info        #Gathers Info about the AST.
-  alias Honey.Generator   #Uses that info to generate frontend and backend code.
-  alias Honey.Write       #Writes files into the right folders for compilation.
-  alias Honey.Compiler    #Compiles the files into userdir/bin/
-
   @moduledoc """
   Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
   Users can write Elixir code that will be transformed into eBPF bytecodes.
   Many high-level features of Elixir are available and more will be added soon.
   In this alpha version, the framework translates the code to a subset of C that uses libbpf's features.
   Then it's possible to use clang to obtain the bytecodes and load it into the Kernel.
+
+  ## Aliases
+
+  - `Mix.Task.Compiler`: Manages compilation tasks.
+  - `Honey.Guard`: Stops execution if main doesn't exist.
+  - `Honey.Fuel`: Unrolls function calls.
+  - `Honey.Optimizer`: Optimizes the AST with DCE (Dead Code Elimination) and CP (Constant Propagation) and performs variable analysis.
+  - `Honey.Info`: Gathers information about the AST.
+  - `Honey.Generator`: Uses the gathered info to generate frontend and backend code.
+  - `Honey.Write`: Writes files into the appropriate folders for compilation.
+  - `Honey.Compiler`: Compiles the files into `userdir/bin/`.
   """
+  alias Mix.Task.Compiler
+  alias Honey.Guard
+  alias Honey.Fuel
+  alias Honey.Optimizer
+  alias Honey.Info
+  alias Honey.Generator
+  alias Honey.Write
+  alias Honey.Compiler
 
   @doc """
   Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline.
   """
-
   defmacro __before_compile__(env) do
-
     main_def = Guard.main_exists!(env)
 
     {arguments, func_ast} = Info.get_ast(main_def)
@@ -61,7 +69,6 @@ defmodule Honey do
     - BPF_MAP_TYPE_PERCPU_ARRAY: Same as BPF_MAP_TYPE_ARRAY.
     - BPF_MAP_TYPE_PERCPU_HASH: Same as BPF_MAP_TYPE_HASH.
   """
-
   defmacro defmap(ebpf_map_name, ebpf_map) do
     quote do
       ebpf_map_name = unquote(ebpf_map_name)
@@ -73,7 +80,6 @@ defmodule Honey do
   @doc """
   Makes sure the "use" keyword is inside a valid module to operate in and imports the modules that will be needed.
   """
-
   defmacro __using__(options) do
     with :error <- Keyword.fetch(options, :license) do
       raise "License is required when using the module Honey. Try 'use Honey, license: \"License type\"'."

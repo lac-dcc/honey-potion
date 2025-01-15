@@ -1,14 +1,16 @@
 defmodule Honey.TypePropagation do
-  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1, var_to_atom: 1]
-  #alias Mix.Tasks.Lsp.DataModel.Type wasn't moved in
-  alias Honey.{ElixirType, TypeSet, Info}
-
   @moduledoc """
   Propagates the type of variables throughout the elixir AST of the source program.
   Currently, it can exclusively execute in codes that only contains simple pattern matches, that is,
   the left-hand side should solely comprise a simple variable and should not be enclosed within a more
   complex structure, such as a tuple or array.
   """
+  # alias Mix.Tasks.Lsp.DataModel.Type wasn't moved in
+  alias Honey.ElixirType
+  alias Honey.Info
+  alias Honey.TypeSet
+
+  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1, var_to_atom: 1]
 
   @doc """
   This function executes type propagation on an Elixir AST.
@@ -28,34 +30,36 @@ defmodule Honey.TypePropagation do
         TPContext.add_var_types(tp_context, arg, TypeSet.new(types))
       end)
 
-    {ast, _tp_context} = Macro.postwalk(ast, tp_context, fn segment, tp_context ->
-      case segment do
-        {:=, meta, [lhs, rhs]} = _pm ->
+    {ast, _tp_context} =
+      Macro.postwalk(ast, tp_context, fn segment, tp_context ->
+        case segment do
+          {:=, meta, [lhs, rhs]} = _pm ->
+            {rhs_typeset, typed_args, tp_context} =
+              resolve_typeset_from_match([lhs, rhs], tp_context)
 
-          {rhs_typeset, typed_args, tp_context} = resolve_typeset_from_match([lhs, rhs], tp_context)
+            typed_args = Tuple.to_list(typed_args)
 
-          typed_args = Tuple.to_list(typed_args)
+            new_pm =
+              {:=, meta, typed_args}
+              |> add_types_to_segment(rhs_typeset)
 
-          new_pm =
-            {:=, meta, typed_args}
-            |> add_types_to_segment(rhs_typeset)
+            {new_pm, tp_context}
 
-          {new_pm, tp_context}
+          segment ->
+            seg_types = get_typeset_from_segment(segment, tp_context)
+            new_seg = add_types_to_segment(segment, seg_types)
 
-        segment ->
-          seg_types = get_typeset_from_segment(segment, tp_context)
-          new_seg = add_types_to_segment(segment, seg_types)
+            tp_context =
+              if(is_var(segment)) do
+                TPContext.add_var_types(tp_context, segment, seg_types)
+              else
+                tp_context
+              end
 
-          tp_context =
-            if(is_var(segment)) do
-              TPContext.add_var_types(tp_context, segment, seg_types)
-            else
-              tp_context
-            end
+            {new_seg, tp_context}
+        end
+      end)
 
-          {new_seg, tp_context}
-      end
-    end)
     # Return the ast without the accumulator.
     # |> elem(0)
 
@@ -272,10 +276,9 @@ defmodule Honey.TypePropagation do
     Macro.update_meta(segment, &Keyword.put(&1, :types, new_types))
   end
 
-  
   # Base case. If lhs is a variable we add it to types context.
-  defp resolve_typeset_from_match([lhs, rhs], tp_context) 
-    when is_var(lhs) do
+  defp resolve_typeset_from_match([lhs, rhs], tp_context)
+       when is_var(lhs) do
     rhs_typeset = get_typeset_from_segment(rhs, tp_context)
 
     typed_rhs = add_types_to_segment(rhs, rhs_typeset)
@@ -291,8 +294,8 @@ defmodule Honey.TypePropagation do
 
   # Base case. If rhs is a variable we can't expand anymore.
   # This isn't implemented properly yet!!! That is why it returns invalid type.
-  defp resolve_typeset_from_match([lhs, rhs], tp_context) 
-    when is_var(rhs) do
+  defp resolve_typeset_from_match([lhs, rhs], tp_context)
+       when is_var(rhs) do
     rhs_typeset = get_typeset_from_segment(rhs, tp_context)
 
     typed_rhs = add_types_to_segment(rhs, rhs_typeset)
@@ -300,16 +303,15 @@ defmodule Honey.TypePropagation do
 
     typed_args = {typed_lhs, typed_rhs}
 
-    #var_as_atom = var_to_atom(lhs)
-    #tp_context = TPContext.add_var_types(tp_context, var_as_atom, rhs_typeset) #lhs isn't a variable.
+    # var_as_atom = var_to_atom(lhs)
+    # tp_context = TPContext.add_var_types(tp_context, var_as_atom, rhs_typeset) #lhs isn't a variable.
 
     {rhs_typeset, typed_args, tp_context}
-
   end
 
   # Base case. If lhs is constant we are done.
   defp resolve_typeset_from_match([lhs, rhs], tp_context)
-    when is_constant(lhs) and not is_tuple(lhs) and not is_list(lhs) do
+       when is_constant(lhs) and not is_tuple(lhs) and not is_list(lhs) do
     rhs_typeset = get_typeset_from_segment(rhs, tp_context)
     lhs_typeset = get_typeset_from_segment(lhs, tp_context)
 
@@ -322,13 +324,15 @@ defmodule Honey.TypePropagation do
   end
 
   # Top Case. If there are tuples or lists we have to solve them. Here we defer to lists.
-  defp resolve_typeset_from_match([lhs, rhs], tp_context) 
-    when is_tuple(lhs) and is_tuple(rhs) do  
-      lhs = Tuple.to_list(lhs)
-      rhs = Tuple.to_list(rhs)
+  defp resolve_typeset_from_match([lhs, rhs], tp_context)
+       when is_tuple(lhs) and is_tuple(rhs) do
+    lhs = Tuple.to_list(lhs)
+    rhs = Tuple.to_list(rhs)
     # If we ever try to get the type out of this, remember to remove the list type.
     # Even if this is a tuple, _rhs_typeset returns a list.
-    {_rhs_typeset, {typed_lhs, typed_rhs}, tp_context} = resolve_typeset_from_match([lhs, rhs], tp_context)
+    {_rhs_typeset, {typed_lhs, typed_rhs}, tp_context} =
+      resolve_typeset_from_match([lhs, rhs], tp_context)
+
     rhs_typeset = TypeSet.new(ElixirType.type_tuple())
     typed_lhs = List.to_tuple(typed_lhs)
     typed_rhs = List.to_tuple(typed_rhs)
@@ -336,26 +340,27 @@ defmodule Honey.TypePropagation do
   end
 
   # Top Case. If there are tuples or lists we have to solve them. Here we solve lists.
-  defp resolve_typeset_from_match([lhs, rhs], tp_context) 
-    when is_list(lhs) and is_list(rhs) do  
+  defp resolve_typeset_from_match([lhs, rhs], tp_context)
+       when is_list(lhs) and is_list(rhs) do
     match = Enum.zip(lhs, rhs)
 
-    {typed_match, tp_context} = Enum.map_reduce(match, tp_context, fn e, acc ->
-      {lhs, rhs} = e # Elements are tuples thanks to .zip above
-      {_rhs_typeset, typed_match, tp_context} = resolve_typeset_from_match([lhs, rhs], acc)
-      {typed_match, tp_context}
-    end)
+    {typed_match, tp_context} =
+      Enum.map_reduce(match, tp_context, fn e, acc ->
+        # Elements are tuples thanks to .zip above
+        {lhs, rhs} = e
+        {_rhs_typeset, typed_match, tp_context} = resolve_typeset_from_match([lhs, rhs], acc)
+        {typed_match, tp_context}
+      end)
 
     {typed_lhs, typed_rhs} = Enum.unzip(typed_match)
     rhs_typeset = TypeSet.new(ElixirType.type_list())
     {rhs_typeset, {typed_lhs, typed_rhs}, tp_context}
   end
-
 end
 
 defmodule TPContext do
+  alias Honey.TypeSet
   import Honey.Utils, only: [is_var: 1, var_to_atom: 1]
-  alias Honey.{TypeSet}
 
   # var_types is a Keyword list.
   defstruct var_types: [], env: nil

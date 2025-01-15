@@ -1,14 +1,12 @@
 defmodule Honey.DCE do
-  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1]
-
   @moduledoc """
   Executes Dead Code Elimination in the elixir AST of the source program.
   """
+  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1]
 
   @doc """
   Runs Dead Code Elimination given an elixir AST.
   """
-
   def run(fun_def) do
     new_ast =
       Macro.prewalk(fun_def, fn segment ->

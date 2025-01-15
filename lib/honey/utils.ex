@@ -1,5 +1,4 @@
 defmodule Honey.Utils do
-
   @moduledoc """
   Contains utility functions used across Honey-Potion.
   """
@@ -8,7 +7,6 @@ defmodule Honey.Utils do
   Prefixes every string with info about the place where it was generated.
   Extremely useful for debugging generated code.
   """
-
   defmacro gen(text) do
     %Macro.Env{file: file, line: line} = __CALLER__
 
@@ -21,7 +19,6 @@ defmodule Honey.Utils do
   @doc """
   Transforms a variable into an unique string.
   """
-
   def var_to_string({var_name, meta, var_context}) do
     "#{var_name}_#{inspect_no_limit(meta[:version])}_#{var_context}"
   end
@@ -29,7 +26,6 @@ defmodule Honey.Utils do
   @doc """
   Transforms a variable into an unique atom. Mostly used as a key in keywords, maps and other structures with keys.
   """
-
   def var_to_key({var_name, meta, var_context}) do
     String.to_atom(var_to_string({var_name, meta, var_context}))
   end
@@ -37,12 +33,11 @@ defmodule Honey.Utils do
   @doc """
   Transforms a variable into a unique atom.
   """
-
   def var_to_atom(var) do
     String.to_atom(var_to_string(var))
   end
 
-  #Gets the value without limits in size or printing.
+  # Gets the value without limits in size or printing.
   defp inspect_no_limit(value) do
     inspect(value, limit: :infinity, printable_limit: :infinity)
   end
@@ -50,7 +45,6 @@ defmodule Honey.Utils do
   @doc """
   Raises a compilation error in a standard format.
   """
-
   def compile_error!(%Macro.Env{line: line, file: file}, description) do
     raise CompileError, line: line, file: file, description: description
   end
@@ -63,7 +57,6 @@ defmodule Honey.Utils do
   @doc """
   Returns the name of the module that we are translating.
   """
-
   def module_name(env) do
     mod_name = env.module
     mod_name = Atom.to_string(mod_name)
@@ -74,13 +67,12 @@ defmodule Honey.Utils do
   @doc """
   Returns the clang format stored in env.module. 
   """
-
   def clang_format(env) do
     ebpf_options = Module.get_attribute(env.module, :ebpf_options)
     Keyword.get(ebpf_options, :clang_format)
   end
 
-  #Guards to filter elements from the Elixir AST.
+  # Guards to filter elements from the Elixir AST.
   @doc """
   Guard for Function calls.
   """
@@ -90,6 +82,7 @@ defmodule Honey.Utils do
                   is_atom(:erlang.element(1, t)) and
                   is_list(:erlang.element(2, t)) and
                   is_list(:erlang.element(3, t))
+
   @doc """
   Guard for Variables.
   """
@@ -99,6 +92,7 @@ defmodule Honey.Utils do
                   is_atom(:erlang.element(1, t)) and
                   is_list(:erlang.element(2, t)) and
                   is_atom(:erlang.element(3, t))
+
   @doc """
   Guard for Constants.
   """

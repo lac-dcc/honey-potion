@@ -1,13 +1,12 @@
 defmodule Honey.Type do
-  defstruct [c_type: nil, e_type: nil]
+  defstruct c_type: nil, e_type: nil
   defguard is_type(var) when is_struct(var, Honey.ElixirType) or is_struct(var, Honey.ElixirType)
 
   def receive_type(type) when is_type(type) do
-
   end
 end
 
-defmodule Honey.ElixirType do  
+defmodule Honey.ElixirType do
   @moduledoc """
   This module represents a type in the Elixir AST.
   More specifically this module keeps a struct that represents the details of a
@@ -18,11 +17,11 @@ defmodule Honey.ElixirType do
   defstruct name: nil, struct: nil, function: nil, fields: nil
 
   def new(name) when is_atom(name) do
-    %Honey.ElixirType{name: name}
+    %__MODULE__{name: name}
   end
-  
+
   def new(name, fields) when is_atom(name) and is_list(fields) do
-    %Honey.ElixirType{name: name, fields: fields}
+    %__MODULE__{name: name, fields: fields}
   end
 
   def merge_types(_type_list) do
@@ -62,7 +61,7 @@ defmodule Honey.ElixirType do
   end
 
   def type_struct(name) do
-    %Honey.ElixirType{name: name, struct: Honey.ElixirStructType.new()}
+    %__MODULE__{name: name, struct: Honey.ElixirStructType.new()}
   end
 
   def type_function() do
@@ -123,13 +122,12 @@ defmodule Honey.ElixirStructType do
 end
 
 defmodule Honey.TypeSet do
-
   @moduledoc """
   This module manages the information regarding the types that a variable can assume at
   a point in the code. Uses Honey.ElixirType to represent the possible types.
   """
+  alias Honey.ElixirType
 
-  alias Honey.{TypeSet, ElixirType}
   import Honey.Utils, only: [is_var: 1]
 
   defstruct types: MapSet.new()
@@ -137,68 +135,68 @@ defmodule Honey.TypeSet do
   def new(arr \\ [])
 
   def new(arr) when is_list(arr) do
-    %TypeSet{types: MapSet.new(arr)}
+    %__MODULE__{types: MapSet.new(arr)}
   end
 
   def new(type = %ElixirType{}) do
-    %TypeSet{types: MapSet.new([type])}
+    %__MODULE__{types: MapSet.new([type])}
   end
 
-  def new(typeset = %TypeSet{}) do
+  def new(typeset = %__MODULE__{}) do
     typeset
   end
 
   def new(mapset = %MapSet{}) do
-    %TypeSet{types: mapset}
+    %__MODULE__{types: mapset}
   end
 
-  def put_type(typeset = %TypeSet{}, type = %ElixirType{}) do
-    %TypeSet{typeset | types: MapSet.put(typeset.types, type)}
+  def put_type(typeset = %__MODULE__{}, type = %ElixirType{}) do
+    %__MODULE__{typeset | types: MapSet.put(typeset.types, type)}
   end
 
-  def union(type_set_a = %TypeSet{}, type_set_b = %TypeSet{}) do
+  def union(type_set_a = %__MODULE__{}, type_set_b = %__MODULE__{}) do
     MapSet.union(type_set_a.types, type_set_b.types)
     |> new()
   end
 
-  def type_is_unique(set = %TypeSet{}) do
+  def type_is_unique(set = %__MODULE__{}) do
     size(set) == 1
   end
 
-  def has_type(set = %TypeSet{}, type = %ElixirType{}) do
+  def has_type(set = %__MODULE__{}, type = %ElixirType{}) do
     MapSet.member?(set.types, type)
   end
 
-  def has_unique_type(set = %TypeSet{}, type = %ElixirType{}) do
+  def has_unique_type(set = %__MODULE__{}, type = %ElixirType{}) do
     size(set) == 1 and has_type(set, type)
   end
 
-  def is_generic?(set = %TypeSet{}) do
+  def is_generic?(set = %__MODULE__{}) do
     size(set) > 1 or size(set) == 0 or has_type(set, ElixirType.type_any())
   end
 
-  def is_integer?(set = %TypeSet{}) do
+  def is_integer?(set = %__MODULE__{}) do
     has_unique_type(set, ElixirType.type_integer())
   end
 
-  def is_string?(set = %TypeSet{}) do
+  def is_string?(set = %__MODULE__{}) do
     has_unique_type(set, ElixirType.type_bitstring())
   end
 
-  def size(set = %TypeSet{}) do
+  def size(set = %__MODULE__{}) do
     MapSet.size(set.types)
   end
 
-  def is_any(type_set = %TypeSet{}) do
+  def is_any(type_set = %__MODULE__{}) do
     size(type_set) == 0
   end
 
   def get_typeset_from_var_ast({_, meta, _} = var) when is_var(var) do
-    Keyword.get(meta, :types, TypeSet.new())
+    Keyword.get(meta, :types, __MODULE__.new())
   end
 
   def get_typeset_from_var_ast(_) do
-    TypeSet.new()
+    __MODULE__.new()
   end
 
   defimpl Enumerable do
