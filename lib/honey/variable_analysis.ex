@@ -86,6 +86,7 @@ defmodule Honey.Analyze do
             if(match?({_form, _meta, _args}, segment)) do
               # Get info from segment
               {form, meta, args} = segment
+
               # luv == local used variables
               luv = Keyword.get(meta, :uv)
               # Adds variables in your scope to your meta data.
