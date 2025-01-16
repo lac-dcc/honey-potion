@@ -50,7 +50,7 @@ defmodule Honey.MixProject do
       extras: [
         "CHANGELOG.md": [title: "Changelog"],
         "LICENSE.md": [title: "License"],
-        "README.md": [title: "Overview"],
+        "README.md": [title: "Overview"]
       ],
       main: "readme",
       homepage_url: @source_url,

@@ -1,14 +1,12 @@
 defmodule Honey.Info do
-  
   @moduledoc """
   A module for getting hard/inconvenient information to the rest of the project.
   """
 
   @doc """
   Grabs the information used in generating the backend.
-  """ 
-
-  def get_backend_info(env) do 
+  """
+  def get_backend_info(env) do
     target_func = :main
     target_arity = 1
 
@@ -19,13 +17,12 @@ defmodule Honey.Info do
     maps = Module.get_attribute(env.module, :ebpf_maps)
     # TODO: env.requires stores the requires in alphabetical order. This might be a problem.
 
-    {ebpf_options,sec,license,maps}
+    {ebpf_options, sec, license, maps}
   end
 
   @doc """
   Gets the AST for main and it's arguments.
-  """ 
-
+  """
   def get_ast(main_def) do
     # TODO: evaluate all clauses
     {:v1, _kind, _metadata, [first_clause | _other_clauses]} = main_def
@@ -35,8 +32,7 @@ defmodule Honey.Info do
 
   @doc """
   Gets all of the main attributes of a map.
-  """ 
-
+  """
   def get_maps_attributes(maps) do
     name = Map.get(maps, :name)
     content = Map.get(maps, :content)

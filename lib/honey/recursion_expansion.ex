@@ -1,6 +1,4 @@
 defmodule Honey.Fuel do
-  import Honey.Utils, only: [is_var: 1, is_call: 1, compile_error!: 2]
-
   @moduledoc """
   Manages Fuel for function calls.
   In Honey-Potion, Fuel is the ammount of recursive calls that a function call can generate.
@@ -15,11 +13,11 @@ defmodule Honey.Fuel do
       - Must be in the same module as main/1
   - It doesn't expand mutual recursions yet
   """
+  import Honey.Utils, only: [is_var: 1, is_call: 1, compile_error!: 2]
 
   @doc """
   Defines the macro fuel which adds the fuel ammount into the metadata of a function call.
   """
-
   defmacro fuel(amount, fun_call) do
     ensure_caller(__CALLER__)
 
@@ -30,7 +28,6 @@ defmodule Honey.Fuel do
   Burns fuel with consecultive passes through the AST until no more changes are made.
   Currently it only accepts calls from the same module.
   """
-
   def burn_fuel(main_ast, env) do
     {new_ast, modified} =
       Macro.postwalk(main_ast, false, fn
@@ -59,7 +56,7 @@ defmodule Honey.Fuel do
     end
   end
 
-  #Makes sure fuel is used inside the main function.
+  # Makes sure fuel is used inside the main function.
   defp ensure_caller(%Macro.Env{function: {:main, 1}}), do: :ok
 
   defp ensure_caller(env) do
@@ -69,7 +66,6 @@ defmodule Honey.Fuel do
   @doc """
   Unrolls one fuel of a specific function call and subtracts the value of its fuel by one.
   """
-
   def get_def_for_reinjection(fun_call, env, current_fuel) do
     {module, function, arity, actual_args} = decompose_call(fun_call, env)
     fun_def = Module.get_definition(module, {function, arity})
@@ -124,7 +120,7 @@ defmodule Honey.Fuel do
     final_ast
   end
 
-  #Walks the AST replacing the old context (Third element of variables) with the new_context.
+  # Walks the AST replacing the old context (Third element of variables) with the new_context.
   defp replace_context(ast, new_context) do
     Macro.postwalk(ast, fn
       {name, meta, _ctx} = var when is_var(var) ->
@@ -135,12 +131,12 @@ defmodule Honey.Fuel do
     end)
   end
 
-  #Gives or updates the fuel of a function call into the metadata of the call.
+  # Gives or updates the fuel of a function call into the metadata of the call.
   defp add_fuel_metadata(call, fuel) when is_call(call) do
     Macro.update_meta(call, &[{:fuel, fuel} | &1])
   end
 
-  #Transforms a function call into parameters that we need.
+  # Transforms a function call into parameters that we need.
   defp decompose_call(call, caller_env) do
     case call do
       {fun_name, _meta, args} = call when is_call(call) ->

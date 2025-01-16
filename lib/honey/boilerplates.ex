@@ -1,15 +1,16 @@
 defmodule Honey.Boilerplates do
-  import Honey.Utils, only: [gen: 1]
-  alias Honey.ElixirType
-  alias Honey.TypeSet
-  alias Honey.Utils
-  alias Honey.Info
-
   @moduledoc """
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
-alias Honey.Boilerplates
+  alias Honey.Boilerplates
+
+  alias Honey.ElixirType
+  alias Honey.Info
+  alias Honey.TypeSet
+  alias Honey.Utils
+
+  import Honey.Utils, only: [gen: 1]
 
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
 
@@ -28,7 +29,6 @@ alias Honey.Boilerplates
   @doc """
   Calls the methods necessary to create the boilerplates and add the translated code.
   """
-
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>
@@ -42,7 +42,6 @@ alias Honey.Boilerplates
   @doc """
   Generates the generic front-end for the bpf program.
   """
-
   def generate_frontend_code(env) do
     module_name = Utils.module_name(env)
     {_, sec,_,_} = Info.get_backend_info(env)
@@ -155,7 +154,6 @@ alias Honey.Boilerplates
   Creates the "output" function and gives it the functionality of choosing if everything should be output or
   only what has been requested. This is toggled by adding or removing the -p argument when calling the binary.
   """
-
   def generate_output_chooser(env) do
     module_name = Utils.module_name(env)
     output = """
@@ -191,7 +189,6 @@ alias Honey.Boilerplates
   Return both the declarations and the functions resposible for outputting maps.
   Creates both output_opt (only what was requested) and output_all (used when -p).
   """
-
   def generate_output_func_decl(env) do
     output = generate_output_func(env)
     output_always = generate_output_func(env, true)
@@ -209,10 +206,8 @@ alias Honey.Boilerplates
   This takes into consideration the type of the map, what is the type of the elements inside the map,
   what elements were requested to be printed and more.
   """
-
   def generate_output_func(env, printAll \\ false) do
     {_,_,_,maps} = Info.get_backend_info(env)
-
 
     output = Enum.map(maps, fn map ->
       {name, _type, _max_entries, print, print_elem, key_size} = Info.get_maps_attributes(map)
@@ -337,7 +332,6 @@ alias Honey.Boilerplates
   @doc """
   Adds the needed includes for eBPF.
   """
-
   def default_includes() do
     gen("""
     #include <linux/bpf.h>
@@ -368,7 +362,6 @@ alias Honey.Boilerplates
   @doc """
   Adds the default includes to the ones specified in config.
   """
-
   def generate_includes(config) do
     default_includes() <> dependant_includes(config)
   end
@@ -376,7 +369,6 @@ alias Honey.Boilerplates
   @doc """
   Generate the C version of the maps declared by the user in Elixir.
   """
-
   def generate_maps(%Boilerplates{elixir_maps: maps}) do
     c_maps =
       Enum.map(maps, fn elixir_map ->
@@ -419,7 +411,6 @@ alias Honey.Boilerplates
   @doc """
   Creates the method to access a member of the Generic struct in C.
   """
-
   def generate_getMember(config) do
     gen("""
     static void getMember(OpResult *result, Generic *elixir_struct, char member_name[20], Generic *member)
@@ -479,7 +470,6 @@ alias Honey.Boilerplates
   @doc """
   Prepares the main method to operate normally.
   """
-
   def beginning_main_code do
     gen("""
     StrFormatSpec str_param1;
@@ -543,7 +533,6 @@ alias Honey.Boilerplates
   @doc """
   Generates the return of the code. Returns if the value is an integer or goes to the CATCH error otherwise.
   """
-
   def generate_ending_main_code(return_var_name) do
     gen("""
     if (#{return_var_name}.type != INTEGER) {
@@ -605,7 +594,6 @@ alias Honey.Boilerplates
   @doc """
   Creates the struct for the ctx main argument.
   """
-
   def generate_ctx_struct(config) do
     case config.libbpf_prog_type do
     "tracepoint/syscalls/sys_enter_kill" -> gen("""
@@ -664,7 +652,6 @@ alias Honey.Boilerplates
   @doc """
   Adds the license of the eBPF program.
   """
-
   def generate_license(config) do
     gen("""
     char LICENSE[] SEC("license") = "#{config.license}";
@@ -677,7 +664,6 @@ alias Honey.Boilerplates
   Adds the arguments of the main function.
   Currently only ctx for tracepoint/syscalls/sys_enter_kill
   """
-
   def generate_main_arguments(config) do
     case config.libbpf_prog_type do
       "tracepoint/syscalls/sys_enter_kill" ->
@@ -697,7 +683,6 @@ alias Honey.Boilerplates
   @doc """
   Puts together all main generating methods and the translated code.
   """
-
   def generate_main(config) do
     gen("""
     SEC("#{config.libbpf_prog_type}")
