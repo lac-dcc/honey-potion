@@ -6,40 +6,43 @@
 [![License](https://img.shields.io/hexpm/l/honey.svg)](https://github.com/lac-dcc/honey-potion/blob/master/LICENSE)
 [![Last Updated](https://img.shields.io/github/last-commit/lac-dcc/honey-potion.svg)](https://github.com/lac-dcc/honey-potion/commits/master)
 
-<p align="center">
-  </br>
-  <img alt="logo" src="./assets/honey.png" width="25%" height="auto"/>
-</p>
+## 🐝 About
 
-## Description
-*Honey Potion* is a framework that brings the powerful eBPF technology into Elixir. Users can write Elixir code that will be transformed into eBPF bytecodes. Many high-level features of Elixir are available and more will be added soon.
-In this alpha version, the framework translates the code to a subset of C that uses [libbpf](https://github.com/libbpf/libbpf)'s features. Then it's possible to use `clang` to obtain the bytecodes and load it into the Kernel.
+**Honey Potion** is a framework that brings the power of **[eBPF](https://ebpf.io/)** to Elixir, allowing users to write Elixir code that is transformed into eBPF bytecode.
 
-## Dependencies
-*Honey Potion* depends on a few BPF-related packages to run. Below are listed the packages with the ubuntu names. Other distros should have similar or equal names.
+In this alpha version, Honey Potion translates Elixir code into a subset of C that leverages [libbpf](https://github.com/libbpf/libbpf). The generated C code is then compiled using `clang` to produce the eBPF bytecode, which can be loaded into the kernel.
 
-- erlang and elixir - For the language used in Honey Potion
-- libbpf - Version 1.1 (See [YouTube video](https://www.youtube.com/watch?v=PhHs9u9toTg&list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY&index=2) on how to get it)
-- gcc-multilib - For C libraries (asm/types.h)
-- make - For Makefile compilation
-- llvm - For llc
-- clang - For clang
-- bpftool - For skeleton generation
+![Honey Potion Logo](./assets/honey.png)
 
-Note that clang, llc and bpftool can be compiled by the user, as long as they are in the $PATH.
+---
 
-## YouTube
-If you prefer the video format, Honey Potion has a [YouTube playlist](https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY) with guides on how to set up Honey Potion and how to create example programs.
+## 📦 Dependencies
 
-<p align="center">
-  </br>
-  <a href="https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY"><img alt="YouTubeThumb" src="./assets/youtube.png" width="75%" height="auto"/>
-</p>
+Honey Potion requires the following dependencies, listed with their Ubuntu package names (equivalents exist for other distributions):
 
+- **Erlang & Elixir** – Required for running Honey Potion
+- **libbpf** – Version 1.1 ([installation guide](https://www.youtube.com/watch?v=PhHs9u9toTg&list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY&index=2))
+- **gcc-multilib** – Required for certain C libraries (`asm/types.h`)
+- **make** – For Makefile-based compilation
+- **llvm** – Provides `llc`
+- **clang** – Required for compilation
+- **bpftool** – Used for skeleton generation
 
-## Installation
+> ℹ️ **Note:** You can manually compile `clang`, `llc`, and `bpftool`, as long as they are available in your `$PATH`.
 
-The package can be installed by adding `honey` to your list of dependencies in `mix.exs`:
+---
+
+## 🎥 Video Guide
+
+Prefer a video tutorial? Check out the [Honey Potion YouTube playlist](https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY) with step-by-step guides.
+
+[![YouTube Thumbnail](./assets/youtube.png)](https://www.youtube.com/playlist?list=PL9cmSHf85lF5HzCha020qegkKQ3GpiEBY)
+
+---
+
+## 🚀 Installation
+
+Add `honey` to your project's dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -49,31 +52,36 @@ def deps do
 end
 ```
 
-## Usage
-When you `use Honey` in your module, it'll be translated to C the next time you compile the project. For example:
+---
+
+## 📝 Usage
+
+When you `use Honey` in your module, it will be translated to C the next time you compile your project.
+
 ```elixir
 defmodule Minimal do
   use Honey, license: "Dual BSD/GPL"
-
   # ...
 end
 ```
 
-Will generate a few new sub-directories for you:
+This generates the following directories:
 
-- src : Where the C code is kept, `Minimal.bpf.c` for example
-- obj : Where compilation objects is be kept, `Minimal.o` for example
-- bin : Where the executable is kept, `Minimal` for example
+- **`src/`** – Stores the generated C code (e.g., `Minimal.bpf.c`)
+- **`obj/`** – Stores compilation objects (e.g., `Minimal.o`)
+- **`bin/`** – Stores the final executable (e.g., `Minimal`)
 
-To run your program, just go into the bin directory and run the executable with privileges.
+To run your program, navigate to the `bin/` directory and execute the binary with appropriate privileges.
 
-You may run the program with the `-p` flag to print all maps and the `-t <seconds>` flag to set how many seconds the program will run.
+### 🔧 Command-line Options
 
-Notice the `license` option: as eBPF demands, we need to specify a license to our program.
-Currently, `Honey` accepts one more option besides the license. The option `clang_formater` can take the path of the `clang-formater` executable, and it'll use it to beautify the C file generated.
+- `-p` → Prints all eBPF maps
+- `-t <seconds>` → Specifies the duration the program should run
 
-#### Main function
-A module that uses `Honey` must define a function `main/1` that receives a `ctx`. The main function is the entry point of our eBPF program. For example:
+#### 🎯 The `main/1` Function
+
+Every module using `Honey` must define a `main/1` function that serves as the entry point for the eBPF program.
+
 ```elixir
 defmodule Example.Minimal do
   use Honey, license: "Dual BSD/GPL"
@@ -84,43 +92,67 @@ defmodule Example.Minimal do
   end
 end
 ```
-Notice the `@sec` decorator: The main function must specify its program type, according to the available options in `libbpf`. The argument received, `ctx`, is a struct whose fields vary depending on the program type.
 
-The main function must return an integer, otherwise an exception will be thrown at runtime (see Runtime Exceptions below).
+- `@sec` specifies the **program type** according to `libbpf`.
+- `ctx` is a struct whose fields vary depending on the program type.
+- The `main/1` function **must** return an integer; otherwise, a runtime exception is thrown.
 
-If you wish to learn how to use Honey-Potion with a video, including the language and other details, [click here.](https://www.youtube.com/watch?v=Wis5e3vLcMg) Otherwise, check out the `docs/Language.md` file or the code examples in `/examples/lib` with special attention to `HelloWorld.ex`, `Maps.ex`, `CountSysCalls.ex` and `Forcekill.ex`.
+For detailed documentation and examples, see:
 
-## Runtime Exceptions
-Exceptions are a natural part of dynamically-typed languages such as Elixir. To allow many of the high-level constructs of Elixir, we simulate the notion of Runtime Exceptions when translating programs to eBPF.
-In this Alpha version, when a Runtime Exception is thrown, the program will print the exception message to the debug pipe, and return with `0`.
+- [`docs/Language.md`](docs/Language.md)
+- Example programs in [`/examples/lib`](examples/lib):
+  - `HelloWorld.ex`
+  - `Maps.ex`
+  - `CountSysCalls.ex`
+  - `Forcekill.ex`
 
-## Current limitations
-This framework is still Alpha, and we have lots of features to add, improve and correct. Amongst the current known limitations are:
-- We cannot destructure elements while doing pattern matching. Because of that, the matching operator `=` is working like a traditional assignment operator with only a simple variable in the left-hand side. For the same reason, `case` and `if-else` blocks are not supported, unless they are totally optimized out at compile time.
-- Only a small number of operators are available, such as `+`, `-`, `*`, `/` and `==`.
-- We do not support function guards nor default arguments.
-- We do not support mutual recursive functions.
-- We do not support user-defined structs.
--  To run the executable currently, executable has to be in bin folder and object in obj folder.
+Or watch the [YouTube tutorial](https://www.youtube.com/watch?v=Wis5e3vLcMg).
 
-There are more, and we are actively working to improve it.
+---
 
-## Contributing
-Contributions are very welcome! If you are interested in collaborating, let's stay in touch so our work doesn't overlap.
-Feedback and suggestions are also very much appreciated! You can file a [GitHub issue](https://github.com/lac-dcc/honey-potion/issues) or contact us at `kaelsoaresaugusto@gmail.com`.
+## ⚠️ Runtime Exceptions
 
-## Copyright & License
-Copyright (C) 2022 Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil
+As Elixir is a dynamically typed language, we simulate runtime exceptions when translating programs to eBPF.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+In this Alpha version, if an exception occurs, it will be printed to the debug pipe, and the program will exit with status `0`.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+---
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+## 🚧 Current Limitations
+
+Honey Potion is still in **Alpha**, and many features are still being developed. Some known limitations include:
+
+- **Pattern Matching:** No destructuring; `=` behaves like an assignment operator.
+- **Control Flow:** No `case` or `if-else` blocks (unless optimized out at compile time).
+- **Operators:** Limited to `+`, `-`, `*`, `/`, and `==`.
+- **Function Guards:** Not supported.
+- **Default Arguments:** Not supported.
+- **Recursion:** No mutual recursion support.
+- **Structs:** User-defined structs are not supported.
+- **Execution Requirements:** Executable must reside in `bin/`, and the object file must be in `obj/`.
+
+We are actively working to improve Honey Potion. Stay tuned!
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! To avoid redundant work, please reach out before submitting major changes.
+
+Feedback and suggestions are highly appreciated! You can:
+
+- Open a [GitHub issue](https://github.com/lac-dcc/honey-potion/issues)
+- Contact us at **kaelsoaresaugusto@gmail.com**
+
+---
+
+## 📜 License
+
+**Honey Potion** is maintained by the **Compilers Laboratory** at the **Federal University of Minas Gerais (UFMG), Brazil**.
+
+This program is **free software** under the terms of the **GNU General Public License (GPLv3)**.
+
+For details, see the full license: [GNU GPL v3](https://www.gnu.org/licenses/).
+
+---
+
