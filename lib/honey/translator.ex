@@ -12,7 +12,7 @@ defmodule Honey.Translator do
   """
   alias Honey.Boilerplates
   alias Honey.Guard
-  alias Honey.ElixirType
+  alias Honey.ElixirTypes
   alias Honey.TranslatedCode
   alias Honey.TypeSet
 
@@ -139,7 +139,7 @@ defmodule Honey.Translator do
   end
 
   # C libraries
-  def to_c({{:., _, [Honey.Bpf_helpers, function]}, _, params}, context) do
+  def to_c({{:., _, [Honey.BpfHelpers, function]}, _, params}, context) do
     case function do
       :bpf_printk ->
         [[string | other_params]] = params
@@ -176,7 +176,7 @@ defmodule Honey.Translator do
         int #{result_var} = 0;
         """
         |> gen()
-        |> TranslatedCode.new(result_var, TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
 
       :bpf_map_lookup_elem ->
         params =
@@ -226,7 +226,7 @@ defmodule Honey.Translator do
 
             key_code =
               cond do
-                TypeSet.has_unique_type(key.return_var_type, ElixirType.type_void()) ->
+                TypeSet.has_unique_type(key.return_var_type, ElixirTypes.type_void()) ->
                   """
                   #{key.code}
                   Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, #{key.return_var_name});
@@ -276,7 +276,7 @@ defmodule Honey.Translator do
                """)
             |> gen()
             # |> TranslatedCode.new(tuple_translation.return_var_name)
-            |> TranslatedCode.new(item_var, TypeSet.new(ElixirType.type_integer()))
+            |> TranslatedCode.new(item_var, TypeSet.new(ElixirTypes.type_integer()))
 
           # Ideally this will return a tuple with two values: A boolean representing whether the value was found
           # and the value itself (:nil if it wasn't found).
@@ -386,7 +386,7 @@ defmodule Honey.Translator do
 
             update =
               cond do
-                TypeSet.has_unique_type(key.return_var_type, ElixirType.type_void()) ->
+                TypeSet.has_unique_type(key.return_var_type, ElixirTypes.type_void()) ->
                   """
                   #{generic_value.return_var_name}.value.integer = #{value.return_var_name};
                   int #{result_var_c} = bpf_map_update_elem(&#{str_map_name}, (#{key.return_var_name}), &#{generic_value.return_var_name}, #{flags_str});
@@ -410,7 +410,7 @@ defmodule Honey.Translator do
 
             (start <> update)
             |> gen()
-            |> TranslatedCode.new(result_var_c, TypeSet.new(ElixirType.type_integer()))
+            |> TranslatedCode.new(result_var_c, TypeSet.new(ElixirTypes.type_integer()))
 
           true ->
             raise "bpf_map_update_elem: In this verison of Honey Potion, we cannot use this function with map type #{map_content.type}."
@@ -421,7 +421,7 @@ defmodule Honey.Translator do
 
         "int #{result_var} = bpf_get_current_pid_tgid();\n"
         |> gen()
-        |> TranslatedCode.new(result_var, TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
     end
   end
 
@@ -442,11 +442,11 @@ defmodule Honey.Translator do
         return XDP_ABORTED;
         """
         |> gen()
-        |> TranslatedCode.new("", TypeSet.new(ElixirType.type_invalid()))
+        |> TranslatedCode.new("", TypeSet.new(ElixirTypes.type_invalid()))
 
       # We don't need code to initialize a constant.
       :const_udp ->
-        "" |> TranslatedCode.new("IPPROTO_UDP", TypeSet.new(ElixirType.type_integer()))
+        "" |> TranslatedCode.new("IPPROTO_UDP", TypeSet.new(ElixirTypes.type_integer()))
 
       :ip_protocol ->
         """
@@ -475,7 +475,7 @@ defmodule Honey.Translator do
         }
         """
         |> gen()
-        |> TranslatedCode.new(return_var, TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new(return_var, TypeSet.new(ElixirTypes.type_integer()))
 
       :destination_port ->
         """
@@ -489,7 +489,7 @@ defmodule Honey.Translator do
         }
         """
         |> gen()
-        |> TranslatedCode.new(return_var, TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new(return_var, TypeSet.new(ElixirTypes.type_integer()))
 
       :set_destination_port ->
         [port] = params
@@ -505,7 +505,7 @@ defmodule Honey.Translator do
         }
         """
         |> gen()
-        |> TranslatedCode.new(port_var.return_var_name, TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new(port_var.return_var_name, TypeSet.new(ElixirTypes.type_integer()))
 
       :h_source ->
         """
@@ -516,7 +516,7 @@ defmodule Honey.Translator do
 
         """
         |> gen()
-        |> TranslatedCode.new(return_var, TypeSet.new(ElixirType.type_void()))
+        |> TranslatedCode.new(return_var, TypeSet.new(ElixirTypes.type_void()))
     end
   end
 
@@ -527,14 +527,14 @@ defmodule Honey.Translator do
         return XDP_DROP;
         """
         |> gen()
-        |> TranslatedCode.new("XDP_DROP", TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new("XDP_DROP", TypeSet.new(ElixirTypes.type_integer()))
 
       :pass ->
         """
         return XDP_PASS;
         """
         |> gen()
-        |> TranslatedCode.new("XDP_PASS", TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new("XDP_PASS", TypeSet.new(ElixirTypes.type_integer()))
     end
   end
 
@@ -554,7 +554,7 @@ defmodule Honey.Translator do
   # Dot operator to access ctx_arg
   def to_c({{:., _, [{:ctx, _var_meta, var_context}, element]}, access_meta, _}, _context)
       when is_atom(var_context) do
-    access_type = Keyword.get(access_meta, :types, TypeSet.new(ElixirType.type_any()))
+    access_type = Keyword.get(access_meta, :types, TypeSet.new(ElixirTypes.type_any()))
     helper_var = unique_helper_var()
 
     cond do
@@ -563,14 +563,14 @@ defmodule Honey.Translator do
         int #{helper_var} = ctx_arg->#{element}; 
         """
         |> gen()
-        |> TranslatedCode.new(helper_var, TypeSet.new(ElixirType.type_integer()))
+        |> TranslatedCode.new(helper_var, TypeSet.new(ElixirTypes.type_integer()))
 
       TypeSet.is_generic?(access_type) ->
         """
         Generic #{helper_var} = {.type = INTEGER, .value.integer = ctx_arg->#{element}}; 
         """
         |> gen()
-        |> TranslatedCode.new(helper_var, TypeSet.new(ElixirType.type_any()))
+        |> TranslatedCode.new(helper_var, TypeSet.new(ElixirTypes.type_any()))
     end
   end
 
@@ -712,7 +712,7 @@ defmodule Honey.Translator do
     #{case_code}
     """
     |> gen()
-    |> TranslatedCode.new(case_return_var, TypeSet.new(ElixirType.type_any()))
+    |> TranslatedCode.new(case_return_var, TypeSet.new(ElixirTypes.type_any()))
   end
 
   # Other structures
@@ -1062,12 +1062,12 @@ defmodule Honey.Translator do
           String #{c_var_name} = #{helper_var_name};
           """
 
-        TypeSet.has_unique_type(var_typeset, ElixirType.type_binary()) ->
+        TypeSet.has_unique_type(var_typeset, ElixirTypes.type_binary()) ->
           """
           String #{c_var_name} = #{helper_var_name};
           """
 
-        TypeSet.has_unique_type(var_typeset, ElixirType.type_void()) ->
+        TypeSet.has_unique_type(var_typeset, ElixirTypes.type_void()) ->
           """
           void* #{c_var_name} = #{helper_var_name};
           """
@@ -1211,7 +1211,7 @@ defmodule Honey.Translator do
          TranslatedCode.new(
            "int #{var_name_in_c} = #{item};",
            var_name_in_c,
-           TypeSet.new(ElixirType.type_integer())
+           TypeSet.new(ElixirTypes.type_integer())
          )}
 
       is_number(item) ->
@@ -1219,7 +1219,7 @@ defmodule Honey.Translator do
          TranslatedCode.new(
            "Generic #{var_name_in_c} = {.type = DOUBLE, .value.double_precision = #{item}};",
            var_name_in_c,
-           TypeSet.new(ElixirType.type_float())
+           TypeSet.new(ElixirTypes.type_float())
          )}
 
       # Considering only strings for now
@@ -1251,7 +1251,7 @@ defmodule Honey.Translator do
           *string_pool_index = #{end_var_name} + 1;
           """)
 
-        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirType.type_bitstring()))}
+        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirTypes.type_bitstring()))}
 
       is_atom(item) ->
         # TODO: Convert arbitrary atoms
@@ -1292,7 +1292,7 @@ defmodule Honey.Translator do
          TranslatedCode.new(
            "Generic #{var_name_in_c} = {.type = INTEGER, .value.integer = #{item}};",
            var_name_in_c,
-           TypeSet.new(ElixirType.type_any())
+           TypeSet.new(ElixirTypes.type_any())
          )}
 
       is_number(item) ->
@@ -1300,7 +1300,7 @@ defmodule Honey.Translator do
          TranslatedCode.new(
            "Generic #{var_name_in_c} = {.type = DOUBLE, .value.double_precision = #{item}};",
            var_name_in_c,
-           TypeSet.new(ElixirType.type_any())
+           TypeSet.new(ElixirTypes.type_any())
          )}
 
       # Considering only strings for now
@@ -1332,7 +1332,7 @@ defmodule Honey.Translator do
           *string_pool_index = #{end_var_name} + 1;
           """)
 
-        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirType.type_any()))}
+        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirTypes.type_any()))}
 
       is_atom(item) ->
         # TODO: Convert arbitrary atoms
@@ -1352,7 +1352,7 @@ defmodule Honey.Translator do
           end
 
         code = "Generic #{var_name_in_c} = #{value};"
-        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirType.type_any()))}
+        {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirTypes.type_any()))}
 
       is_binary(item) ->
         raise "We cannot convert binary yet."
@@ -1446,7 +1446,7 @@ defmodule Honey.Translator do
         if TypeSet.is_generic?(rhs_in_c.return_var_type) do
           "BINARY_OPERATION(#{return_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{rhs_in_c.return_var_name})"
           |> gen()
-          |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+          |> TranslatedCode.new(return_name, TypeSet.new(ElixirTypes.type_any()))
 
           # RHS isn't generic, we need to get it to generic
         else
@@ -1457,7 +1457,7 @@ defmodule Honey.Translator do
           BINARY_OPERATION(#{return_name}, #{func_string}, #{lhs_in_c.return_var_name}, #{generic_rhs.return_var_name})
           """
           |> gen()
-          |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+          |> TranslatedCode.new(return_name, TypeSet.new(ElixirTypes.type_any()))
         end
 
       # RHS is generic and lhs isn't
@@ -1469,7 +1469,7 @@ defmodule Honey.Translator do
         BINARY_OPERATION(#{return_name}, #{func_string}, #{generic_lhs.return_var_name}, #{rhs_in_c.return_var_name})
         """
         |> gen()
-        |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+        |> TranslatedCode.new(return_name, TypeSet.new(ElixirTypes.type_any()))
 
       # Generics have been dealt with. Time to consider the rest.
       TypeSet.is_integer?(lhs_in_c.return_var_type) and
@@ -1485,12 +1485,12 @@ defmodule Honey.Translator do
             }
             """
             |> gen()
-            |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_any()))
+            |> TranslatedCode.new(return_name, TypeSet.new(ElixirTypes.type_any()))
 
           _ ->
             "int #{return_name} = #{lhs_in_c.return_var_name} #{function} #{rhs_in_c.return_var_name};"
             |> gen()
-            |> TranslatedCode.new(return_name, TypeSet.new(ElixirType.type_integer()))
+            |> TranslatedCode.new(return_name, TypeSet.new(ElixirTypes.type_integer()))
         end
 
       true ->
@@ -1511,7 +1511,7 @@ defmodule Honey.Translator do
            #{generic_var}.type = INTEGER; #{generic_var}.value.integer = #{typed_var.return_var_name};
           """
 
-        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_boolean()) ->
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirTypes.type_boolean()) ->
           raise "TODO"
 
         TypeSet.is_string?(typed_var.return_var_type) ->
@@ -1520,10 +1520,10 @@ defmodule Honey.Translator do
             #{generic_var}.type = STRING; #{generic_var}.value.string = #{typed_var.return_var_name};
           """
 
-        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_binary()) ->
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirTypes.type_binary()) ->
           raise "TODO"
 
-        TypeSet.has_unique_type(typed_var.return_var_type, ElixirType.type_void()) ->
+        TypeSet.has_unique_type(typed_var.return_var_type, ElixirTypes.type_void()) ->
           raise "A void* type can't be translated to Generic. Make sure not to use it in tuples or the return of case/cond/if."
 
         true ->
@@ -1531,7 +1531,7 @@ defmodule Honey.Translator do
           raise "TODO"
       end
       |> gen()
-      |> TranslatedCode.new(generic_var, TypeSet.new(ElixirType.type_any()))
+      |> TranslatedCode.new(generic_var, TypeSet.new(ElixirTypes.type_any()))
     end
   end
 end

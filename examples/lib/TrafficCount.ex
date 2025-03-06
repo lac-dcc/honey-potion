@@ -11,10 +11,10 @@ defmodule TrafficCount do
     Honey.Ethhdr.init() #Should only be called once!
     src = Honey.Ethhdr.h_source() #Returns a void* to h_source. Maybe should have unique representation?
     
-    count = Honey.Bpf_helpers.bpf_map_lookup_elem(:TrafficCount, src, 0)
+    count = Honey.BpfHelpers.bpf_map_lookup_elem(:TrafficCount, src, 0)
     count = count + 1
 
-    Honey.Bpf_helpers.bpf_map_update_elem(:TrafficCount, src, count)
+    Honey.BpfHelpers.bpf_map_update_elem(:TrafficCount, src, count)
     
     Honey.XDP.pass()
   end

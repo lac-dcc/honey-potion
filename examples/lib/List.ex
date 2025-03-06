@@ -8,6 +8,6 @@ defmodule Honey_List do
     [_, any_tuple] = [three, one_two]
     {x, _} = any_tuple
     # X must be equals 1
-    Honey.Bpf_helpers.bpf_printk(["x: %d", x])
+    Honey.BpfHelpers.bpf_printk(["x: %d", x])
   end
 end

@@ -1,12 +1,12 @@
 defmodule Honey.Type do
   defstruct c_type: nil, e_type: nil
-  defguard is_type(var) when is_struct(var, Honey.ElixirType) or is_struct(var, Honey.ElixirType)
+  defguard is_type(var) when is_struct(var, Honey.ElixirTypes) or is_struct(var, Honey.ElixirTypes)
 
   def receive_type(type) when is_type(type) do
   end
 end
 
-defmodule Honey.ElixirType do
+defmodule Honey.ElixirTypes do
   @moduledoc """
   This module represents a type in the Elixir AST.
   More specifically this module keeps a struct that represents the details of a
@@ -124,9 +124,9 @@ end
 defmodule Honey.TypeSet do
   @moduledoc """
   This module manages the information regarding the types that a variable can assume at
-  a point in the code. Uses Honey.ElixirType to represent the possible types.
+  a point in the code. Uses Honey.ElixirTypes to represent the possible types.
   """
-  alias Honey.ElixirType
+  alias Honey.ElixirTypes
 
   import Honey.Utils, only: [is_var: 1]
 
@@ -138,7 +138,7 @@ defmodule Honey.TypeSet do
     %__MODULE__{types: MapSet.new(arr)}
   end
 
-  def new(type = %ElixirType{}) do
+  def new(type = %ElixirTypes{}) do
     %__MODULE__{types: MapSet.new([type])}
   end
 
@@ -150,7 +150,7 @@ defmodule Honey.TypeSet do
     %__MODULE__{types: mapset}
   end
 
-  def put_type(typeset = %__MODULE__{}, type = %ElixirType{}) do
+  def put_type(typeset = %__MODULE__{}, type = %ElixirTypes{}) do
     %__MODULE__{typeset | types: MapSet.put(typeset.types, type)}
   end
 
@@ -163,24 +163,24 @@ defmodule Honey.TypeSet do
     size(set) == 1
   end
 
-  def has_type(set = %__MODULE__{}, type = %ElixirType{}) do
+  def has_type(set = %__MODULE__{}, type = %ElixirTypes{}) do
     MapSet.member?(set.types, type)
   end
 
-  def has_unique_type(set = %__MODULE__{}, type = %ElixirType{}) do
+  def has_unique_type(set = %__MODULE__{}, type = %ElixirTypes{}) do
     size(set) == 1 and has_type(set, type)
   end
 
   def is_generic?(set = %__MODULE__{}) do
-    size(set) > 1 or size(set) == 0 or has_type(set, ElixirType.type_any())
+    size(set) > 1 or size(set) == 0 or has_type(set, ElixirTypes.type_any())
   end
 
   def is_integer?(set = %__MODULE__{}) do
-    has_unique_type(set, ElixirType.type_integer())
+    has_unique_type(set, ElixirTypes.type_integer())
   end
 
   def is_string?(set = %__MODULE__{}) do
-    has_unique_type(set, ElixirType.type_bitstring())
+    has_unique_type(set, ElixirTypes.type_bitstring())
   end
 
   def size(set = %__MODULE__{}) do

@@ -2,7 +2,7 @@ defmodule Honey.TranslatedCode do
   @moduledoc """
   Defines the struct that keeps the translated code and its constructor.
   """
-  alias Honey.{ElixirType, TypeSet}
+  alias Honey.{ElixirTypes, TypeSet}
 
   defstruct [:code, :return_var_name, :return_var_type]
 
@@ -13,7 +13,7 @@ defmodule Honey.TranslatedCode do
   def new(
         code \\ "",
         return_var_name \\ "0var_name_err",
-        return_var_type \\ TypeSet.new(ElixirType.type_any())
+        return_var_type \\ TypeSet.new(ElixirTypes.type_any())
       ) do
     %__MODULE__{code: code, return_var_name: return_var_name, return_var_type: return_var_type}
   end

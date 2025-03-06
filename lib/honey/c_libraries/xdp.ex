@@ -1,11 +1,11 @@
 defmodule Honey.XDP do
-  alias Honey.ElixirType
+  alias Honey.ElixirTypes
 
   def drop() do
-    ElixirType.type_integer()
+    ElixirTypes.type_integer()
   end
 
   def pass() do
-    ElixirType.type_integer()
+    ElixirTypes.type_integer()
   end
 end

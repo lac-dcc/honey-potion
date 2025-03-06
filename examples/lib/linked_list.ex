@@ -9,7 +9,7 @@ defmodule Honey_List_Linked do
 
     [_three | a] = t
     [two | _a] = a
-    Honey.Bpf_helpers.bpf_printk(["%d", two])
+    Honey.BpfHelpers.bpf_printk(["%d", two])
     0
   end
 end
