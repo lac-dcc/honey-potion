@@ -33,12 +33,12 @@ Where attributes with a @ are optional and can be disabled. The map is represent
 #### Functions used for maps.
 Maps support functions to read and write data into it. The two main functions given to the user (that are also BPF-Helper functions) are:
 
-`Honey.Bpf_helpers.bpf_map_lookup_elem` and `Honey.Bpf_helpers.bpf_map_update_elem`. The first one looks for a key in a map and the second one updates a key with a new value within a map.
+`Honey.BpfHelpers.bpf_map_lookup_elem` and `Honey.BpfHelpers.bpf_map_update_elem`. The first one looks for a key in a map and the second one updates a key with a new value within a map.
 
 Both of them take in the map name as an atom and the key as the first two arguments and `bpf_map_update_elem` takes the new value as the third argument.
 
 ## BPF-Helper Functions
-Honey gives the user direct access to some of the functions in the BPF-Helper library. The most notable one is `Honey.Bpf_helpers.bpf_printk`, which allows you to print a C-formatted string to `/sys/kernel/debug/tracing/trace_pipe`. To read the output, just cat that directory and it will update live. The other two have been described in the above section.
+Honey gives the user direct access to some of the functions in the BPF-Helper library. The most notable one is `Honey.BpfHelpers.bpf_printk`, which allows you to print a C-formatted string to `/sys/kernel/debug/tracing/trace_pipe`. To read the output, just cat that directory and it will update live. The other two have been described in the above section.
 
 ## Recursive Functions
 It is possible to define recursive functions and call them from `main/1`. For example, let's define a function that recursively sums two natural numbers:

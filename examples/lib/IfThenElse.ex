@@ -7,9 +7,9 @@ defmodule If_Then_Else do
     # Shows that if and else are possible.
 
     if (true) do
-      Honey.Bpf_helpers.bpf_printk(["True"])
+      Honey.BpfHelpers.bpf_printk(["True"])
     else
-      Honey.Bpf_helpers.bpf_printk(["False"])
+      Honey.BpfHelpers.bpf_printk(["False"])
     end
     0
   end

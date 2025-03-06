@@ -14,7 +14,7 @@ defmodule CountSysCalls do
   def main(ctx) do
     id = ctx.id # Grabs the ID of the sys_enter, which represents what sys_enter call was done
 
-    id_count = Honey.Bpf_helpers.bpf_map_lookup_elem(:Count_Sys_Calls_Invoked, id) # Grabs the old value in the map
-    Honey.Bpf_helpers.bpf_map_update_elem(:Count_Sys_Calls_Invoked, id, id_count + 1) # and increments it by one
+    id_count = Honey.BpfHelpers.bpf_map_lookup_elem(:Count_Sys_Calls_Invoked, id) # Grabs the old value in the map
+    Honey.BpfHelpers.bpf_map_update_elem(:Count_Sys_Calls_Invoked, id, id_count + 1) # and increments it by one
   end
 end

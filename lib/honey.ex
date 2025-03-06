@@ -26,6 +26,13 @@ defmodule Honey do
   alias Honey.Write
   alias Honey.Compiler
 
+  @ebpf_types %{
+    array: :BPF_MAP_TYPE_ARRAY,
+    hash: :BPF_MAP_TYPE_HASH,
+    percpu_array: :BPF_MAP_TYPE_PERCPU_ARRAY,
+    percpu_hash: :BPF_MAP_TYPE_PERCPU_HASH
+  }
+
   @doc """
   Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline.
   """
@@ -56,23 +63,34 @@ defmodule Honey do
   Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
 
   ```
-  defmap(:my_map,
-      %{type: BPF_MAP_TYPE_ARRAY,
-      max_entries: 10}
-  )
+  defmap(:my_map, :array, max_entries: 10)
   ```
 
-  In the current version, the types of maps available are:
+  In the current version, the ebpf types of maps available are:
 
     - BPF_MAP_TYPE_ARRAY: You only need to specify the maximum number of entries (max_entries) and the map is ready to use.
     - BPF_MAP_TYPE_HASH: The key is an integer, and you only need to provide the maximum number of entries (max_entries) and the map is ready to use,
     - BPF_MAP_TYPE_PERCPU_ARRAY: Same as BPF_MAP_TYPE_ARRAY.
     - BPF_MAP_TYPE_PERCPU_HASH: Same as BPF_MAP_TYPE_HASH.
+
+  And they are represented by the following atoms
+  
+    - :array
+    - :hash
+    - :percpu_array
+    - :percpu_hash
   """
-  defmacro defmap(ebpf_map_name, ebpf_map) do
+  defmacro defmap(ebpf_map_name, ebpf_map_type, opts \\ []) do
+    ebpf_types = @ebpf_types
+
     quote do
       ebpf_map_name = unquote(ebpf_map_name)
-      ebpf_map_content = unquote(ebpf_map)
+      ebpf_map_type_atom = unquote(ebpf_map_type)
+
+      ebpf_map_type =
+        Map.fetch!(unquote(ebpf_types), ebpf_map_type_atom)
+
+      ebpf_map_content = %{type: ebpf_map_type, options: unquote(opts)}
       @ebpf_maps %{name: ebpf_map_name, content: ebpf_map_content}
     end
   end
