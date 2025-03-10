@@ -18,6 +18,6 @@ defmodule Case do
         _ -> x + 1
       end
 
-    Honey.Bpf_helpers.bpf_printk(["Result: %d", return])
+    Honey.BpfHelpers.bpf_printk(["Result: %d", return])
   end
 end

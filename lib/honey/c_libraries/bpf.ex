@@ -1,27 +1,34 @@
-defmodule Honey.Bpf_helpers do
-  alias Honey.ElixirType
+defmodule Honey.BpfHelpers do
+  @moduledoc """
+  This module provides helper functions for interacting with eBPF maps and system calls.
 
-  def bpf_printk(_str) do
-    ElixirType.type_integer()
-  end
+  The functions in this module act as placeholders for BPF helper functions that are commonly
+  used in eBPF programs. Each function returns a value of type `integer`, which is the typical
+  return type of eBPF helper functions.
 
-  def bpf_get_current_pid_tgid() do
-    ElixirType.type_integer()
-  end
+  ## Functions
 
-  def bpf_map_lookup_elem(_map, _key) do
-    ElixirType.type_integer()
-  end
+    * `bpf_printk/1` - Simulates a call to `bpf_printk`, used for debugging in eBPF programs.
+    * `bpf_get_current_pid_tgid/0` - Retrieves the current process ID (PID) and thread group ID (TGID).
+    * `bpf_map_lookup_elem/2` - Simulates looking up an element in an eBPF map.
+    * `bpf_map_lookup_elem/3` - Simulates looking up an element in an eBPF map, with a default value.
+    * `bpf_map_update_elem/3` - Simulates updating an element in an eBPF map.
+    * `bpf_map_update_elem/4` - Simulates updating an element in an eBPF map with flags.
 
-  def bpf_map_lookup_elem(_map, _key, _default_value) do
-    ElixirType.type_integer()
-  end
+  These functions serve as stubs that will be replaced with actual eBPF calls or compiled into
+  lower-level BPF instructions.
+  """
+  import Honey.ElixirTypes, only: [type_integer: 0]
 
-  def bpf_map_update_elem(_map, _key, _value, _flags) do
-    ElixirType.type_integer()
-  end
+  def bpf_printk(_str), do: type_integer()
+    
+  def bpf_get_current_pid_tgid(), do: type_integer()
 
-  def bpf_map_update_elem(_map, _key, _value) do
-    ElixirType.type_integer()
-  end
+  def bpf_map_lookup_elem(_map, _key), do: type_integer()
+
+  def bpf_map_lookup_elem(_map, _key, _default_value), do: type_integer()
+
+  def bpf_map_update_elem(_map, _key, _value, _flags), do: type_integer()
+
+  def bpf_map_update_elem(_map, _key, _value), do: type_integer()
 end

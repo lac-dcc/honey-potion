@@ -5,7 +5,7 @@ defmodule Honey.Boilerplates do
   """
   alias Honey.Boilerplates
 
-  alias Honey.ElixirType
+  alias Honey.ElixirTypes
   alias Honey.Info
   alias Honey.TypeSet
   alias Honey.Utils
@@ -551,7 +551,7 @@ defmodule Honey.Boilerplates do
   Returns the boilerplate ending of the main function of the backend.
   """
   def generate_ending_main_code(return_var_name, return_var_type) do
-    int_type = TypeSet.new(ElixirType.type_integer())
+    int_type = TypeSet.new(ElixirTypes.type_integer())
     return_text = cond do
       return_var_type == int_type -> (
         # Inspect debug
@@ -561,7 +561,7 @@ defmodule Honey.Boilerplates do
         """)
         )
 
-      TypeSet.has_type(return_var_type, ElixirType.type_integer()) -> (
+      TypeSet.has_type(return_var_type, ElixirTypes.type_integer()) -> (
         # Inspect debug
         IO.inspect("We can return a non-integer!; Caution.")
         gen("""
