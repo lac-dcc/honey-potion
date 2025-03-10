@@ -27,10 +27,10 @@ defmodule Honey do
   alias Honey.Compiler
 
   @ebpf_types %{
-    array: :BPF_MAP_TYPE_ARRAY,
-    hash: :BPF_MAP_TYPE_HASH,
-    percpu_array: :BPF_MAP_TYPE_PERCPU_ARRAY,
-    percpu_hash: :BPF_MAP_TYPE_PERCPU_HASH
+    bpf_array: :BPF_MAP_TYPE_ARRAY,
+    bpf_hash: :BPF_MAP_TYPE_HASH,
+    bpf_percpu_array: :BPF_MAP_TYPE_PERCPU_ARRAY,
+    bpf_percpu_hash: :BPF_MAP_TYPE_PERCPU_HASH
   }
 
   @doc """
