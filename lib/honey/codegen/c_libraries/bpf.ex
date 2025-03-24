@@ -18,7 +18,7 @@ defmodule Honey.BpfHelpers do
   These functions serve as stubs that will be replaced with actual eBPF calls or compiled into
   lower-level BPF instructions.
   """
-  import Honey.ElixirTypes, only: [type_integer: 0]
+  import Honey.Analysis.ElixirTypes, only: [type_integer: 0]
 
   def bpf_printk(_str), do: type_integer()
     

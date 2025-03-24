@@ -1,4 +1,4 @@
-defmodule Honey.Directories do
+defmodule Honey.Utils.Directories do
   @moduledoc """
   Creates directories used in the user directory and returns commonly used directories.
   """

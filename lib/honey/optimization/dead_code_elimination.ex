@@ -1,8 +1,8 @@
-defmodule Honey.DCE do
+defmodule Honey.Optimization.DeadCodeElimination do
   @moduledoc """
   Executes Dead Code Elimination in the elixir AST of the source program.
   """
-  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1]
+  import Honey.Utils.Core, only: [var_to_key: 1, is_var: 1, is_constant: 1]
 
   @doc """
   Runs Dead Code Elimination given an elixir AST.

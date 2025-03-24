@@ -1,4 +1,4 @@
-defmodule Honey.TranslatorContext do
+defmodule Honey.Compiler.TranslatorContext do
   defstruct [:maps]
 
   def new(maps) do
@@ -6,17 +6,17 @@ defmodule Honey.TranslatorContext do
   end
 end
 
-defmodule Honey.Translator do
+defmodule Honey.Compiler.Translator do
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
   """
-  alias Honey.Boilerplates
-  alias Honey.Guard
-  alias Honey.ElixirTypes
-  alias Honey.TranslatedCode
+  alias Honey.Codegen.Boilerplates
+  alias Honey.Utils.Guard
+  alias Honey.Analysis.ElixirTypes
+  alias Honey.Runtime.TranslatedCode
   alias Honey.TypeSet
 
-  import Honey.Utils, only: [gen: 1, var_to_string: 1, is_var: 1]
+  import Honey.Utils.Core, only: [gen: 1, var_to_string: 1, is_var: 1]
 
   @doc """
   #Translates the main function.
@@ -25,7 +25,7 @@ defmodule Honey.Translator do
     case func_name do
       "main" ->
         Guard.ensure_sec_type!(sec)
-        context = Honey.TranslatorContext.new(elixir_maps)
+        context = Honey.Compiler.TranslatorContext.new(elixir_maps)
         translated_code = to_c(ast, context)
 
         sec
@@ -1415,7 +1415,7 @@ defmodule Honey.Translator do
 
   # Translates a block of code by calling to_c for each element in that block.
   defp block_to_c({:__block__, _, exprs}, context) do
-    Enum.reduce(exprs, Honey.TranslatedCode.new(), fn expr, translated_so_far ->
+    Enum.reduce(exprs, Honey.Runtime.TranslatedCode.new(), fn expr, translated_so_far ->
       translated_expr = to_c(expr, context)
 
       %TranslatedCode{

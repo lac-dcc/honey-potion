@@ -1,16 +1,16 @@
-defmodule Honey.Boilerplates do
+defmodule Honey.Codegen.Boilerplates do
   @moduledoc """
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
-  alias Honey.Boilerplates
+  alias Honey.Codegen.Boilerplates
 
-  alias Honey.ElixirTypes
-  alias Honey.Info
+  alias Honey.Analysis.ElixirTypes
+  alias Honey.Runtime.Info
   alias Honey.TypeSet
-  alias Honey.Utils
+  alias Honey.Utils.Core
 
-  import Honey.Utils, only: [gen: 1]
+  import Honey.Utils.Core, only: [gen: 1]
 
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
 
@@ -43,7 +43,7 @@ defmodule Honey.Boilerplates do
   Generates the generic front-end for the bpf program.
   """
   def generate_frontend_code(env) do
-    module_name = Utils.module_name(env)
+    module_name = Core.module_name(env)
     {_, sec,_,_} = Info.get_backend_info(env)
 
     include = """
@@ -155,7 +155,7 @@ defmodule Honey.Boilerplates do
   only what has been requested. This is toggled by adding or removing the -p argument when calling the binary.
   """
   def generate_output_chooser(env) do
-    module_name = Utils.module_name(env)
+    module_name = Core.module_name(env)
     output = """
     void output(struct #{module_name}_bpf* skel, uint time, bool all){
       if(time == 0){
@@ -193,7 +193,7 @@ defmodule Honey.Boilerplates do
     output = generate_output_func(env)
     output_always = generate_output_func(env, true)
     
-    module_name = Utils.module_name(env)
+    module_name = Core.module_name(env)
 
     decl = "void output_opt(struct #{module_name}_bpf* skel);\n"
     decl_always = "void output_all(struct #{module_name}_bpf* skel);\n"
@@ -286,7 +286,7 @@ defmodule Honey.Boilerplates do
       end
     end) |> Enum.join
 
-    module_name = Utils.module_name(env)
+    module_name = Core.module_name(env)
 
     if(printAll == false) do
       if(output == "") do

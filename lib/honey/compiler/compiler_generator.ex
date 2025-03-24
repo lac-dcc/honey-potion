@@ -1,10 +1,10 @@
-defmodule Honey.Generator do
+defmodule Honey.Compiler.CodeGenerator do
   @moduledoc """
   Groups the Boilerplates and Translation Modules to generate both the front-end and back-end code.
   """
-  alias Honey.Boilerplates
-  alias Honey.Info
-  alias Honey.Translator
+  alias Honey.Codegen.Boilerplates
+  alias Honey.Runtime.Info
+  alias Honey.Compiler.Translator
 
   @doc """
   Generates both the front-end code and the back-end code.

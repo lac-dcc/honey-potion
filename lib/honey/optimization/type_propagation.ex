@@ -1,4 +1,4 @@
-defmodule Honey.TypePropagation do
+defmodule Honey.Optimization.TypePropagation do
   @moduledoc """
   Propagates the type of variables throughout the elixir AST of the source program.
   Currently, it can exclusively execute in codes that only contains simple pattern matches, that is,
@@ -6,11 +6,11 @@ defmodule Honey.TypePropagation do
   complex structure, such as a tuple or array.
   """
   # alias Mix.Tasks.Lsp.DataModel.Type wasn't moved in
-  alias Honey.ElixirTypes
-  alias Honey.Info
+  alias Honey.Analysis.ElixirTypes
+  alias Honey.Runtime.Info
   alias Honey.TypeSet
 
-  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1, var_to_atom: 1]
+  import Honey.Utils.Core, only: [var_to_key: 1, is_var: 1, is_constant: 1, var_to_atom: 1]
 
   @doc """
   This function executes type propagation on an Elixir AST.
@@ -360,7 +360,7 @@ end
 
 defmodule TPContext do
   alias Honey.TypeSet
-  import Honey.Utils, only: [is_var: 1, var_to_atom: 1]
+  import Honey.Utils.Core, only: [is_var: 1, var_to_atom: 1]
 
   # var_types is a Keyword list.
   defstruct var_types: [], env: nil

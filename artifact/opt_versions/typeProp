@@ -1,20 +1,22 @@
-defmodule Honey.Optimizer do
-  alias Honey.{ConstantPropagation, DCE, Analyze, TypePropagation}
-
+defmodule Honey.Optimization.Optimizer do
   @moduledoc """
   Module to define and run the optimization pipeline that runs over elixirs AST.
   """
+  alias Honey.Optimization.ConstantPropagation
+  alias Honey.Optimization.DeadCodeElimination
+  alias Honey.Analysis.SemanticAnalysis 
+  alias Honey.Optimization.TypePropagation
 
   @doc """
   Runs the optimization and analysis steps.
   """
-
   def run(fun_def, arguments, env) do
-    fun_def |> Analyze.run()
+    fun_def 
+    |> SemanticAnalysis.run()
     # |> ConstantPropagation.run()
-    # |> DCE.run()
+    # |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
-    |> AstSize.output(env, " - Final")
+    |> Honey.Analysis.AstSize.output(env, " - Final")
     # |> IO.inspect()
   end
 end

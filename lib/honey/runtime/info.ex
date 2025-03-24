@@ -1,4 +1,4 @@
-defmodule Honey.Info do
+defmodule Honey.Runtime.Info do
   @moduledoc """
   A module for getting hard/inconvenient information to the rest of the project.
   """

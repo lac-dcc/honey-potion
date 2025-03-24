@@ -1,5 +1,5 @@
 defmodule Honey.Ethhdr do
-  alias Honey.ElixirTypes
+  alias Honey.Analysis.ElixirTypes
 
   def init() do
     ElixirTypes.type_invalid()

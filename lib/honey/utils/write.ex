@@ -1,9 +1,9 @@
-defmodule Honey.Write do
+defmodule Honey.Utils.Write do
   @moduledoc """
   Contains functions used to write output files into the right directories.
   """
-  alias Honey.Directories
-  alias Honey.Utils
+  alias Honey.Utils.Directories
+  alias Honey.Utils.Core
 
   @doc """
   Writes all of the relevant files post-translation, which include module.c and module.bpf.c. Also makes sure write directories exist.
@@ -19,8 +19,8 @@ defmodule Honey.Write do
   Writes the .bpf.c output file. This is the part that we translate from elixir code.
   """
   def write_backend_code(env, backend_code) do
-    mod_name = Utils.module_name(env)
-    clang_format = Utils.clang_format(env)
+    mod_name = Core.module_name(env)
+    clang_format = Core.clang_format(env)
 
     backend_path = Directories.userdir(env) |> Path.join("src/#{mod_name}.bpf.c")
 
@@ -38,7 +38,7 @@ defmodule Honey.Write do
   Writes the frontend code into the right directory.
   """
   def write_frontend_code(env, frontend_code) do
-    mod_name = Utils.module_name(env)
+    mod_name = Core.module_name(env)
     userdir = Directories.userdir(env)
 
     File.write(userdir |> Path.join("./src/#{mod_name}.c"), frontend_code)

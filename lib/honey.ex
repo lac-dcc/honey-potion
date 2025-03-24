@@ -9,22 +9,22 @@ defmodule Honey do
   ## Aliases
 
   - `Mix.Task.Compiler`: Manages compilation tasks.
-  - `Honey.Guard`: Stops execution if main doesn't exist.
-  - `Honey.Fuel`: Unrolls function calls.
-  - `Honey.Optimizer`: Optimizes the AST with DCE (Dead Code Elimination) and CP (Constant Propagation) and performs variable analysis.
-  - `Honey.Info`: Gathers information about the AST.
-  - `Honey.Generator`: Uses the gathered info to generate frontend and backend code.
-  - `Honey.Write`: Writes files into the appropriate folders for compilation.
-  - `Honey.Compiler`: Compiles the files into `userdir/bin/`.
+  - `Honey.Utils.Guard`: Stops execution if main doesn't exist.
+  - `Honey.AST.RecursionExpansion`: Unrolls function calls.
+  - `Honey.Optimization.Optimizer`: Optimizes the AST with DCE (Dead Code Elimination) and CP (Constant Propagation) and performs variable analysis.
+  - `Honey.Runtime.Info`: Gathers information about the AST.
+  - `Honey.Compiler.CodeGenerator`: Uses the gathered info to generate frontend and backend code.
+  - `Honey.Utils.Write`: Writes files into the appropriate folders for compilation.
+  - `Honey.Compiler.Pipeline`: Compiles the files into `userdir/bin/`.
   """
   alias Mix.Task.Compiler
-  alias Honey.Guard
-  alias Honey.Fuel
-  alias Honey.Optimizer
-  alias Honey.Info
-  alias Honey.Generator
-  alias Honey.Write
-  alias Honey.Compiler
+  alias Honey.Utils.Guard
+  alias Honey.AST.RecursionExpansion
+  alias Honey.Optimization.Optimizer
+  alias Honey.Runtime.Info
+  alias Honey.Compiler.CodeGenerator
+  alias Honey.Utils.Write
+  alias Honey.Compiler.Pipeline
 
   @ebpf_types %{
     bpf_array: :BPF_MAP_TYPE_ARRAY,
@@ -41,13 +41,13 @@ defmodule Honey do
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
-    final_ast = func_ast |> Fuel.burn_fuel(env) |> Optimizer.run(arguments, env)
+    final_ast = func_ast |> Honey.AST.RecursionExpansion.burn_fuel(env) |> Optimizer.run(arguments, env)
 
     {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
 
     Write.write_ouput_files(backend_code, frontend_code, env)
 
-    Compiler.compile_bpf(env)
+    Pipeline.compile_bpf(env)
 
     Module.delete_definition(env.module, {_target_func = :main, _target_arity = 1})
 
@@ -110,7 +110,7 @@ defmodule Honey do
     Module.register_attribute(__CALLER__.module, :ebpf_maps, accumulate: true)
 
     quote do
-      import Honey.Fuel
+      import Honey.AST.RecursionExpansion
       import Honey
       @before_compile unquote(__MODULE__)
       @on_definition unquote(__MODULE__)

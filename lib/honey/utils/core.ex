@@ -1,4 +1,4 @@
-defmodule Honey.Utils do
+defmodule Honey.Utils.Core do
   @moduledoc """
   Contains utility functions used across Honey-Potion.
   """

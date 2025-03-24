@@ -1,8 +1,8 @@
-defmodule Honey.Guard do
+defmodule Honey.Utils.Guard do
   @moduledoc """
   Contains functions used to guard certain parts of code.
   """
-  alias Honey.Utils
+  alias Honey.Utils.Core
 
   @doc """
   Guarantees that we have a main module to translate. Also returns its definition.
@@ -13,7 +13,7 @@ defmodule Honey.Guard do
 
     # If the main function isn't defined raise an error.
     if !(main_def = Module.get_definition(env.module, {target_func, target_arity})) do
-      Utils.compile_error!(
+      Core.compile_error!(
         env,
         "Module #{env.module} is using eBPF but does not contain #{target_func}/#{target_arity}."
       )

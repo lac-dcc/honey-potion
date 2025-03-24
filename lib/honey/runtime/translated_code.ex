@@ -1,4 +1,4 @@
-defmodule Honey.TranslatedCode do
+defmodule Honey.Runtime.TranslatedCode do
   @moduledoc """
   Defines the struct that keeps the translated code and its constructor.
   """

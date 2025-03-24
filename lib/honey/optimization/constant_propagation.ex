@@ -1,8 +1,8 @@
-defmodule Honey.ConstantPropagation do
+defmodule Honey.Optimization.ConstantPropagation do
   @moduledoc """
   Executes Constant Propagation optimization in the elixir AST of the source program.
   """
-  import Honey.Utils, only: [var_to_key: 1, is_var: 1]
+  import Honey.Utils.Core, only: [var_to_key: 1, is_var: 1]
 
   @doc """
   Guard for constant values.

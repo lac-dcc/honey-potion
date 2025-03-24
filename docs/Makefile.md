@@ -6,12 +6,12 @@ The generic Makefile we use to compile our examples is located in /priv/BPF_Boil
 ## Dependency Directories
 All of the directories used in the Makefile are relative to the Examples folder. (Notice how there is a Makefile there). 
 
-When a user creates a directory and adds Honey-Potion as a dependency these directories aren't valid anymore. To fix this the Honey.Compiler module addresses this by defining some of these directories at runtime, making it work without depending on how the user decided to include Honey-Potion as a dependency. 
+When a user creates a directory and adds Honey-Potion as a dependency these directories aren't valid anymore. To fix this the Honey.Compiler.Pipeline module addresses this by defining some of these directories at runtime, making it work without depending on how the user decided to include Honey-Potion as a dependency. 
 
 ## Order of Operations
 To compile our eBPF programs, we take some steps. From now on I'll describe each of them in order and give general explanation on what it does/generates. 
 
-When reading the Makefile code keep in mind that we create in the user directory (SRC_DIR) 3 folders, /src, /obj and /bin, of which /src already has the files to be compiled when we get to Honey.Compiler.
+When reading the Makefile code keep in mind that we create in the user directory (SRC_DIR) 3 folders, /src, /obj and /bin, of which /src already has the files to be compiled when we get to Honey.Compiler.Pipeline.
 
 ### Object Files
 

@@ -1,4 +1,4 @@
-defmodule CompileBPF do
+defmodule Honey.Mix.Tasks.CompileBPF do
   use Mix.Task
 
   def run(_) do
