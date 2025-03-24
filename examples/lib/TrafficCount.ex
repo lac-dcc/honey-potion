@@ -1,10 +1,8 @@
 defmodule TrafficCount do
   use Honey, license: "Dual BSD/GPL"
 
-  defmap( # Defines an eBPF map of the BPF_MAP_TYPE_HASH with 64 entries
-    :TrafficCount,
-    %{type: BPF_MAP_TYPE_HASH, max_entries: 64, print: true, key_size: :char6}
-  )
+  # Defines an eBPF map of the BPF_MAP_TYPE_HASH with 64 entries
+  defmap(:TrafficCount, :bpf_hash, [max_entries: 64, print: true, key_size: :char6])
 
   @sec "xdp_md"
   def main(_ctx) do

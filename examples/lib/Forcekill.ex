@@ -1,10 +1,8 @@
 defmodule Forcekill do
   use Honey, license: "Dual BSD/GPL"
 
-  defmap( # Defines an eBPF map of the BPF_MAP_TYPE_HASH with 64 entries
-    :ForceKills,
-    %{type: BPF_MAP_TYPE_HASH, max_entries: 64, print: true}
-  )
+  # Defines an eBPF map of the BPF_MAP_TYPE_HASH with 64 entries
+  defmap(:ForceKills, :bpf_hash, [max_entries: 64, print: true])
 
   @sec "tracepoint/syscalls/sys_enter_kill" # Sets our trigger to be sys_enter_kill
   def main(ctx) do

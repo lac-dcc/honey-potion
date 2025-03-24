@@ -203,7 +203,6 @@ defmodule Honey.Compiler.Translator do
         end
 
         map_content = map[:content]
-        IO.inspect(map_content, label: "map_content")
 
         item_var = unique_helper_var()
         # found_var = unique_helper_var()

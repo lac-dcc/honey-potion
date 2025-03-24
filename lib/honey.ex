@@ -26,10 +26,10 @@ defmodule Honey do
   alias Honey.Compiler.Pipeline
 
   @ebpf_types %{
-    bpf_array: :BPF_MAP_TYPE_ARRAY,
-    bpf_hash: :BPF_MAP_TYPE_HASH,
-    bpf_percpu_array: :BPF_MAP_TYPE_PERCPU_ARRAY,
-    bpf_percpu_hash: :BPF_MAP_TYPE_PERCPU_HASH
+    bpf_array: BPF_MAP_TYPE_ARRAY,
+    bpf_hash: BPF_MAP_TYPE_HASH,
+    bpf_percpu_array: BPF_MAP_TYPE_PERCPU_ARRAY,
+    bpf_percpu_hash: BPF_MAP_TYPE_PERCPU_HASH
   }
 
   @doc """
@@ -62,7 +62,7 @@ defmodule Honey do
   Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
 
   ```
-  defmap(:my_map, :array, max_entries: 10)
+  defmap(:my_map, :bpf_array, max_entries: 10)
   ```
 
   In the current version, the ebpf types of maps available are:
@@ -74,10 +74,10 @@ defmodule Honey do
 
   And they are represented by the following atoms
   
-    - :array
-    - :hash
-    - :percpu_array
-    - :percpu_hash
+    - :bpf_array
+    - :bpf_hash
+    - :bpf_percpu_array
+    - :bpf_percpu_hash
   """
   defmacro defmap(ebpf_map_name, ebpf_map_type, opts \\ []) do
     ebpf_types = @ebpf_types

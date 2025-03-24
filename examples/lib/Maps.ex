@@ -16,16 +16,9 @@ defmodule Honey_Maps do
   # If print_elem is not set, Honey will attempt to print as much as possible of the map.
   # See Forcekill for an example.
   
+  defmap(:Example_map, :bpf_array, [max_entries: 7, print: true])
 
-  defmap(
-    :Example_map,
-    %{type: BPF_MAP_TYPE_ARRAY, max_entries: 7, print: true}
-  )
-
-  defmap(
-    :Second_Example_map,
-    %{type: BPF_MAP_TYPE_ARRAY, max_entries: 5, print: false, print_elem: printlist}
-  )
+  defmap(:Second_Example_map, :bpf_array, [max_entries: 5, print: false, print_elem: printlist])
 
   @sec "tracepoint/syscalls/sys_enter_write"
   def main(_ctx) do
