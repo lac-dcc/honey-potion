@@ -17,7 +17,6 @@ defmodule Honey do
   - `Honey.Utils.Write`: Writes files into the appropriate folders for compilation.
   - `Honey.Compiler.Pipeline`: Compiles the files into `userdir/bin/`.
   """
-  alias Mix.Task.Compiler
   alias Honey.Utils.Guard
   alias Honey.AST.RecursionExpansion
   alias Honey.Optimization.Optimizer
@@ -41,9 +40,9 @@ defmodule Honey do
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
-    final_ast = func_ast |> Honey.AST.RecursionExpansion.burn_fuel(env) |> Optimizer.run(arguments, env)
+    final_ast = func_ast |> RecursionExpansion.burn_fuel(env) |> Optimizer.run(arguments, env)
 
-    {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
+    {backend_code, frontend_code} = CodeGenerator.generate_code(env, final_ast)
 
     Write.write_ouput_files(backend_code, frontend_code, env)
 
