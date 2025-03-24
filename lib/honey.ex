@@ -87,7 +87,10 @@ defmodule Honey do
       ebpf_map_type_atom = unquote(ebpf_map_type)
 
       ebpf_map_type =
-        Map.fetch!(unquote(ebpf_types), ebpf_map_type_atom)
+        Map.fetch!(
+          unquote(Macro.escape(ebpf_types)), 
+          ebpf_map_type_atom
+          )
 
       ebpf_map_content = %{type: ebpf_map_type, options: unquote(opts)}
       @ebpf_maps %{name: ebpf_map_name, content: ebpf_map_content}
