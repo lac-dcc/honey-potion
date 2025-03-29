@@ -336,7 +336,7 @@ defmodule Honey.Codegen.Boilerplates do
     gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
-    #include <stdlib.h>
+    #include <stddef.h>
     #include <runtime_structures.bpf.h>
     #include <runtime_functions.bpf.c>
 
@@ -374,16 +374,15 @@ defmodule Honey.Codegen.Boilerplates do
       Enum.map(maps, fn elixir_map ->
         map_name = elixir_map[:name]
         map_content = elixir_map[:content]
+        map_options = map_content[:options]
 
         key_size = Map.get(elixir_map, :key_size, :int)
 
-        fields =
-          Enum.map(map_content, fn {key, value} ->
+        fields = "__uint(type, #{Macro.to_string(map_content[:type])});"
+
+        fields = fields <> (
+          Enum.map(map_options, fn {key, value} ->
             case key do
-              :type ->
-
-                "__uint(#{key}, #{Macro.to_string(value)});"
-
               :max_entries ->
                 "__uint(#{key}, #{Integer.to_string(value)});"
 
@@ -392,6 +391,7 @@ defmodule Honey.Codegen.Boilerplates do
             end
           end)
           |> Enum.join("\n")
+        )
 
         """
         struct {
