@@ -11,11 +11,11 @@ Currently, it is not possible to enable or disable these optimizations via comma
 ```elixir
 defmodule Honey.Optimization.Optimizer do
   alias Honey.{ConstantPropagation, DeadCodeElimination, TypePropagation}
-  alias Honey.Analysis.SemanticAnalysis
+  alias Honey.Analysis.StaticAnalysis
 
   def run(fun_def, arguments, env) do
     fun_def 
-    |> SemanticAnalysis.run()
+    |> StaticAnalysis.run()
     |> ConstantPropagation.run()
     |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
@@ -30,11 +30,11 @@ As an example, [this](constProp_TypeProp) file disables dead-code elimination an
 ```elixir
 defmodule Honey.Optimization.Optimizer do
   alias Honey.{ConstantPropagation, DeadCodeElimination, TypePropagation}
-  alias Honey.Analysis.SemanticAnalysis
+  alias Honey.Analysis.StaticAnalysis
 
   def run(fun_def, arguments, env) do
     fun_def 
-    |> SemanticAnalysis.run()
+    |> StaticAnalysis.run()
     |> ConstantPropagation.run()
     # |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)

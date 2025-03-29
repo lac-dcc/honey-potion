@@ -4,7 +4,7 @@ defmodule Honey.Optimization.Optimizer do
   """
   alias Honey.Optimization.ConstantPropagation
   alias Honey.Optimization.DeadCodeElimination
-  alias Honey.Analysis.SemanticAnalysis
+  alias Honey.Analysis.StaticAnalysis
   alias Honey.Optimization.TypePropagation
 
   @doc """
@@ -12,7 +12,7 @@ defmodule Honey.Optimization.Optimizer do
   """
   def run(fun_def, arguments, env) do
     fun_def 
-    |> SemanticAnalysis.run()
+    |> StaticAnalysis.run()
     |> ConstantPropagation.run()
     # |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)

@@ -1,4 +1,4 @@
-defmodule Honey.Analysis.SemanticAnalysis do
+defmodule Honey.Analysis.StaticAnalysis do
   @moduledoc """
   Runs analysis on the elixir AST. Currently does liveness, last use, scope and reusable variables analysis.
   All AST elements will now have uv, sv and dv which are all branch aware.
