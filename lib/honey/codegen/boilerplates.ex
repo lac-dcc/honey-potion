@@ -336,7 +336,7 @@ defmodule Honey.Codegen.Boilerplates do
     gen("""
     #include <linux/bpf.h>
     #include <bpf/bpf_helpers.h>
-    #include <stdlib.h>
+    #include <stddef.h>
     #include <runtime_structures.bpf.h>
     #include <runtime_functions.bpf.c>
 
