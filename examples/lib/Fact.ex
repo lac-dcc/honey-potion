@@ -16,7 +16,7 @@ defmodule Honey_Fact do
     a = fuel 3, fact(const)
     b = fuel 2, fact(id)
     c = a + b
-    Honey.Bpf_helpers.bpf_printk(["%d", c])
+    Honey.BpfHelpers.bpf_printk(["%d", c])
   end
 end
 

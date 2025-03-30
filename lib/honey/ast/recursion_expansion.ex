@@ -1,4 +1,4 @@
-defmodule Honey.Fuel do
+defmodule Honey.AST.RecursionExpansion do
   @moduledoc """
   Manages Fuel for function calls.
   In Honey-Potion, Fuel is the ammount of recursive calls that a function call can generate.
@@ -13,7 +13,7 @@ defmodule Honey.Fuel do
       - Must be in the same module as main/1
   - It doesn't expand mutual recursions yet
   """
-  import Honey.Utils, only: [is_var: 1, is_call: 1, compile_error!: 2]
+  import Honey.Utils.Core, only: [is_var: 1, is_call: 1, compile_error!: 2]
 
   @doc """
   Defines the macro fuel which adds the fuel ammount into the metadata of a function call.

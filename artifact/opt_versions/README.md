@@ -9,12 +9,15 @@ Honey Potion currently implements three optimizations:
 Currently, it is not possible to enable or disable these optimizations via command line: they are hard-coded in the compiler, in the [optimizer.ex](../../lib/honey/optimizer.ex) module, e.g.:
 
 ```elixir
-defmodule Honey.Optimizer do
-  alias Honey.{ConstantPropagation, DCE, Analyze, TypePropagation}
+defmodule Honey.Optimization.Optimizer do
+  alias Honey.{ConstantPropagation, DeadCodeElimination, TypePropagation}
+  alias Honey.Analysis.StaticAnalysis
+
   def run(fun_def, arguments, env) do
-    fun_def |> Analyze.run()
+    fun_def 
+    |> StaticAnalysis.run()
     |> ConstantPropagation.run()
-    |> DCE.run()
+    |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
   end
 end
@@ -25,14 +28,17 @@ This folder contains different implementations of the optimizer, with some of th
 As an example, [this](constProp_TypeProp) file disables dead-code elimination and prints out the size of the abstract syntax tree of Honey Potion's intermediate program representation:
 
 ```elixir
-defmodule Honey.Optimizer do
-  alias Honey.{ConstantPropagation, DCE, Analyze, TypePropagation}
+defmodule Honey.Optimization.Optimizer do
+  alias Honey.{ConstantPropagation, DeadCodeElimination, TypePropagation}
+  alias Honey.Analysis.StaticAnalysis
+
   def run(fun_def, arguments, env) do
-    fun_def |> Analyze.run()
+    fun_def 
+    |> StaticAnalysis.run()
     |> ConstantPropagation.run()
-    # |> DCE.run()
+    # |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
-    |> AstSize.output(env, " - Final")
+    |> Honey.Analysis.AstSize.output(env, " - Final")
   end
 end
 ```

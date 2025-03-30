@@ -1,4 +1,4 @@
-defmodule Honey.TypePropagation do
+defmodule Honey.Optimization.TypePropagation do
   @moduledoc """
   Propagates the type of variables throughout the elixir AST of the source program.
   Currently, it can exclusively execute in codes that only contains simple pattern matches, that is,
@@ -6,11 +6,11 @@ defmodule Honey.TypePropagation do
   complex structure, such as a tuple or array.
   """
   # alias Mix.Tasks.Lsp.DataModel.Type wasn't moved in
-  alias Honey.ElixirType
-  alias Honey.Info
+  alias Honey.Analysis.ElixirTypes
+  alias Honey.Runtime.Info
   alias Honey.TypeSet
 
-  import Honey.Utils, only: [var_to_key: 1, is_var: 1, is_constant: 1, var_to_atom: 1]
+  import Honey.Utils.Core, only: [var_to_key: 1, is_var: 1, is_constant: 1, var_to_atom: 1]
 
   @doc """
   This function executes type propagation on an Elixir AST.
@@ -68,7 +68,7 @@ defmodule Honey.TypePropagation do
   end
 
   defp get_types_of_arguments(_sec_module) do
-    [ElixirType.new(:type_ctx)]
+    [ElixirTypes.new(:type_ctx)]
     # TODO: This will be implemented in the SEC file
   end
 
@@ -91,25 +91,25 @@ defmodule Honey.TypePropagation do
     type =
       cond do
         is_float(seg) ->
-          ElixirType.type_float()
+          ElixirTypes.type_float()
 
         is_number(seg) ->
-          ElixirType.type_integer()
+          ElixirTypes.type_integer()
 
         is_atom(seg) ->
-          ElixirType.type_atom()
+          ElixirTypes.type_atom()
 
         is_binary(seg) ->
-          ElixirType.type_binary()
+          ElixirTypes.type_binary()
 
         is_function(seg) ->
-          ElixirType.type_function()
+          ElixirTypes.type_function()
 
         is_list(seg) ->
-          ElixirType.type_list()
+          ElixirTypes.type_list()
 
         is_tuple(seg) ->
-          ElixirType.type_tuple()
+          ElixirTypes.type_tuple()
 
         true ->
           IO.puts("Type inferece: Could not identify the type of the structure:")
@@ -124,8 +124,8 @@ defmodule Honey.TypePropagation do
     lhs_types = get_typeset_from_segment(lhs, context)
     rhs_typeset = get_typeset_from_segment(rhs, context)
 
-    type_integer = ElixirType.type_integer()
-    type_float = ElixirType.type_float()
+    type_integer = ElixirTypes.type_integer()
+    type_float = ElixirTypes.type_float()
 
     cond do
       function == :+ or
@@ -147,7 +147,7 @@ defmodule Honey.TypePropagation do
                 type_float
 
               _ ->
-                ElixirType.type_invalid()
+                ElixirTypes.type_invalid()
             end
           end
           |> TypeSet.new()
@@ -171,7 +171,7 @@ defmodule Honey.TypePropagation do
                 TypeSet.new(type_float)
 
               _ ->
-                TypeSet.new(ElixirType.type_invalid())
+                TypeSet.new(ElixirTypes.type_invalid())
             end
           end
           |> TypeSet.new()
@@ -179,16 +179,16 @@ defmodule Honey.TypePropagation do
         |> Enum.reduce(TypeSet.new(), &TypeSet.union/2)
 
       function == :== or function == :=== or function == :!= or function == :!== ->
-        TypeSet.new(ElixirType.type_boolean())
+        TypeSet.new(ElixirTypes.type_boolean())
 
       true ->
         raise "Type propagation: Erlang function not supported: #{Atom.to_string(function)}"
     end
   end
 
-  defp extract_types_from_segment({{:., _, [Honey.Bpf_helpers, function]}, _, _params}, _context) do
+  defp extract_types_from_segment({{:., _, [Honey.BpfHelpers, function]}, _, _params}, _context) do
     # # TODO: Check if function exists
-    # func_type = apply(Honey.Bpf_helpers, function, params)
+    # func_type = apply(Honey.BpfHelpers, function, params)
 
     # if(!func_type) do
     #   TypeSet.new()
@@ -196,29 +196,29 @@ defmodule Honey.TypePropagation do
     #   TypeSet.new(func_type)
     # end
     case function do
-      :bpf_printk -> TypeSet.new(ElixirType.type_integer())
-      :bpf_get_current_pid_tgid -> TypeSet.new(ElixirType.type_integer())
-      :bpf_map_update_elem -> TypeSet.new(ElixirType.type_integer())
-      :bpf_map_lookup_elem -> TypeSet.new(ElixirType.type_integer())
+      :bpf_printk -> TypeSet.new(ElixirTypes.type_integer())
+      :bpf_get_current_pid_tgid -> TypeSet.new(ElixirTypes.type_integer())
+      :bpf_map_update_elem -> TypeSet.new(ElixirTypes.type_integer())
+      :bpf_map_lookup_elem -> TypeSet.new(ElixirTypes.type_integer())
       _ -> TypeSet.new()
     end
   end
 
   defp extract_types_from_segment({{:., _, [Honey.XDP, function]}, _, _params}, _context) do
     case function do
-      :drop -> TypeSet.new(ElixirType.type_integer())
-      :pass -> TypeSet.new(ElixirType.type_integer())
+      :drop -> TypeSet.new(ElixirTypes.type_integer())
+      :pass -> TypeSet.new(ElixirTypes.type_integer())
     end
   end
 
   defp extract_types_from_segment({{:., _, [Honey.Ethhdr, function]}, _, _params}, _context) do
     case function do
-      :init -> TypeSet.new(ElixirType.type_invalid())
-      :const_udp -> TypeSet.new(ElixirType.type_integer())
-      :ip_protocol -> TypeSet.new(ElixirType.type_integer())
-      :destination_port -> TypeSet.new(ElixirType.type_integer())
-      :set_destination_port -> TypeSet.new(ElixirType.type_integer())
-      :h_source -> TypeSet.new(ElixirType.type_void())
+      :init -> TypeSet.new(ElixirTypes.type_invalid())
+      :const_udp -> TypeSet.new(ElixirTypes.type_integer())
+      :ip_protocol -> TypeSet.new(ElixirTypes.type_integer())
+      :destination_port -> TypeSet.new(ElixirTypes.type_integer())
+      :set_destination_port -> TypeSet.new(ElixirTypes.type_integer())
+      :h_source -> TypeSet.new(ElixirTypes.type_void())
       _ -> TypeSet.new()
     end
   end
@@ -244,16 +244,16 @@ defmodule Honey.TypePropagation do
         :type_ctx ->
           case field do
             :data ->
-              TypeSet.put_type(typeset, ElixirType.new(:type_ctx_data))
+              TypeSet.put_type(typeset, ElixirTypes.new(:type_ctx_data))
 
             :id ->
-              TypeSet.put_type(typeset, ElixirType.type_integer())
+              TypeSet.put_type(typeset, ElixirTypes.type_integer())
 
             :sig ->
-              TypeSet.put_type(typeset, ElixirType.type_integer())
+              TypeSet.put_type(typeset, ElixirTypes.type_integer())
 
             :pid ->
-              TypeSet.put_type(typeset, ElixirType.type_integer())
+              TypeSet.put_type(typeset, ElixirTypes.type_integer())
 
             _ ->
               raise "Invalid field access. Tried accessing inexisting field '#{field}' of variable '#{var_name}'."
@@ -299,7 +299,7 @@ defmodule Honey.TypePropagation do
     rhs_typeset = get_typeset_from_segment(rhs, tp_context)
 
     typed_rhs = add_types_to_segment(rhs, rhs_typeset)
-    typed_lhs = add_types_to_segment(lhs, TypeSet.new(ElixirType.type_invalid()))
+    typed_lhs = add_types_to_segment(lhs, TypeSet.new(ElixirTypes.type_invalid()))
 
     typed_args = {typed_lhs, typed_rhs}
 
@@ -333,7 +333,7 @@ defmodule Honey.TypePropagation do
     {_rhs_typeset, {typed_lhs, typed_rhs}, tp_context} =
       resolve_typeset_from_match([lhs, rhs], tp_context)
 
-    rhs_typeset = TypeSet.new(ElixirType.type_tuple())
+    rhs_typeset = TypeSet.new(ElixirTypes.type_tuple())
     typed_lhs = List.to_tuple(typed_lhs)
     typed_rhs = List.to_tuple(typed_rhs)
     {rhs_typeset, {typed_lhs, typed_rhs}, tp_context}
@@ -353,14 +353,14 @@ defmodule Honey.TypePropagation do
       end)
 
     {typed_lhs, typed_rhs} = Enum.unzip(typed_match)
-    rhs_typeset = TypeSet.new(ElixirType.type_list())
+    rhs_typeset = TypeSet.new(ElixirTypes.type_list())
     {rhs_typeset, {typed_lhs, typed_rhs}, tp_context}
   end
 end
 
 defmodule TPContext do
   alias Honey.TypeSet
-  import Honey.Utils, only: [is_var: 1, var_to_atom: 1]
+  import Honey.Utils.Core, only: [is_var: 1, var_to_atom: 1]
 
   # var_types is a Keyword list.
   defstruct var_types: [], env: nil

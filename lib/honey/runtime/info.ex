@@ -1,4 +1,4 @@
-defmodule Honey.Info do
+defmodule Honey.Runtime.Info do
   @moduledoc """
   A module for getting hard/inconvenient information to the rest of the project.
   """
@@ -38,10 +38,12 @@ defmodule Honey.Info do
     content = Map.get(maps, :content)
 
     type = Map.get(content, :type)
-    max_entries = Map.get(content, :max_entries)
-    print = Map.get(content, :print)
-    print_elem = Map.get(content, :print_elem)
-    key_size = Map.get(content, :key_size, :int)
+    option = Map.get(content, :options)
+
+    max_entries = Keyword.get(option, :max_entries)
+    print = Keyword.get(option, :print)
+    print_elem = Keyword.get(option, :print_elem)
+    key_size = Keyword.get(option, :key_size, :int)
     {name, type, max_entries, print, print_elem, key_size}
   end
 end

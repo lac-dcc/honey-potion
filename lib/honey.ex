@@ -9,22 +9,28 @@ defmodule Honey do
   ## Aliases
 
   - `Mix.Task.Compiler`: Manages compilation tasks.
-  - `Honey.Guard`: Stops execution if main doesn't exist.
-  - `Honey.Fuel`: Unrolls function calls.
-  - `Honey.Optimizer`: Optimizes the AST with DCE (Dead Code Elimination) and CP (Constant Propagation) and performs variable analysis.
-  - `Honey.Info`: Gathers information about the AST.
-  - `Honey.Generator`: Uses the gathered info to generate frontend and backend code.
-  - `Honey.Write`: Writes files into the appropriate folders for compilation.
-  - `Honey.Compiler`: Compiles the files into `userdir/bin/`.
+  - `Honey.Utils.Guard`: Stops execution if main doesn't exist.
+  - `Honey.AST.RecursionExpansion`: Unrolls function calls.
+  - `Honey.Optimization.Optimizer`: Optimizes the AST with DCE (Dead Code Elimination) and CP (Constant Propagation) and performs variable analysis.
+  - `Honey.Runtime.Info`: Gathers information about the AST.
+  - `Honey.Compiler.CodeGenerator`: Uses the gathered info to generate frontend and backend code.
+  - `Honey.Utils.Write`: Writes files into the appropriate folders for compilation.
+  - `Honey.Compiler.Pipeline`: Compiles the files into `userdir/bin/`.
   """
-  alias Mix.Task.Compiler
-  alias Honey.Guard
-  alias Honey.Fuel
-  alias Honey.Optimizer
-  alias Honey.Info
-  alias Honey.Generator
-  alias Honey.Write
-  alias Honey.Compiler
+  alias Honey.Utils.Guard
+  alias Honey.AST.RecursionExpansion
+  alias Honey.Optimization.Optimizer
+  alias Honey.Runtime.Info
+  alias Honey.Compiler.CodeGenerator
+  alias Honey.Utils.Write
+  alias Honey.Compiler.Pipeline
+
+  @ebpf_types %{
+    bpf_array: BPF_MAP_TYPE_ARRAY,
+    bpf_hash: BPF_MAP_TYPE_HASH,
+    bpf_percpu_array: BPF_MAP_TYPE_PERCPU_ARRAY,
+    bpf_percpu_hash: BPF_MAP_TYPE_PERCPU_HASH
+  }
 
   @doc """
   Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline.
@@ -34,13 +40,13 @@ defmodule Honey do
 
     {arguments, func_ast} = Info.get_ast(main_def)
 
-    final_ast = func_ast |> Fuel.burn_fuel(env) |> Optimizer.run(arguments, env)
+    final_ast = func_ast |> RecursionExpansion.burn_fuel(env) |> Optimizer.run(arguments, env)
 
-    {backend_code, frontend_code} = Generator.generate_code(env, final_ast)
+    {backend_code, frontend_code} = CodeGenerator.generate_code(env, final_ast)
 
     Write.write_ouput_files(backend_code, frontend_code, env)
 
-    Compiler.compile_bpf(env)
+    Pipeline.compile_bpf(env)
 
     Module.delete_definition(env.module, {_target_func = :main, _target_arity = 1})
 
@@ -56,23 +62,37 @@ defmodule Honey do
   Users can define maps using the macro defmap. For example, to create a map named my_map, you can:
 
   ```
-  defmap(:my_map,
-      %{type: BPF_MAP_TYPE_ARRAY,
-      max_entries: 10}
-  )
+  defmap(:my_map, :bpf_array, max_entries: 10)
   ```
 
-  In the current version, the types of maps available are:
+  In the current version, the ebpf types of maps available are:
 
     - BPF_MAP_TYPE_ARRAY: You only need to specify the maximum number of entries (max_entries) and the map is ready to use.
     - BPF_MAP_TYPE_HASH: The key is an integer, and you only need to provide the maximum number of entries (max_entries) and the map is ready to use,
     - BPF_MAP_TYPE_PERCPU_ARRAY: Same as BPF_MAP_TYPE_ARRAY.
     - BPF_MAP_TYPE_PERCPU_HASH: Same as BPF_MAP_TYPE_HASH.
+
+  And they are represented by the following atoms
+  
+    - :bpf_array
+    - :bpf_hash
+    - :bpf_percpu_array
+    - :bpf_percpu_hash
   """
-  defmacro defmap(ebpf_map_name, ebpf_map) do
+  defmacro defmap(ebpf_map_name, ebpf_map_type, opts \\ []) do
+    ebpf_types = @ebpf_types
+
     quote do
       ebpf_map_name = unquote(ebpf_map_name)
-      ebpf_map_content = unquote(ebpf_map)
+      ebpf_map_type_atom = unquote(ebpf_map_type)
+
+      ebpf_map_type =
+        Map.fetch!(
+          unquote(Macro.escape(ebpf_types)), 
+          ebpf_map_type_atom
+          )
+
+      ebpf_map_content = %{type: ebpf_map_type, options: unquote(opts)}
       @ebpf_maps %{name: ebpf_map_name, content: ebpf_map_content}
     end
   end
@@ -92,7 +112,7 @@ defmodule Honey do
     Module.register_attribute(__CALLER__.module, :ebpf_maps, accumulate: true)
 
     quote do
-      import Honey.Fuel
+      import Honey.AST.RecursionExpansion
       import Honey
       @before_compile unquote(__MODULE__)
       @on_definition unquote(__MODULE__)

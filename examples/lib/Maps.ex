@@ -16,40 +16,33 @@ defmodule Honey_Maps do
   # If print_elem is not set, Honey will attempt to print as much as possible of the map.
   # See Forcekill for an example.
   
+  defmap(:Example_map, :bpf_array, [max_entries: 7, print: true])
 
-  defmap(
-    :Example_map,
-    %{type: BPF_MAP_TYPE_ARRAY, max_entries: 7, print: true}
-  )
-
-  defmap(
-    :Second_Example_map,
-    %{type: BPF_MAP_TYPE_ARRAY, max_entries: 5, print: false, print_elem: printlist}
-  )
+  defmap(:Second_Example_map, :bpf_array, [max_entries: 5, print: false, print_elem: printlist])
 
   @sec "tracepoint/syscalls/sys_enter_write"
   def main(_ctx) do
     # To get elements from the map, use bpf_map_lookup_elem from Bpf_helpers!
-    entry_0 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 0)
-    entry_1 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 1)
-    entry_2 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 2)
-    entry_3 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 3)
-    entry_4 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 4)
-    entry_5 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 5)
-    entry_6 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 6)
-    entry_7 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Second_Example_map, 0)
-    #entry_8 = Honey.Bpf_helpers.bpf_map_lookup_elem(:Example_map, 8) # TODO: delete this line
+    entry_0 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 0)
+    entry_1 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 1)
+    entry_2 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 2)
+    entry_3 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 3)
+    entry_4 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 4)
+    entry_5 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 5)
+    entry_6 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 6)
+    entry_7 = Honey.BpfHelpers.bpf_map_lookup_elem(:Second_Example_map, 0)
+    #entry_8 = Honey.BpfHelpers.bpf_map_lookup_elem(:Example_map, 8) # TODO: delete this line
 
     # To update elements from the map, use bpf_map_update_elem from Bpf_helpers!
-    Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 0, entry_0 + 1)
-    Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 1, entry_1 + 2)
-    Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 2, entry_2 + 3)
-    Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 3, entry_3 + 4)
-    Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 4, entry_4 + 5)
-    Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 5, entry_5 + 6)
-    Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 6, entry_6 + 7)
-    Honey.Bpf_helpers.bpf_map_update_elem(:Second_Example_map, 0, entry_7 + 8)
-    #Honey.Bpf_helpers.bpf_map_update_elem(:Example_map, 8, entry_8 + 9) # TODO: delete this line
+    Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 0, entry_0 + 1)
+    Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 1, entry_1 + 2)
+    Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 2, entry_2 + 3)
+    Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 3, entry_3 + 4)
+    Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 4, entry_4 + 5)
+    Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 5, entry_5 + 6)
+    Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 6, entry_6 + 7)
+    Honey.BpfHelpers.bpf_map_update_elem(:Second_Example_map, 0, entry_7 + 8)
+    #Honey.BpfHelpers.bpf_map_update_elem(:Example_map, 8, entry_8 + 9) # TODO: delete this line
 
     0
   end

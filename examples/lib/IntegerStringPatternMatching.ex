@@ -10,7 +10,7 @@ defmodule Integer_String_Pattern_Matching do
     str = "foo"
     1 = x
     "foo" = str
-    Honey.Bpf_helpers.bpf_printk(["Success"])
+    Honey.BpfHelpers.bpf_printk(["Success"])
 
     # The following line raises an error:
     "bar" = str
