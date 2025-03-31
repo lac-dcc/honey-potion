@@ -8,7 +8,7 @@ defmodule Honey.Utils.Write do
   @doc """
   Writes all of the relevant files post-translation, which include module.c and module.bpf.c. Also makes sure write directories exist.
   """
-  def write_ouput_files(backend_code, frontend_code, env) do
+  def write_output_files(backend_code, frontend_code, env) do
     Directories.create_all(env)
     write_backend_code(env, backend_code)
     write_frontend_code(env, frontend_code)
