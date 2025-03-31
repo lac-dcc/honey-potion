@@ -17,6 +17,8 @@ defmodule Honey do
   - `Honey.Utils.Write`: Writes files into the appropriate folders for compilation.
   - `Honey.Compiler.Pipeline`: Compiles the files into `userdir/bin/`.
   """
+  require Logger
+
   alias Honey.Utils.Guard
   alias Honey.AST.RecursionExpansion
   alias Honey.Optimization.Optimizer
@@ -36,24 +38,46 @@ defmodule Honey do
   Honey-Potion runs using the __before_compile__ macro. So here is where we keep the Honey-Potion pipeline.
   """
   defmacro __before_compile__(env) do
-    main_def = Guard.main_exists!(env)
-
-    {arguments, func_ast} = Info.get_ast(main_def)
-
-    final_ast = func_ast |> RecursionExpansion.burn_fuel(env) |> Optimizer.run(arguments, env)
-
-    {backend_code, frontend_code} = CodeGenerator.generate_code(env, final_ast)
-
-    Write.write_ouput_files(backend_code, frontend_code, env)
-
-    Pipeline.compile_bpf(env)
-
-    Module.delete_definition(env.module, {_target_func = :main, _target_arity = 1})
-
-    quote do
-      def main(unquote(arguments)) do
-        unquote(final_ast)
+    with {:ok, main_def} <- safe_main_exists(env),
+         {:ok, {arguments, func_ast}} <- safe_get_ast(main_def),
+         {:ok, burned_ast} <- safe_burn_fuel(func_ast, env),
+         {:ok, final_ast} <- safe_optimize(burned_ast, arguments, env),
+         {:ok, {backend_code, frontend_code}} <- safe_generate_code(env, final_ast),
+         {:ok, _makefile_path} <- safe_write_output(backend_code, frontend_code, env),
+         {cmd, exit_code} <- safe_compile_bpf(env),
+         :ok <- safe_delete_definition(env.module, :main, 1) do
+      quote do
+        def main(unquote(arguments)) do
+          unquote(final_ast)
+        end
       end
+    else
+      {:error, {:main_exists_error, reason}} -> 
+        raise "Main function check failed: #{inspect(reason)}"
+        
+      {:error, {:get_ast_error, reason}} ->
+        raise "AST extraction failed: #{inspect(reason)}"
+  
+      {:error, {:burn_fuel_error, reason}} ->
+        raise "Recursion expansion failed: #{inspect(reason)}"
+  
+      {:error, {:optimize_error, reason}} ->
+        raise "Optimization failed: #{inspect(reason)}"
+  
+      {:error, {:generate_code_error, reason}} ->
+        raise "Code generation failed: #{inspect(reason)}"
+  
+      {:error, {:write_output_error, reason}} ->
+        raise "File write failed: #{inspect(reason)}"
+  
+      {:error, {:compile_bpf_error, reason}} ->
+        raise "BPF compilation failed: #{inspect(reason)}"
+  
+      {:error, {:delete_definition_error, reason}} ->
+        Logger.warning("Definition cleanup failed: #{inspect(reason)}")
+      
+      error -> 
+        Logger.warning("An unknown error occurred during compilation. Details: #{inspect(error)}")
     end
   end
 
@@ -138,5 +162,74 @@ defmodule Honey do
     IO.puts(Macro.to_string(ast) <> "\n")
     IO.inspect(ast)
     IO.puts("")
+  end
+
+  defp safe_main_exists(env) do
+    try do
+      {:ok, Guard.main_exists!(env)}
+    rescue
+      e -> {:error, {:main_exists_error, e}}
+    end
+  end
+  
+  defp safe_get_ast(main_def) do
+    try do
+      {:ok, Info.get_ast(main_def)}
+    rescue
+      e -> {:error, {:get_ast_error, e}}
+    end
+  end
+  
+  defp safe_burn_fuel(func_ast, env) do
+    try do
+      {:ok, RecursionExpansion.burn_fuel(func_ast, env)}
+    rescue
+      e -> {:error, {:burn_fuel_error, e}}
+    end
+  end
+  
+  defp safe_optimize(burned_ast, arguments, env) do
+    try do
+      {:ok, Optimizer.run(burned_ast, arguments, env)}
+    rescue
+      e -> {:error, {:optimize_error, e}}
+    end
+  end
+  
+  defp safe_generate_code(env, final_ast) do
+    try do
+      {:ok, CodeGenerator.generate_code(env, final_ast)}
+    rescue
+      e -> {:error, {:generate_code_error, e}}
+    end
+  end
+  
+  defp safe_write_output(backend_code, frontend_code, env) do
+    try do
+      Write.write_output_files(backend_code, frontend_code, env)
+    rescue
+      e -> {:error, {:write_output_error, e}}
+    end
+  end
+  
+  defp safe_compile_bpf(env) do
+    try do
+      {cmd, exit_code} = result = Pipeline.compile_bpf(env)
+      if exit_code != 0 do
+        Logger.warning("Compilation command: #{cmd} returned #{exit_code}")
+      end
+
+      result
+    rescue
+      e -> {:error, {:compile_bpf_error, e}}
+    end
+  end
+  
+  defp safe_delete_definition(module, func, arity) do
+    case Module.delete_definition(module, {func, arity}) do
+      true -> 
+        :ok
+      _ -> {:error, {:delete_definition_error, false}}
+    end
   end
 end
