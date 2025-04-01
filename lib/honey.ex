@@ -44,7 +44,7 @@ defmodule Honey do
          {:ok, final_ast} <- safe_optimize(burned_ast, arguments, env),
          {:ok, {backend_code, frontend_code}} <- safe_generate_code(env, final_ast),
          {:ok, _makefile_path} <- safe_write_output(backend_code, frontend_code, env),
-         {cmd, exit_code} <- safe_compile_bpf(env),
+         {_cmd, _exit_code} <- safe_compile_bpf(env),
          :ok <- safe_delete_definition(env.module, :main, 1) do
       quote do
         def main(unquote(arguments)) do
