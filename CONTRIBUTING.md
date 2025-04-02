@@ -1,6 +1,6 @@
 # Contributing to Honey Potion
 
-Thank you for considering contributing to Honey Potion! We welcome all contributions, whether it's reporting bugs, improving documentation, adding features, or fixing issues.
+Thank you for considering contributing to `Honey Potion`! We welcome all contributions, whether it's reporting bugs, improving documentation, adding features, or fixing issues.
 
 ## Table of Contents
 
