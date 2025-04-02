@@ -13,8 +13,8 @@ defmodule Honey.MixProject do
       start_permanent: Mix.env() == :prod,
       package: package(),
       deps: deps(),
-      docs: docs(),
-      #aliases: aliases()
+      docs: docs()
+      # aliases: aliases()
     ]
   end
 
@@ -22,7 +22,10 @@ defmodule Honey.MixProject do
     [
       description: "Writing eBPF with Elixir!",
       files: ["lib", "mix.exs", "README.md"],
-      maintainers: ["Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil"],
+      maintainers: [
+        "Compilers Laboratory - Federal University of Minas Gerais (UFMG), Brazil",
+        "Adriano Santos - <solid.sistemas@gmail.com>"
+      ],
       licenses: ["GPL-3.0-only"],
       links: %{
         "GitHub" => @source_url,
