@@ -5,7 +5,7 @@ defmodule HoneyTest do
     use Honey, license: "oops"
 
     @sec "tracepoint/syscalls/sys_enter_kill"
-    def main(ctx) do
+    def main(_ctx) do
       1
     end
   end
