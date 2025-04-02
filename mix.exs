@@ -14,7 +14,7 @@ defmodule Honey.MixProject do
       package: package(),
       deps: deps(),
       docs: docs(),
-      aliases: aliases()
+      #aliases: aliases()
     ]
   end
 
