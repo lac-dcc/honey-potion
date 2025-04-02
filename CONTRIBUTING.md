@@ -1,4 +1,4 @@
-# Contributing to [Project Name]
+# Contributing to Honey Potion
 
 Thank you for considering contributing to [Project Name]! We welcome all contributions, whether it's reporting bugs, improving documentation, adding features, or fixing issues.
 
