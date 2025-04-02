@@ -3,7 +3,7 @@ defmodule Honey.Optimization.Optimizer do
   Module to define and run the optimization pipeline that runs over elixirs AST.
   """
   alias Honey.Analysis.StaticAnalysis
-  alias Honey.Optimization.ConstantPropagation 
+  alias Honey.Optimization.ConstantPropagation
   alias Honey.Optimization.DeadCodeElimination
   alias Honey.Optimization.TypePropagation
 

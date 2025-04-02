@@ -14,7 +14,7 @@ defmodule Honey.Codegen.Boilerplates do
 
   defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
 
-  #Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
+  # Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
   def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code) do
     %__MODULE__{
       libbpf_prog_type: libbpf_prog_type,
@@ -32,10 +32,10 @@ defmodule Honey.Codegen.Boilerplates do
   def generate_whole_code(config) do
     gen(
       generate_includes(config) <>
-      generate_maps(config) <>
-      generate_ctx_struct(config) <>
-      generate_license(config) <>
-      generate_main(config)
+        generate_maps(config) <>
+        generate_ctx_struct(config) <>
+        generate_license(config) <>
+        generate_main(config)
     )
   end
 
@@ -44,7 +44,7 @@ defmodule Honey.Codegen.Boilerplates do
   """
   def generate_frontend_code(env) do
     module_name = Core.module_name(env)
-    {_, sec,_,_} = Info.get_backend_info(env)
+    {_, sec, _, _} = Info.get_backend_info(env)
 
     include = """
     #include <bpf/bpf.h>
@@ -59,23 +59,25 @@ defmodule Honey.Codegen.Boilerplates do
     #include <signal.h>
     """
 
-    boilerplate = case sec do
-      "xdp_md" -> 
-        """
-        static __u32 XDPFLAGS = XDP_FLAGS_SKB_MODE;
-        static int IFINDEX;
-        void _unloadProg() {
-            bpf_xdp_attach(IFINDEX, -1, XDPFLAGS, NULL);
-            printf("Unloading the eBPF program...");
-            exit(0);
-        }
-        """
-      _ -> ""
-    end
+    boilerplate =
+      case sec do
+        "xdp_md" ->
+          """
+          static __u32 XDPFLAGS = XDP_FLAGS_SKB_MODE;
+          static int IFINDEX;
+          void _unloadProg() {
+              bpf_xdp_attach(IFINDEX, -1, XDPFLAGS, NULL);
+              printf("Unloading the eBPF program...");
+              exit(0);
+          }
+          """
+
+        _ ->
+          ""
+      end
 
     {chooser_decl, chooser_func} = generate_output_chooser(env)
     {output_decl, output_func} = generate_output_func_decl(env)
-
 
     main = """
     \nint main(int argc, char **argv) {
@@ -100,15 +102,12 @@ defmodule Honey.Codegen.Boilerplates do
         return 1;
       }
 
-      #{
-      case sec do
-        "xdp_md" -> 
-          """
-          bpf_program__set_type(skel->progs.main_func, BPF_PROG_TYPE_XDP);
-          """
-        _ -> ""
-      end
-      }
+      #{case sec do
+      "xdp_md" -> """
+        bpf_program__set_type(skel->progs.main_func, BPF_PROG_TYPE_XDP);
+        """
+      _ -> ""
+    end}
 
       err = #{module_name}_bpf__load(skel);
       if(err){
@@ -119,29 +118,27 @@ defmodule Honey.Codegen.Boilerplates do
 
 
       #{case sec do
-        "xdp_md" -> 
-          """
-          signal(SIGINT, _unloadProg);
-          signal(SIGTERM , _unloadProg);
+      "xdp_md" -> """
+        signal(SIGINT, _unloadProg);
+        signal(SIGTERM , _unloadProg);
 
-          int prog_fd = bpf_program__fd(skel->progs.main_func);
+        int prog_fd = bpf_program__fd(skel->progs.main_func);
 
-          IFINDEX = if_nametoindex("lo");
-          if(bpf_xdp_attach(IFINDEX, prog_fd, XDPFLAGS, NULL) < 0){
-            printf("Failed to link set xdp_fd.");
-            return -1;
-          }
-          """
-        _ ->
-          """
-          err = #{module_name}_bpf__attach(skel);
-          if(err){
-            fprintf(stderr, "Failed attaching BPF skeleton.\\n");
-            #{module_name}_bpf__destroy(skel);
-            return -err;
-          }
-          """
-      end}
+        IFINDEX = if_nametoindex("lo");
+        if(bpf_xdp_attach(IFINDEX, prog_fd, XDPFLAGS, NULL) < 0){
+          printf("Failed to link set xdp_fd.");
+          return -1;
+        }
+        """
+      _ -> """
+        err = #{module_name}_bpf__attach(skel);
+        if(err){
+          fprintf(stderr, "Failed attaching BPF skeleton.\\n");
+          #{module_name}_bpf__destroy(skel);
+          return -err;
+        }
+        """
+    end}
 
       output(skel, lifeTime, printAll);
     }\n
@@ -156,6 +153,7 @@ defmodule Honey.Codegen.Boilerplates do
   """
   def generate_output_chooser(env) do
     module_name = Core.module_name(env)
+
     output = """
     void output(struct #{module_name}_bpf* skel, uint time, bool all){
       if(time == 0){
@@ -178,10 +176,12 @@ defmodule Honey.Codegen.Boilerplates do
       else output_opt(skel);
     }\n
     """
+
     decl = """
     void output(struct #{module_name}_bpf* skel, uint time, bool all);
     void choose_output(struct #{module_name}_bpf* skel, bool all);
     """
+
     {decl, output}
   end
 
@@ -192,7 +192,7 @@ defmodule Honey.Codegen.Boilerplates do
   def generate_output_func_decl(env) do
     output = generate_output_func(env)
     output_always = generate_output_func(env, true)
-    
+
     module_name = Core.module_name(env)
 
     decl = "void output_opt(struct #{module_name}_bpf* skel);\n"
@@ -207,68 +207,76 @@ defmodule Honey.Codegen.Boilerplates do
   what elements were requested to be printed and more.
   """
   def generate_output_func(env, printAll \\ false) do
-    {_,_,_,maps} = Info.get_backend_info(env)
+    {_, _, _, maps} = Info.get_backend_info(env)
 
-    output = Enum.map(maps, fn map ->
-      {name, _type, _max_entries, print, print_elem, key_size} = Info.get_maps_attributes(map)
-      if(!(print == true) and !printAll) do
-        ""
-      else
-        {printf, key_var, prev_key_var} = case key_size do
-          :int -> 
-            {"""
-            printf("Entry %d: %ld\\n", key, value.value.integer);
-            """, "&key", "&#{name}_prev_key"}
-          :char6 ->
-            {"""
-              printf("Entry %02x:%02x:%02x:%02x:%02x:%02x: %ld\\n",
-                chkey[0], chkey[1], chkey[2], chkey[3], chkey[4], chkey[5], value.value.integer
-              );
-            """, "chkey", "#{name}_prev_key"}
-          _ -> raise "This key_size is not supported. Try :int or :char6."
-        end
+    output =
+      Enum.map(maps, fn map ->
+        {name, _type, _max_entries, print, print_elem, key_size} = Info.get_maps_attributes(map)
 
-        copy_code = case key_size do
-          :int ->
-            "#{name}_prev_key = key;"
-          :char6 ->
-            "memcpy(#{name}_prev_key, chkey, 6);"
-        end
+        if(!(print == true) and !printAll) do
+          ""
+        else
+          {printf, key_var, prev_key_var} =
+            case key_size do
+              :int ->
+                {"""
+                 printf("Entry %d: %ld\\n", key, value.value.integer);
+                 """, "&key", "&#{name}_prev_key"}
 
-        case print_elem do
-          nil -> 
-            """
-              /* Printing map of name #{name} */
-              struct bpf_map* #{name} = skel->maps.#{name};
-              int #{name}_fd = bpf_map__fd(#{name});
-              printf("#{name}:\\n");
-              key = 0;
-              #{case key_size do
+              :char6 ->
+                {"""
+                   printf("Entry %02x:%02x:%02x:%02x:%02x:%02x: %ld\\n",
+                     chkey[0], chkey[1], chkey[2], chkey[3], chkey[4], chkey[5], value.value.integer
+                   );
+                 """, "chkey", "#{name}_prev_key"}
+
+              _ ->
+                raise "This key_size is not supported. Try :int or :char6."
+            end
+
+          copy_code =
+            case key_size do
+              :int ->
+                "#{name}_prev_key = key;"
+
+              :char6 ->
+                "memcpy(#{name}_prev_key, chkey, 6);"
+            end
+
+          case print_elem do
+            nil ->
+              """
+                /* Printing map of name #{name} */
+                struct bpf_map* #{name} = skel->maps.#{name};
+                int #{name}_fd = bpf_map__fd(#{name});
+                printf("#{name}:\\n");
+                key = 0;
+                #{case key_size do
                 :int -> "int #{name}_prev_key = 0;"
                 :char6 -> "unsigned char #{name}_prev_key[6];"
               end}
-              success = bpf_map_get_next_key(#{name}_fd, NULL, #{key_var}); 
-              while(success == 0){
-                success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
-                if (success == 0) {
-                  #{printf}
+                success = bpf_map_get_next_key(#{name}_fd, NULL, #{key_var}); 
+                while(success == 0){
+                  success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
+                  if (success == 0) {
+                    #{printf}
+                  }
+                  #{copy_code}
+                  success = bpf_map_get_next_key(#{name}_fd, #{prev_key_var}, #{key_var});
                 }
-                #{copy_code}
-                success = bpf_map_get_next_key(#{name}_fd, #{prev_key_var}, #{key_var});
-              }
-            """
-          _ ->
-            name = Atom.to_string(name)
-            # Please ignore the weird intentation of the #{Enum.map}, it is needed to print with correct indentation.
-            """
-              /* Printing map of name #{name} */
-              struct bpf_map* #{name} = skel->maps.#{name};
-              int #{name}_fd = bpf_map__fd(#{name});
-              printf("#{name}:\\n");
-          #{Enum.map(print_elem, fn elem ->
-                case elem do
-                  {elem_name, key} when is_binary(elem_name) and is_integer(key)->
-                    """
+              """
+
+            _ ->
+              name = Atom.to_string(name)
+
+              # Please ignore the weird intentation of the #{Enum.map}, it is needed to print with correct indentation.
+              """
+                /* Printing map of name #{name} */
+                struct bpf_map* #{name} = skel->maps.#{name};
+                int #{name}_fd = bpf_map__fd(#{name});
+                printf("#{name}:\\n");
+              #{Enum.map(print_elem, fn elem -> case elem do
+                  {elem_name, key} when is_binary(elem_name) and is_integer(key) -> """
                         key = #{Integer.to_string(key)};
                         success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
                         if(success == 0){
@@ -278,13 +286,12 @@ defmodule Honey.Codegen.Boilerplates do
                         }
                     """
                   _ -> raise "RuntimeError: Please specify :print_elem key with a list of tuples {name (string), key (integer)} when :print is true."
-                  end
-                end
-              ) |> Enum.join}
-            """
+                end end) |> Enum.join()}
+              """
+          end
         end
-      end
-    end) |> Enum.join
+      end)
+      |> Enum.join()
 
     module_name = Core.module_name(env)
 
@@ -311,7 +318,6 @@ defmodule Honey.Codegen.Boilerplates do
         prefix <> output <> suffix
       end
     else
-
       prefix = """
       void output_all(struct #{module_name}_bpf* skel) {
         int key;
@@ -325,6 +331,7 @@ defmodule Honey.Codegen.Boilerplates do
       suffix = """
         }
       """
+
       prefix <> output <> suffix
     end
   end
@@ -355,7 +362,9 @@ defmodule Honey.Codegen.Boilerplates do
         #include <linux/udp.h>
         #include <linux/tcp.h>
         """)
-      _ -> ""
+
+      _ ->
+        ""
     end
   end
 
@@ -380,18 +389,18 @@ defmodule Honey.Codegen.Boilerplates do
 
         fields = "__uint(type, #{Macro.to_string(map_content[:type])});"
 
-        fields = fields <> (
-          Enum.map(map_options, fn {key, value} ->
-            case key do
-              :max_entries ->
-                "__uint(#{key}, #{Integer.to_string(value)});"
+        fields =
+          fields <>
+            (Enum.map(map_options, fn {key, value} ->
+               case key do
+                 :max_entries ->
+                   "__uint(#{key}, #{Integer.to_string(value)});"
 
-              _ ->
-                ""
-            end
-          end)
-          |> Enum.join("\n")
-        )
+                 _ ->
+                   ""
+               end
+             end)
+             |> Enum.join("\n"))
 
         """
         struct {
@@ -399,7 +408,7 @@ defmodule Honey.Codegen.Boilerplates do
           #{case key_size do
           :int -> "__uint(key_size, sizeof(int));"
           :char6 -> "__uint(key_size, sizeof(long));"
-          end}
+        end}
           __uint(value_size, sizeof(Generic));
         } #{map_name} SEC(".maps");
         """
@@ -552,43 +561,45 @@ defmodule Honey.Codegen.Boilerplates do
   """
   def generate_ending_main_code(return_var_name, return_var_type) do
     int_type = TypeSet.new(ElixirTypes.type_integer())
-    return_text = cond do
-      return_var_type == int_type -> (
-        # Inspect debug
-        #IO.inspect("We returned an integer!")
-        gen("""
-        return #{return_var_name};
-        """)
-        )
 
-      TypeSet.has_type(return_var_type, ElixirTypes.type_integer()) -> (
-        # Inspect debug
-        IO.inspect("We can return a non-integer!; Caution.")
-        gen("""
-        if (#{return_var_name}.type != INTEGER) {
-          op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
-          goto CATCH;
-        }
-        return #{return_var_name}.value.integer;
+    return_text =
+      cond do
+        return_var_type == int_type ->
+          # Inspect debug
+          # IO.inspect("We returned an integer!")
+          gen("""
+          return #{return_var_name};
+          """)
 
-        CATCH:
-          bpf_printk(\"** %s\\n\", op_result.exception_msg);
-          return 0;
-        """)
-      )
+        TypeSet.has_type(return_var_type, ElixirTypes.type_integer()) ->
+          # Inspect debug
+          IO.inspect("We can return a non-integer!; Caution.")
 
-    true -> (
-      # Inspect debug
-      IO.inspect("We don't have a valid return :c!")
-      raise "Code should return something that can be an integer. Instead it returned #{return_var_name}."
-    )
-    end
+          gen("""
+          if (#{return_var_name}.type != INTEGER) {
+            op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
+            goto CATCH;
+          }
+          return #{return_var_name}.value.integer;
 
-    return_text <> """
-    CATCH:
-      bpf_printk(\"** %s\\n\", op_result.exception_msg);
-      return 0;
-    """
+          CATCH:
+            bpf_printk(\"** %s\\n\", op_result.exception_msg);
+            return 0;
+          """)
+
+        true ->
+          # Inspect debug
+          IO.inspect("We don't have a valid return :c!")
+
+          raise "Code should return something that can be an integer. Instead it returned #{return_var_name}."
+      end
+
+    return_text <>
+      """
+      CATCH:
+        bpf_printk(\"** %s\\n\", op_result.exception_msg);
+        return 0;
+      """
   end
 
   @doc """
@@ -596,56 +607,60 @@ defmodule Honey.Codegen.Boilerplates do
   """
   def generate_ctx_struct(config) do
     case config.libbpf_prog_type do
-    "tracepoint/syscalls/sys_enter_kill" -> gen("""
-    typedef struct syscalls_enter_kill_args
-    {
-      /**
-      * This is the tracepoint arguments of the kill functions.
-      * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
-      */
-      long long pad;
+      "tracepoint/syscalls/sys_enter_kill" ->
+        gen("""
+        typedef struct syscalls_enter_kill_args
+        {
+          /**
+          * This is the tracepoint arguments of the kill functions.
+          * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_kill/format
+          */
+          long long pad;
 
-      long syscall_nr;
-      long pid;
-      long sig;
-    } syscalls_enter_kill_args;
-    """)
+          long syscall_nr;
+          long pid;
+          long sig;
+        } syscalls_enter_kill_args;
+        """)
 
-    "tracepoint/raw_syscalls/sys_enter" -> gen("""
-    typedef struct syscalls_enter_args
-    {
-      /**
-       * This is the tracepoint arguments.
-       * Defined at: /sys/kernel/debug/tracing/events/raw_syscalls/sys_enter/format
-       */
-        unsigned short common_type;
-        unsigned char common_flags;
-        unsigned char common_preempt_count;
-        int common_pid;
-        long id;
-        unsigned long args[6];
-    } syscalls_enter_args;
-    """)
+      "tracepoint/raw_syscalls/sys_enter" ->
+        gen("""
+        typedef struct syscalls_enter_args
+        {
+          /**
+           * This is the tracepoint arguments.
+           * Defined at: /sys/kernel/debug/tracing/events/raw_syscalls/sys_enter/format
+           */
+            unsigned short common_type;
+            unsigned char common_flags;
+            unsigned char common_preempt_count;
+            int common_pid;
+            long id;
+            unsigned long args[6];
+        } syscalls_enter_args;
+        """)
 
-    "tracepoint/syscalls/sys_enter_write" -> gen("""
-    typedef struct syscalls_enter_write_args
-    {
-      /**
-       * This is the tracepoint arguments.
-       * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
-       */
-       unsigned short common_type;
-       unsigned char common_flags;
-       unsigned char common_preempt_count;
-       int common_pid;
-       int __syscall_nr;
-       unsigned int fd;
-       const char * buf;
-       size_t count;
-    } syscalls_enter_write_args;
-    """)
+      "tracepoint/syscalls/sys_enter_write" ->
+        gen("""
+        typedef struct syscalls_enter_write_args
+        {
+          /**
+           * This is the tracepoint arguments.
+           * Defined at: /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
+           */
+           unsigned short common_type;
+           unsigned char common_flags;
+           unsigned char common_preempt_count;
+           int common_pid;
+           int __syscall_nr;
+           unsigned int fd;
+           const char * buf;
+           size_t count;
+        } syscalls_enter_write_args;
+        """)
 
-    _ -> gen("")
+      _ ->
+        gen("")
     end
   end
 

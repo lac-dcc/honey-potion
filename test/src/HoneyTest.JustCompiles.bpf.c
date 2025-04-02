@@ -85,10 +85,10 @@ if (!tuple_pool_index)
 *tuple_pool_index = 0;
 
   // =============== beginning of user code ===============
-  int helper_var_136 = 1;
+  int helper_var_66 = 1;
   // =============== end of user code ==============
   // Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:559
-return helper_var_136;
+return helper_var_66;
 CATCH:
   bpf_printk("** %s\n", op_result.exception_msg);
   return 0;

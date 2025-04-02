@@ -21,7 +21,7 @@ defmodule Honey.BpfHelpers do
   import Honey.Analysis.ElixirTypes, only: [type_integer: 0]
 
   def bpf_printk(_str), do: type_integer()
-    
+
   def bpf_get_current_pid_tgid(), do: type_integer()
 
   def bpf_map_lookup_elem(_map, _key), do: type_integer()

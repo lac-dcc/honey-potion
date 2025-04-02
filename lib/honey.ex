@@ -52,31 +52,31 @@ defmodule Honey do
         end
       end
     else
-      {:error, {:main_exists_error, reason}} -> 
+      {:error, {:main_exists_error, reason}} ->
         raise "Main function check failed: #{inspect(reason)}"
-        
+
       {:error, {:get_ast_error, reason}} ->
         raise "AST extraction failed: #{inspect(reason)}"
-  
+
       {:error, {:burn_fuel_error, reason}} ->
         raise "Recursion expansion failed: #{inspect(reason)}"
-  
+
       {:error, {:optimize_error, reason}} ->
         raise "Optimization failed: #{inspect(reason)}"
-  
+
       {:error, {:generate_code_error, reason}} ->
         raise "Code generation failed: #{inspect(reason)}"
-  
+
       {:error, {:write_output_error, reason}} ->
         raise "File write failed: #{inspect(reason)}"
-  
+
       {:error, {:compile_bpf_error, reason}} ->
         raise "BPF compilation failed: #{inspect(reason)}"
-  
+
       {:error, {:delete_definition_error, reason}} ->
         Logger.warning("Definition cleanup failed: #{inspect(reason)}")
-      
-      error -> 
+
+      error ->
         Logger.warning("An unknown error occurred during compilation. Details: #{inspect(error)}")
     end
   end
@@ -97,7 +97,7 @@ defmodule Honey do
     - BPF_MAP_TYPE_PERCPU_HASH: Same as BPF_MAP_TYPE_HASH.
 
   And they are represented by the following atoms
-  
+
     - :bpf_array
     - :bpf_hash
     - :bpf_percpu_array
@@ -112,9 +112,9 @@ defmodule Honey do
 
       ebpf_map_type =
         Map.fetch!(
-          unquote(Macro.escape(ebpf_types)), 
+          unquote(Macro.escape(ebpf_types)),
           ebpf_map_type_atom
-          )
+        )
 
       ebpf_map_content = %{type: ebpf_map_type, options: unquote(opts)}
       @ebpf_maps %{name: ebpf_map_name, content: ebpf_map_content}
@@ -171,7 +171,7 @@ defmodule Honey do
       e -> {:error, {:main_exists_error, e}}
     end
   end
-  
+
   defp safe_get_ast(main_def) do
     try do
       {:ok, Info.get_ast(main_def)}
@@ -179,7 +179,7 @@ defmodule Honey do
       e -> {:error, {:get_ast_error, e}}
     end
   end
-  
+
   defp safe_burn_fuel(func_ast, env) do
     try do
       {:ok, RecursionExpansion.burn_fuel(func_ast, env)}
@@ -187,7 +187,7 @@ defmodule Honey do
       e -> {:error, {:burn_fuel_error, e}}
     end
   end
-  
+
   defp safe_optimize(burned_ast, arguments, env) do
     try do
       {:ok, Optimizer.run(burned_ast, arguments, env)}
@@ -195,7 +195,7 @@ defmodule Honey do
       e -> {:error, {:optimize_error, e}}
     end
   end
-  
+
   defp safe_generate_code(env, final_ast) do
     try do
       {:ok, CodeGenerator.generate_code(env, final_ast)}
@@ -203,7 +203,7 @@ defmodule Honey do
       e -> {:error, {:generate_code_error, e}}
     end
   end
-  
+
   defp safe_write_output(backend_code, frontend_code, env) do
     try do
       Write.write_output_files(backend_code, frontend_code, env)
@@ -211,10 +211,11 @@ defmodule Honey do
       e -> {:error, {:write_output_error, e}}
     end
   end
-  
+
   defp safe_compile_bpf(env) do
     try do
       {cmd, exit_code} = result = Pipeline.compile_bpf(env)
+
       if exit_code != 0 do
         Logger.warning("Compilation command: #{cmd} returned #{exit_code}")
       end
@@ -224,12 +225,14 @@ defmodule Honey do
       e -> {:error, {:compile_bpf_error, e}}
     end
   end
-  
+
   defp safe_delete_definition(module, func, arity) do
     case Module.delete_definition(module, {func, arity}) do
-      true -> 
+      true ->
         :ok
-      _ -> {:error, {:delete_definition_error, false}}
+
+      _ ->
+        {:error, {:delete_definition_error, false}}
     end
   end
 end
