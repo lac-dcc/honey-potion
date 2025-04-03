@@ -1,5 +1,5 @@
 // Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:33
-// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:336
+// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:343
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <stddef.h>
@@ -7,7 +7,7 @@
 #include <runtime_functions.bpf.c>
 
 
-// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:599
+// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:611
 typedef struct syscalls_enter_kill_args
 {
   /**
@@ -20,14 +20,14 @@ typedef struct syscalls_enter_kill_args
   long pid;
   long sig;
 } syscalls_enter_kill_args;
-// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:656
+// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:671
 char LICENSE[] SEC("license") = "oops";
 
 
-// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:687
+// Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:702
 SEC("tracepoint/syscalls/sys_enter_kill")
 int main_func(syscalls_enter_kill_args *ctx_arg) {
-  // Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:474
+  // Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:483
 StrFormatSpec str_param1;
 StrFormatSpec str_param2;
 StrFormatSpec str_param3;
@@ -85,10 +85,10 @@ if (!tuple_pool_index)
 *tuple_pool_index = 0;
 
   // =============== beginning of user code ===============
-  int helper_var_66 = 1;
+  int helper_var_1634 = 1;
   // =============== end of user code ==============
-  // Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:559
-return helper_var_66;
+  // Generated at /home/adrianosantos/workspaces/git/me/honey-potion/lib/honey/codegen/boilerplates.ex:570
+return helper_var_1634;
 CATCH:
   bpf_printk("** %s\n", op_result.exception_msg);
   return 0;
