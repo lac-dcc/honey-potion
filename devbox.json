@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.2/.schema/devbox.schema.json",
+  "packages": [
+    "clang@latest",
+    "llvm@latest",
+    "bpftool@latest",
+    "libbpf_1@1.1.0"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to honey potion'"
+    ],
+    "scripts": {
+      "test": [
+        "echo \"Error: no test specified\" && exit 1"
+      ]
+    }
+  }
+}
