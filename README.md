@@ -5,6 +5,7 @@
 [![Total Download](https://img.shields.io/hexpm/dt/honey.svg)](https://hex.pm/packages/honey)
 [![License](https://img.shields.io/hexpm/l/honey.svg)](https://github.com/lac-dcc/honey-potion/blob/master/LICENSE)
 [![Last Updated](https://img.shields.io/github/last-commit/lac-dcc/honey-potion.svg)](https://github.com/lac-dcc/honey-potion/commits/master)
+[![join discord](https://badgen.net/badge/discord/Join%20Eigr%20on%20Discord/discord?icon=discord&label&color=blue)]([https://discord.gg/2PcshvfS93](https://discord.gg/ZbURHpCb))
 
 ## 🐝 About
 
