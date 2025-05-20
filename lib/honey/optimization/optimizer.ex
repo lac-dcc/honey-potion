@@ -6,18 +6,21 @@ defmodule Honey.Optimization.Optimizer do
   alias Honey.Optimization.ConstantPropagation
   alias Honey.Optimization.DeadCodeElimination
   alias Honey.Optimization.TypePropagation
+  alias Honey.Optimization.TreeSplit
 
   @doc """
   Runs the optimization and analysis steps.
   """
   def run(fun_def, arguments, env) do
     fun_def
-    |> StaticAnalysis.run()
-    |> ConstantPropagation.run()
-    |> DeadCodeElimination.run()
+    #|> StaticAnalysis.run()
+    #|> ConstantPropagation.run()
+    #|> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
 
     # |> Honey.Analysis.AstSize.output(env, " - Final")
-    # |> IO.inspect()
+    #|> IO.inspect()
+    |> TreeSplit.run()
+    |> IO.inspect()
   end
 end
