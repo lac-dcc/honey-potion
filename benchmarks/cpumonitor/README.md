@@ -1,6 +1,6 @@
 # 🤙 CPU Usage Monitoring with eBPF
 
-This program utilizes eBPF (extended Berkeley Packet Filter) to monitor the CPU usage and syscall counts in both user and kernel modes, using a custom BPF program. It attaches to performance events and samples CPU activity across all CPU cores. The program tracks and outputs the number of events observed, allowing for a deeper understanding of system activity.
+This eBPF program monitors CPU scheduling and system call activity. It tracks how long each process spends running on the CPU and how much time is spent inside system calls (kernel time). Using tracepoints, it hooks into context switches (sched_switch) and syscall entry/exit points. It stores timestamps in BPF hash maps to calculate and accumulate durations per PID. The goal is to measure per-process CPU and syscall time for performance analysis.
 
 ## 💻 Requirements
 
@@ -28,10 +28,13 @@ sudo ./prog
 ```
 The program's output will be something like:
 ```bash
-Amostrando uso de CPU... Pressione Ctrl+C para sair
-PID    Modo    Amostras
-1234   user    145
-5678   kernel  321
+Tracking CPU usage... Ctrl+C to exit
+CPU usage (PID, Total time, Kernel time, User time):
+
+PID        Total (ms)      Kernel (ms)     User (ms)      
+19289      62.52           44.29           18.23          
+19287      1.44            0.68            0.76           
+19291      2.40            1.64            0.75        
 ```
 
-[⬆ Back to top](#count-syscalls)<br>
+[⬆ Back to top](#cpumonitor)<br>

@@ -87,13 +87,13 @@ void free_pid_list(struct pid_entry *list) {
 }
 
 
-void update_pid_list(struct pid_entry **list, __u32 pid, double total, double kernel) {
+void update_pid_list(struct pid_entry **list, __u32 pid, double total, double kernel, double user) {
     struct pid_entry *cur = *list;
     while (cur) {
         if (cur->pid == pid) {
             cur->total = total;
             cur->kernel = kernel;
-            cur->user = total - kernel;
+            cur->user = user;
             return;
         }
         cur = cur->next;
@@ -102,7 +102,7 @@ void update_pid_list(struct pid_entry **list, __u32 pid, double total, double ke
     new_node->pid = pid;
     new_node->total = total;
     new_node->kernel = kernel;
-    new_node->user = total - kernel;
+    new_node->user = user;
     new_node->next = *list;
     *list = new_node;
 }
@@ -167,10 +167,10 @@ int main() {
 
     printf("Tracking CPU usage... Ctrl+C to exit\n");
     printf("CPU usage (PID, Total time, Kernel time, User time):\n");
-    int total_fd = get_map_fd_by_name(obj, "total_time");
     int kernel_fd = get_map_fd_by_name(obj, "kernel_time");
+    int user_fd = get_map_fd_by_name(obj, "user_time");
 
-    if (total_fd < 0 || kernel_fd < 0)
+    if (user_fd < 0 || kernel_fd < 0)
         return 1;
 
     signal(SIGINT, handle_sigint);
@@ -187,18 +187,21 @@ int main() {
         if (!pid_list) pid_list = NULL;
 
         __u32 key = 0, next_key;
-        __u64 total = 0, kernel = 0;
+        __u64 total = 0, kernel = 0, user = 0;
 
-        if (bpf_map_get_next_key(total_fd, NULL, &key) != 0)
-            continue;
+        if (bpf_map_get_next_key(kernel_fd, NULL, &key) != 0)
+                continue;
+
 
         do {
-            if (bpf_map_lookup_elem(total_fd, &key, &total) == 0 &&
-                bpf_map_lookup_elem(kernel_fd, &key, &kernel) == 0) {
+            if (bpf_map_lookup_elem(kernel_fd, &key, &kernel) == 0 &&
+                bpf_map_lookup_elem(user_fd, &key, &user) == 0) {
 
-                update_pid_list(&pid_list, key, total / 1e6, kernel / 1e6);
+                double total = (kernel + user) / 1e6;
+                update_pid_list(&pid_list, key, total, kernel / 1e6, user / 1e6);
             }
-        } while (bpf_map_get_next_key(total_fd, &key, &next_key) == 0 && (key = next_key, 1));
+        } while (bpf_map_get_next_key(kernel_fd, &key, &next_key) == 0 && (key = next_key, 1));
+
 
         write_pid_file("pid_data.txt", pid_list);
 
