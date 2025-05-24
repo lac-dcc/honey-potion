@@ -13,14 +13,14 @@ defmodule Honey.Optimization.Optimizer do
   """
   def run(fun_def, arguments, env) do
     fun_def
-    #|> StaticAnalysis.run()
-    #|> ConstantPropagation.run()
-    #|> DeadCodeElimination.run()
+    |> StaticAnalysis.run()
+    |> ConstantPropagation.run()
+    |> DeadCodeElimination.run()
     |> TypePropagation.run(arguments, env)
 
     # |> Honey.Analysis.AstSize.output(env, " - Final")
     #|> IO.inspect()
     |> TreeSplit.run()
-    |> IO.inspect()
+    #|> IO.inspect()
   end
 end
