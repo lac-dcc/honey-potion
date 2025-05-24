@@ -65,7 +65,7 @@ defmodule Honey.Codegen.Boilerplates do
           """
           static __u32 XDPFLAGS = XDP_FLAGS_SKB_MODE;
           static int IFINDEX;
-          void _unloadProg() {
+          void _unloadProg(int sig) {
               bpf_xdp_attach(IFINDEX, -1, XDPFLAGS, NULL);
               printf("Unloading the eBPF program...");
               exit(0);
@@ -549,10 +549,6 @@ defmodule Honey.Codegen.Boilerplates do
       goto CATCH;
     }
     return #{return_var_name}.value.integer;
-
-    CATCH:
-      bpf_printk(\"** %s\\n\", op_result.exception_msg);
-      return 0;
     """)
   end
 
@@ -589,9 +585,9 @@ defmodule Honey.Codegen.Boilerplates do
 
         true ->
           # Inspect debug
-          IO.inspect("We don't have a valid return :c!")
+          IO.inspect("Return does not have specific typing; Caution.")
+          generate_ending_main_code(return_var_name)
 
-          raise "Code should return something that can be an integer. Instead it returned #{return_var_name}."
       end
 
     return_text <>
