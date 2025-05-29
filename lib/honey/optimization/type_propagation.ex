@@ -181,6 +181,30 @@ defmodule Honey.Optimization.TypePropagation do
       function == :== or function == :=== or function == :!= or function == :!== ->
         TypeSet.new(ElixirTypes.type_boolean())
 
+      function == :< or function == :> ->
+        for lhs_type <- lhs_types do
+          for rhs_type <- rhs_typeset do
+            case {lhs_type, rhs_type} do
+              {^type_integer, ^type_integer} ->
+                type_integer
+
+              {^type_integer, ^type_float} ->
+                type_float
+
+              {^type_float, ^type_integer} ->
+                type_float
+
+              {^type_float, ^type_float} ->
+                type_float
+
+              _ ->
+                ElixirTypes.type_invalid()
+            end
+          end
+          |> TypeSet.new()
+        end
+        |> Enum.reduce(TypeSet.new(), &TypeSet.union/2)
+
       true ->
         raise "Type propagation: Erlang function not supported: #{Atom.to_string(function)}"
     end
@@ -198,6 +222,7 @@ defmodule Honey.Optimization.TypePropagation do
     case function do
       :bpf_printk -> TypeSet.new(ElixirTypes.type_integer())
       :bpf_get_current_pid_tgid -> TypeSet.new(ElixirTypes.type_integer())
+      :bpf_ktime_get_ns -> TypeSet.new(ElixirTypes.type_integer())
       :bpf_map_update_elem -> TypeSet.new(ElixirTypes.type_integer())
       :bpf_map_lookup_elem -> TypeSet.new(ElixirTypes.type_integer())
       _ -> TypeSet.new()
@@ -253,6 +278,12 @@ defmodule Honey.Optimization.TypePropagation do
               TypeSet.put_type(typeset, ElixirTypes.type_integer())
 
             :pid ->
+              TypeSet.put_type(typeset, ElixirTypes.type_integer())
+
+            :prev_pid ->
+              TypeSet.put_type(typeset, ElixirTypes.type_integer())
+
+            :next_pid ->
               TypeSet.put_type(typeset, ElixirTypes.type_integer())
 
             _ ->
