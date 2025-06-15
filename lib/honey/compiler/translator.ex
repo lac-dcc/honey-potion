@@ -101,15 +101,14 @@ defmodule Honey.Compiler.Translator do
         :== ->
           "Equals"
 
-        # :> ->
-        #   " ..."
+        :> ->
+          "GreaterThan"
+
+        :< ->
+          "LessThan"
 
         # :>= ->
         #   " ... "
-
-        # :< ->
-        #   " ..."
-
         # :<= ->
         #   " ... "
 
@@ -174,6 +173,15 @@ defmodule Honey.Compiler.Translator do
         #{code}
         bpf_printk(\"#{string}\"#{vars});
         int #{result_var} = 0;
+        """
+        |> gen()
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+
+      :bpf_ktime_get_ns ->
+        result_var = unique_helper_var()
+
+        """
+        int #{result_var} = bpf_ktime_get_ns();
         """
         |> gen()
         |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
@@ -256,7 +264,7 @@ defmodule Honey.Compiler.Translator do
                   goto CATCH;
                 """
               else
-                # Here the assumption that maps keeps ints is also maintained. 
+                # Here the assumption that maps keeps ints is also maintained.
                 default_value_translated = to_c(default_value)
 
                 """
@@ -560,14 +568,14 @@ defmodule Honey.Compiler.Translator do
     cond do
       TypeSet.is_integer?(access_type) ->
         """
-        int #{helper_var} = ctx_arg->#{element}; 
+        int #{helper_var} = ctx_arg->#{element};
         """
         |> gen()
         |> TranslatedCode.new(helper_var, TypeSet.new(ElixirTypes.type_integer()))
 
       TypeSet.is_generic?(access_type) ->
         """
-        Generic #{helper_var} = {.type = INTEGER, .value.integer = ctx_arg->#{element}}; 
+        Generic #{helper_var} = {.type = INTEGER, .value.integer = ctx_arg->#{element}};
         """
         |> gen()
         |> TranslatedCode.new(helper_var, TypeSet.new(ElixirTypes.type_any()))
