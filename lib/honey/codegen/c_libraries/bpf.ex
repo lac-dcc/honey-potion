@@ -10,6 +10,7 @@ defmodule Honey.BpfHelpers do
 
     * `bpf_printk/1` - Simulates a call to `bpf_printk`, used for debugging in eBPF programs.
     * `bpf_get_current_pid_tgid/0` - Retrieves the current process ID (PID) and thread group ID (TGID).
+    * `bpf_ktime_get_ns/0` - Retrieves the current time in nanoseconds.
     * `bpf_map_lookup_elem/2` - Simulates looking up an element in an eBPF map.
     * `bpf_map_lookup_elem/3` - Simulates looking up an element in an eBPF map, with a default value.
     * `bpf_map_update_elem/3` - Simulates updating an element in an eBPF map.
@@ -23,6 +24,8 @@ defmodule Honey.BpfHelpers do
   def bpf_printk(_str), do: type_integer()
 
   def bpf_get_current_pid_tgid(), do: type_integer()
+
+  def bpf_ktime_get_ns(), do: type_integer()
 
   def bpf_map_lookup_elem(_map, _key), do: type_integer()
 
