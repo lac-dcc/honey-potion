@@ -267,27 +267,15 @@ defmodule Honey.Optimization.TypePropagation do
     Enum.reduce(var_types, TypeSet.new(), fn type, typeset ->
       case type.name do
         :type_ctx ->
-          case field do
-            :data ->
+          cond do
+            field == :data ->
               TypeSet.put_type(typeset, ElixirTypes.new(:type_ctx_data))
 
-            :id ->
+            field in [:id, :sig, :pid, :prev_pid, :next_pid] ->
               TypeSet.put_type(typeset, ElixirTypes.type_integer())
 
-            :sig ->
-              TypeSet.put_type(typeset, ElixirTypes.type_integer())
-
-            :pid ->
-              TypeSet.put_type(typeset, ElixirTypes.type_integer())
-
-            :prev_pid ->
-              TypeSet.put_type(typeset, ElixirTypes.type_integer())
-
-            :next_pid ->
-              TypeSet.put_type(typeset, ElixirTypes.type_integer())
-
-            _ ->
-              raise "Invalid field access. Tried accessing inexisting field '#{field}' of variable '#{var_name}'."
+            true ->
+              raise "Invalid field access. Tried accessing inexistent field '#{field}' of variable '#{var_name}'."
           end
 
         _ ->
