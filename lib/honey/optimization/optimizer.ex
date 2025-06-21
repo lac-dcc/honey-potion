@@ -13,9 +13,9 @@ defmodule Honey.Optimization.Optimizer do
   """
   def run(fun_def, arguments, env) do
     fun_def
-    |> StaticAnalysis.run()
     |> ConstantPropagation.run()
     |> DeadCodeElimination.run()
+    |> StaticAnalysis.run()
     |> TypePropagation.run(arguments, env)
 
     # |> Honey.Analysis.AstSize.output(env, " - Final")

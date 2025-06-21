@@ -60,6 +60,13 @@ struct
   __uint(value_size, sizeof(int));
 } heap_index_map SEC(".maps");
 
+struct
+{
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(max_entries, 1);
+  __uint(key_size, sizeof(int));
+  __uint(value_size, sizeof(char[STACK_SIZE]));
+} stack_map SEC(".maps");
 
 #endif
 

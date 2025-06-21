@@ -6,6 +6,7 @@
 #define STRING_POOL_SIZE 500
 #define TUPLE_POOL_SIZE 500
 #define HEAP_SIZE 100
+#define STACK_SIZE 4096
 #define MAX_STRUCT_MEMBERS 5
 
 #define field_pad 1

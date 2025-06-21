@@ -481,13 +481,20 @@ defmodule Honey.Codegen.Boilerplates do
   """
   def beginning_main_code do
     gen("""
+    int zero = 0;
+
+    char(* stack)[4096] = bpf_map_lookup_elem(&stack_map, &zero);
+    int* stack_int;
+    Generic* stack_gen;
+
+    void* lookup;
+
     StrFormatSpec str_param1;
     StrFormatSpec str_param2;
     StrFormatSpec str_param3;
 
     OpResult op_result = (OpResult){0};
 
-    int zero = 0;
     char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
     if (!string_pool)
     {
