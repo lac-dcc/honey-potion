@@ -484,8 +484,15 @@ defmodule Honey.Codegen.Boilerplates do
   def beginning_main_code do
     gen("""
     int zero = 0;
+    OpResult op_result = (OpResult){0};
 
     char(* Stack)[4096] = bpf_map_lookup_elem(&stack_map, &zero);
+    if (!Stack)
+    {
+      op_result = (OpResult){.exception = 1, .exception_msg = "(UnexpectedBehavior) something wrong happened inside the Elixir runtime for eBPF. (can't access Stack, main function)."};
+      goto CATCH;
+    }
+
     char* stack = (char*) Stack;
     int* stack_int;
     String* stack_str;
@@ -496,8 +503,6 @@ defmodule Honey.Codegen.Boilerplates do
     StrFormatSpec str_param1;
     StrFormatSpec str_param2;
     StrFormatSpec str_param3;
-
-    OpResult op_result = (OpResult){0};
 
     char(*string_pool)[STRING_POOL_SIZE] = bpf_map_lookup_elem(&string_pool_map, &zero);
     if (!string_pool)
