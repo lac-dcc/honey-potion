@@ -122,6 +122,12 @@ defmodule Honey.Analysis.StaticAnalysis do
     post.({form, meta, args}, acc)
   end
 
+  defp do_cond_notup_traverse_l({:=, meta, args}, acc, pre, post, _casecondFather)
+      do
+    {args, acc} = do_cond_notup_traverse_args_r(args, acc, pre, post, false)
+    post.({:=, meta, args}, acc)
+  end
+
   defp do_cond_notup_traverse_l({form, meta, args}, acc, pre, post, _casecondFather)
        when is_atom(form) do
     {args, acc} = do_cond_notup_traverse_args_l(args, acc, pre, post, false)
@@ -186,6 +192,16 @@ defmodule Honey.Analysis.StaticAnalysis do
     end
   end
 
+  defp do_cond_notup_traverse_args_r(args, acc, pre, post, casecondFather) when is_list(args) do
+    :lists.mapfoldr(
+      fn x, acc ->
+        {x, acc} = pre.(x, acc)
+        do_cond_notup_traverse_l(x, acc, pre, post, casecondFather)
+      end,
+      acc,
+      args
+    )
+  end
   # Does a right to left traverse. If in a case or cond block creates unique acumulators per block. All return the union upwards.
   defp cond_backwards_traverse(ast, acc, pre, post)
        when is_function(pre, 2) and is_function(post, 2) do

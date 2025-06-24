@@ -2,10 +2,12 @@ defmodule Honey.Runtime.TranslatedCode do
   @moduledoc """
   Defines the struct that keeps the translated code and its constructor.
   """
+  alias Honey.Compiler.TranslatorContext
+  alias Honey.Runtime.MemoryBlocks
   alias Honey.Analysis.ElixirTypes
   alias Honey.TypeSet
 
-  defstruct [:code, :return_var_name, :return_var_type]
+  defstruct [:code, :return_var_name, :return_var_type, :context]
 
   @doc """
   A constructor for the struct that holds the translated code with a standard value.
@@ -14,8 +16,9 @@ defmodule Honey.Runtime.TranslatedCode do
   def new(
         code \\ "",
         return_var_name \\ "0var_name_err",
-        return_var_type \\ TypeSet.new(ElixirTypes.type_any())
+        return_var_type \\ TypeSet.new(ElixirTypes.type_any()),
+        context \\ TranslatorContext.new([], MemoryBlocks.create(4096), %{}) 
       ) do
-    %__MODULE__{code: code, return_var_name: return_var_name, return_var_type: return_var_type}
+    %__MODULE__{code: code, return_var_name: return_var_name, return_var_type: return_var_type, context: context}
   end
 end

@@ -189,19 +189,19 @@ defmodule Honey do
   end
 
   defp safe_optimize(burned_ast, arguments, env) do
-    try do
+    #try do
       {:ok, Optimizer.run(burned_ast, arguments, env)}
-    rescue
-      e -> {:error, {:optimize_error, e}}
-    end
+    #rescue
+    #e -> {:error, {:optimize_error, e}}
+    #end
   end
 
   defp safe_generate_code(env, final_ast) do
-    try do
+    #try do
       {:ok, CodeGenerator.generate_code(env, final_ast)}
-    rescue
-      e -> {:error, {:generate_code_error, e}}
-    end
+      #rescue
+      #e -> {:error, {:generate_code_error, e}}
+      #end
   end
 
   defp safe_write_output(backend_code, frontend_code, env) do

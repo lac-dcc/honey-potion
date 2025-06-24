@@ -3,8 +3,10 @@ defmodule Honey.Codegen.Boilerplates do
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
+  alias Logger.Translator
   alias Honey.Codegen.Boilerplates
 
+  alias Honey.Compiler.Translator
   alias Honey.Analysis.ElixirTypes
   alias Honey.Runtime.Info
   alias Honey.TypeSet
@@ -483,8 +485,10 @@ defmodule Honey.Codegen.Boilerplates do
     gen("""
     int zero = 0;
 
-    char(* stack)[4096] = bpf_map_lookup_elem(&stack_map, &zero);
+    char(* Stack)[4096] = bpf_map_lookup_elem(&stack_map, &zero);
+    char* stack = (char*) Stack;
     int* stack_int;
+    String* stack_str;
     Generic* stack_gen;
 
     void* lookup;
@@ -547,53 +551,45 @@ defmodule Honey.Codegen.Boilerplates do
   end
 
   @doc """
-  Generates the return of the code. Returns if the value is an integer or goes to the CATCH error otherwise.
-  """
-  def generate_ending_main_code(return_var_name) do
-    gen("""
-    if (#{return_var_name}.type != INTEGER) {
-      op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
-      goto CATCH;
-    }
-    return #{return_var_name}.value.integer;
-    """)
-  end
-
-  @doc """
   Returns the boilerplate ending of the main function of the backend.
   """
-  def generate_ending_main_code(return_var_name, return_var_type) do
+  def generate_ending_main_code(translated_code) do
     int_type = TypeSet.new(ElixirTypes.type_integer())
+    return_value = Translator.get_var_stack_name(translated_code)
 
     return_text =
       cond do
-        return_var_type == int_type ->
+        translated_code.return_var_type == int_type ->
           # Inspect debug
           # IO.inspect("We returned an integer!")
           gen("""
-          return #{return_var_name};
+          return #{return_value};
           """)
 
-        TypeSet.has_type(return_var_type, ElixirTypes.type_integer()) ->
+        TypeSet.has_type(translated_code.return_var_type, ElixirTypes.type_integer()) ->
           # Inspect debug
           IO.inspect("We can return a non-integer!; Caution.")
 
           gen("""
-          if (#{return_var_name}.type != INTEGER) {
+          if (#{return_value}.type != INTEGER) {
             op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
             goto CATCH;
           }
-          return #{return_var_name}.value.integer;
+          return #{return_value}.value.integer;
 
-          CATCH:
-            bpf_printk(\"** %s\\n\", op_result.exception_msg);
-            return 0;
           """)
 
         true ->
           # Inspect debug
           IO.inspect("Return does not have specific typing; Caution.")
-          generate_ending_main_code(return_var_name)
+          gen("""
+          if (#{return_value}.type != INTEGER) {
+            op_result = (OpResult){.exception = 1, .exception_msg = \"(IncorrectReturn) eBPF function is not returning an integer.\"};
+            goto CATCH;
+          }
+          return #{return_value}.value.integer;
+
+          """)
 
       end
 
@@ -709,7 +705,7 @@ defmodule Honey.Codegen.Boilerplates do
       // =============== beginning of user code ===============
       #{config.translated_code.code}
       // =============== end of user code ==============
-      #{generate_ending_main_code(config.translated_code.return_var_name, config.translated_code.return_var_type)}
+      #{generate_ending_main_code(config.translated_code)}
     }
     """)
   end

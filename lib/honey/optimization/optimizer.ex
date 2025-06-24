@@ -21,6 +21,6 @@ defmodule Honey.Optimization.Optimizer do
     # |> Honey.Analysis.AstSize.output(env, " - Final")
     #|> IO.inspect()
     |> TreeSplit.run()
-    #|> IO.inspect()
+    |> IO.inspect()
   end
 end

@@ -11,14 +11,15 @@ defmodule Honey.Runtime.MemoryBlocks do
           size_b > size ->
             {[{pos_b + size, size_b - size} | acc], pos_b}
           size_b == size ->
-            {acc, pos_b} # Should be deleted
+            {acc, pos_b}
           true ->
-            {{pos_b, size_b}, pos}
+            {[{pos_b, size_b} | acc], pos}
         end
       else
-        [{block, pos} | acc]
+        {[block | acc], pos}
       end
     end)
+    memory = Enum.reverse(memory)
     {memory, position}
   end
 
