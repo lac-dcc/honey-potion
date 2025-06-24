@@ -56,6 +56,90 @@ defmodule Honey.Compiler.Translator do
   end
 
   @doc """
+  Gets a variable's value representation in the stack by pointer dereferencing.
+  """
+  def get_var_stack_name(translated_code) do
+    #IO.inspect("Searching in")
+    #IO.inspect(translated_code)
+    #IO.inspect(Map.get(translated_code.context.var_pointer_map, translated_code.return_var_name))
+
+    elem = Map.get(translated_code.context.var_pointer_map, translated_code.return_var_name)
+    c_var_position = case elem do
+      {pos, _} -> pos
+      {pos, _, _} -> pos
+    end
+
+    if TypeSet.is_generic?(translated_code.return_var_type) do
+      "(*(Generic*) (stack + #{c_var_position}))"
+    else
+      if TypeSet.is_integer?(translated_code.return_var_type) do
+      "(*(int*) (stack + #{c_var_position}))"
+      else
+        # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
+      "(*(Generic*) (stack + #{c_var_position}))"
+      end
+    end
+  end
+
+  def allocate_var_in_context(context, var_name_in_c, size) do
+      {memory, pos} = MemoryBlocks.get(context.free_memory_blocks, size)
+      context = %{ context |
+        free_memory_blocks: memory,
+        var_pointer_map: Map.put(context.var_pointer_map, var_name_in_c, {pos, size})
+      }
+      {context, pos}
+  end
+
+  def return_var_in_context(context, var_name_in_c, keep \\ true) do
+    {elem, pointer_map} = if keep do
+      Map.get_and_update(context.var_pointer_map, var_name_in_c, fn current_value ->
+        case current_value do
+          {pos, size} -> {{pos, size}, {pos, size, :dead}}
+          _ -> {current_value, current_value}
+        end
+      end)
+    else
+      Map.pop(context.var_pointer_map, var_name_in_c)
+    end
+
+    case elem do
+      nil -> context
+      {pos, size} ->
+        memory = MemoryBlocks.give(context.free_memory_blocks, pos, size)
+        %{ context |
+          free_memory_blocks: memory,
+          var_pointer_map: pointer_map
+        }
+      {_, _, :dead} ->
+        %{ context |
+          var_pointer_map: pointer_map
+        }
+    end
+  end
+
+  def deallocate_var_in_context(context, meta, var_name_in_c) do
+    IO.inspect("Removing")
+    IO.inspect(var_name_in_c)
+    if String.match?(var_name_in_c, ~r/^helper_var_/) do
+      IO.inspect("Helper")
+      return_var_in_context(context, var_name_in_c)
+    else
+      dv = Keyword.get(meta, :dv)
+      if MapSet.member?(dv, String.to_atom(var_name_in_c)) do
+        IO.inspect("Dead")
+        return_var_in_context(context, var_name_in_c)
+      else
+        case Keyword.get(meta, :last) do
+          true -> IO.inspect("Last")
+            IO.inspect(meta)
+            return_var_in_context(context, var_name_in_c)
+          _ -> context
+        end
+      end
+    end
+  end
+
+  @doc """
   Translates specific segments of the AST to C.
   """
   def to_c(tree, context)
