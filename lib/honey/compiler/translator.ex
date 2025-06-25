@@ -1,8 +1,8 @@
 defmodule Honey.Compiler.TranslatorContext do
-  defstruct [:maps, :free_memory_blocks, :var_pointer_map]
+  defstruct [:maps, :free_memory_blocks, :var_pointer_map, :free_program_var]
 
-  def new(maps, free_memory_blocks, var_pointer_map) do
-    %__MODULE__{maps: maps, free_memory_blocks: free_memory_blocks, var_pointer_map: var_pointer_map}
+  def new(maps, free_memory_blocks, var_pointer_map, free_program_var \\ false) do
+    %__MODULE__{maps: maps, free_memory_blocks: free_memory_blocks, var_pointer_map: var_pointer_map, free_program_var: free_program_var}
   end
 end
 
@@ -113,24 +113,30 @@ defmodule Honey.Compiler.Translator do
     end
   end
 
-  def deallocate_var_in_context(context, meta, var_name_in_c) do
+  def deallocate_var_in_context(context, translated_code) do
+    var_name_in_c = translated_code.return_var_name
     IO.inspect("Removing")
     IO.inspect(var_name_in_c)
     if String.match?(var_name_in_c, ~r/^helper_var_/) do
       IO.inspect("Helper")
       return_var_in_context(context, var_name_in_c)
-    else
-      dv = Keyword.get(meta, :dv)
-      if MapSet.member?(dv, String.to_atom(var_name_in_c)) do
-        IO.inspect("Dead")
-        return_var_in_context(context, var_name_in_c)
+      #else
+      #dv = Keyword.get(meta, :dv)
+      #if MapSet.member?(dv, String.to_atom(var_name_in_c)) do
+      #  IO.inspect("Dead")
+      #  return_var_in_context(context, var_name_in_c)
       else
-        case Keyword.get(meta, :last) do
-          true -> IO.inspect("Last")
-            IO.inspect(meta)
-            return_var_in_context(context, var_name_in_c)
-          _ -> context
-        end
+        if translated_code.context.free_program_var do
+            IO.inspect("Freeprogvar")
+            IO.inspect(return_var_in_context(context, var_name_in_c))
+        else
+          context
+#        case Keyword.get(meta, :last) do
+#          true -> IO.inspect("Last")
+#            IO.inspect(meta)
+#            return_var_in_context(context, var_name_in_c)
+#          _ -> context
+        #end
       end
     end
   end
@@ -141,11 +147,16 @@ defmodule Honey.Compiler.Translator do
   def to_c(tree, context \\ {})
 
   # Variables
-  def to_c({_, _meta, _} = var, context) when is_var(var) do
+  def to_c({_, meta, _} = var, context) when is_var(var) do
     c_var_name = var_to_string(var)
-    #context = deallocate_var_in_context(context, meta, c_var_name)
     c_var_type = TypeSet.get_typeset_from_var_ast(var)
-    TranslatedCode.new("\n//Returning variable #{c_var_name} \n", c_var_name, c_var_type, context)
+    context = %{context | free_program_var: Keyword.get(meta, :last)}
+    var_pointer = Map.get(context.var_pointer_map, c_var_name)
+    pos = case var_pointer do 
+      {pos, _} -> pos
+      {pos, _, _} -> pos 
+    end
+    TranslatedCode.new("// Using variable #{c_var_name} in pos #{pos}", c_var_name, c_var_type, context)
   end
 
   # Blocks
@@ -217,6 +228,7 @@ defmodule Honey.Compiler.Translator do
     # Give back variables from lhs and rhs
     c_var_name = unique_helper_var()
 
+    # typed_binary_operation frees the variables that it uses unless its not dead.
     c_var = typed_binary_operation(lhs_in_c, rhs_in_c, c_var_name, func_string, function, meta, rhs_in_c.context)
 
     """
@@ -229,7 +241,7 @@ defmodule Honey.Compiler.Translator do
   end
 
   # C libraries
-  def to_c({{:., _, [Honey.BpfHelpers, function]}, _, params}, context) do
+  def to_c({{:., _meta, [Honey.BpfHelpers, function]}, _, params}, context) do
     case function do
       :bpf_printk ->
         [[string | other_params]] = params
@@ -334,6 +346,7 @@ defmodule Honey.Compiler.Translator do
             # This assumption should be broken eventually and it should be done within this cond.
 
             key_in_stack = get_var_stack_name(key)
+            context = deallocate_var_in_context(context, key)
 
             key_code =
               cond do
@@ -479,7 +492,7 @@ defmodule Honey.Compiler.Translator do
         key = to_c(key_ast, context)
         update_value = to_c(value_ast, key.context)
         generic_value = translated_code_to_generic(update_value, update_value.context)
-        context = key.context
+        context = generic_value.context
 
         result_var_c = unique_helper_var()
 
@@ -499,6 +512,10 @@ defmodule Honey.Compiler.Translator do
             key_in_stack = get_var_stack_name(key)
             generic_value_in_stack = get_var_stack_name(generic_value)
             update_value_in_stack = get_var_stack_name(update_value)
+
+            context = deallocate_var_in_context(context, key)
+            context = deallocate_var_in_context(context, update_value)
+            context = deallocate_var_in_context(context, generic_value)
 
             {context, pos} = allocate_var_in_context(context, result_var_c, 4)
 
@@ -682,6 +699,7 @@ defmodule Honey.Compiler.Translator do
       TypeSet.is_integer?(access_type) ->
         {context, pos} = allocate_var_in_context(context, helper_var, 4)
         """
+        // Defining #{helper_var} in #{pos}
         stack_int = (int*) (stack + #{pos});
         stack_int[0] = ctx_arg->#{element};
         """
@@ -689,8 +707,9 @@ defmodule Honey.Compiler.Translator do
         |> TranslatedCode.new(helper_var, TypeSet.new(ElixirTypes.type_integer()), context)
 
       TypeSet.is_generic?(access_type) ->
-        {context, pos} = allocate_var_in_context(context, helper_var, 4)
+        {context, pos} = allocate_var_in_context(context, helper_var, 12)
         """
+        // Defining #{helper_var} in #{pos}
         stack_gen = (Generic*) (stack + #{pos});
         stack_gen[0] = ctx_arg->#{element};
         """
@@ -873,8 +892,9 @@ defmodule Honey.Compiler.Translator do
         _ ->
           TranslatedCode.new("", rhs_in_c.return_var_name, rhs_in_c.return_var_type, rhs_in_c.context)
       end
+    context = return_rhs.context
   
-    context = return_var_in_context(context, meta, return_rhs)
+    #context = return_var_in_context(context, meta, return_rhs)
 
     matching = pattern_matching(lhs, get_var_stack_name(return_rhs), exit_label, context)
     pattern_matching_code = """
@@ -1628,10 +1648,11 @@ defmodule Honey.Compiler.Translator do
   end
 
   # Translates a block of code by calling to_c for each element in that block.
-  defp block_to_c({:__block__, _, exprs}, context) do
+  defp block_to_c({:__block__, _meta, exprs}, context) do
     Enum.reduce(exprs, Honey.Runtime.TranslatedCode.new("", "No_Var", TypeSet.new(ElixirTypes.type_any()), context), fn expr, translated_so_far ->
-      context_so_far = translated_so_far.context
-      translated_expr = to_c(expr, context_so_far)
+      context = translated_so_far.context
+      context = deallocate_var_in_context(context, translated_so_far)
+      translated_expr = to_c(expr, context)
 
       %TranslatedCode{
         translated_expr
@@ -1653,7 +1674,7 @@ defmodule Honey.Compiler.Translator do
     |> TranslatedCode.new(tuple_var)
   end
 
-  def typed_binary_operation(lhs_in_c, rhs_in_c, return_name, func_string, function, meta, context) do
+  def typed_binary_operation(lhs_in_c, rhs_in_c, return_name, func_string, function, _meta, context) do
     lhs_value = get_var_stack_name(lhs_in_c)
     rhs_value = get_var_stack_name(rhs_in_c)
 
@@ -1663,8 +1684,8 @@ defmodule Honey.Compiler.Translator do
       TypeSet.is_generic?(lhs_in_c.return_var_type) ->
         # RHS is generic, we do a BINARY_OPERATION.
         if TypeSet.is_generic?(rhs_in_c.return_var_type) do
-          context = deallocate_var_in_context(context, meta, lhs_in_c.return_var_name)
-          context = deallocate_var_in_context(context, meta, rhs_in_c.return_var_name)
+          context = deallocate_var_in_context(context, lhs_in_c)
+          context = deallocate_var_in_context(context, rhs_in_c)
 
           "BINARY_OPERATION(#{return_name}, #{func_string}, #{lhs_value}, #{rhs_value})"
           |> gen()
@@ -1672,12 +1693,12 @@ defmodule Honey.Compiler.Translator do
 
           # RHS isn't generic, we need to get it to generic
         else
-          context = deallocate_var_in_context(context, meta, lhs_in_c.return_var_name)
+          context = deallocate_var_in_context(context, lhs_in_c)
 
           generic_rhs = translated_code_to_generic(rhs_in_c, context)
           generic_rhs_value = get_var_stack_name(generic_rhs)
 
-          context = deallocate_var_in_context(generic_rhs.context, meta, rhs_in_c.return_var_name)
+          context = deallocate_var_in_context(generic_rhs.context, generic_rhs)
 
           """
           #{generic_rhs.code}
@@ -1689,12 +1710,12 @@ defmodule Honey.Compiler.Translator do
 
       # RHS is generic and lhs isn't
       TypeSet.is_generic?(rhs_in_c.return_var_type) ->
-        context = deallocate_var_in_context(context, meta, rhs_in_c.return_var_name)
+        context = deallocate_var_in_context(context, rhs_in_c)
 
         generic_lhs = translated_code_to_generic(lhs_in_c, context)
         generic_lhs_value = get_var_stack_name(generic_lhs)
 
-        context = deallocate_var_in_context(generic_lhs.context, meta, lhs_in_c.return_var_name)
+        context = deallocate_var_in_context(generic_lhs.context, generic_lhs)
         """
         #{generic_lhs.code}
         BINARY_OPERATION(#{return_name}, #{func_string}, #{generic_lhs_value}, #{rhs_value})
@@ -1705,8 +1726,8 @@ defmodule Honey.Compiler.Translator do
       # Generics have been dealt with. Time to consider the rest.
       TypeSet.is_integer?(lhs_in_c.return_var_type) and
           TypeSet.is_integer?(rhs_in_c.return_var_type) ->
-        context = deallocate_var_in_context(context, meta, lhs_in_c.return_var_name)
-        context = deallocate_var_in_context(context, meta, rhs_in_c.return_var_name)
+        context = deallocate_var_in_context(context, lhs_in_c)
+        context = deallocate_var_in_context(context, rhs_in_c)
         case function do
           :== ->
             {context, pos} = allocate_var_in_context(context, return_name, 12)
