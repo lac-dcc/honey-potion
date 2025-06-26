@@ -225,7 +225,6 @@ defmodule Honey.Compiler.Translator do
     lhs_in_c = to_c(lhs, context)
     rhs_in_c = to_c(rhs, lhs_in_c.context)
 
-    # Give back variables from lhs and rhs
     c_var_name = unique_helper_var()
 
     # typed_binary_operation frees the variables that it uses unless its not dead.
@@ -251,23 +250,13 @@ defmodule Honey.Compiler.Translator do
         end
 
         string = String.replace(string, "\n", "\\n")
-        {code_vars, _final_context} = Enum.map_reduce(other_params, context, &{to_c(&1, &2), &2})
+
+        {code_vars, context} = Enum.map_reduce(other_params, context, fn x, acc ->
+          var = to_c(x, acc)
+          {var, var.context}
+        end)
 
         code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
-
-        #        vars =
-        #          Enum.reduce(code_vars, "", fn translated, so_far ->
-        #            if TypeSet.is_generic?(translated.return_var_type) do
-        #              so_far <> ", " <> translated.return_var_name <> ".value.integer"
-        #            else
-        #              if TypeSet.is_integer?(translated.return_var_type) do
-        #                so_far <> ", " <> translated.return_var_name
-        #              else
-        #                # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
-        #                so_far <> ", " <> translated.return_var_name <> ".value.integer"
-        #              end
-        #            end
-        #          end)
 
         vars =
           Enum.reduce(code_vars, "", fn translated, so_far ->
@@ -282,8 +271,10 @@ defmodule Honey.Compiler.Translator do
               end
             end
           end)
-        result_var = unique_helper_var()
 
+        context = Enum.reduce(code_vars, context, fn var, context -> deallocate_var_in_context(context, var) end)
+
+        result_var = unique_helper_var()
         {context, pos} = allocate_var_in_context(context, result_var, 4)
 
         # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
@@ -332,8 +323,6 @@ defmodule Honey.Compiler.Translator do
         key = to_c(key_ast, context)
         context = key.context
 
-        result_var_pointer = unique_helper_var()
-
         cond do
           map_content.type == BPF_MAP_TYPE_PERCPU_ARRAY or
             map_content.type == BPF_MAP_TYPE_ARRAY or
@@ -353,13 +342,13 @@ defmodule Honey.Compiler.Translator do
                 TypeSet.has_unique_type(key.return_var_type, ElixirTypes.type_void()) ->
                   """
                   #{key.code}
-                  Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, #{key_in_stack});
+                  lookup = bpf_map_lookup_elem(&#{str_map_name}, #{key_in_stack});
                   """
 
                 TypeSet.is_integer?(key.return_var_type) ->
                   """
                   #{key.code}\n
-                  Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key_in_stack}));
+                  lookup = bpf_map_lookup_elem(&#{str_map_name}, &(#{key_in_stack}));
                   """
 
                 TypeSet.is_generic?(key.return_var_type) ->
@@ -369,7 +358,7 @@ defmodule Honey.Compiler.Translator do
                     op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Key passed to bpf_map_lookup_elem is not integer."};
                     goto CATCH;
                   }
-                  Generic *#{result_var_pointer} = bpf_map_lookup_elem(&#{str_map_name}, &(#{key_in_stack}.value.integer));
+                  lookup = bpf_map_lookup_elem(&#{str_map_name}, &(#{key_in_stack}.value.integer));
                   """
               end
 
@@ -392,11 +381,11 @@ defmodule Honey.Compiler.Translator do
             (key_code <>
                """
                //Getting #{item_var}
-               if(!#{result_var_pointer}) {
+               if(!lookup) {
                #{not_found_code}
                } else {
                  stack_int = (int*) (stack + #{pos});
-                 stack_int[0] = #{result_var_pointer}->value.integer;
+                 stack_int[0] = ((Generic*) lookup)->value.integer;
                }
                """)
             |> gen()
@@ -556,6 +545,7 @@ defmodule Honey.Compiler.Translator do
 
       :bpf_get_current_pid_tgid ->
         result_var = unique_helper_var()
+        #TODO allocate_var_in_context(context, result_var, 4)
 
         "int #{result_var} = bpf_get_current_pid_tgid();\n"
         |> gen()
@@ -1475,7 +1465,7 @@ defmodule Honey.Compiler.Translator do
               raise "We cannot convert arbitrary atoms yet (only 'true', 'false' and 'nil')."
           end
 
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 8)
+        {context, pos} = allocate_var_in_context(context, var_name_in_c, 12)
 
         code = """
           // Defining variable #{var_name_in_c};
