@@ -57,4 +57,11 @@ defmodule Honey.Runtime.MemoryBlocks do
     end
     Enum.reverse(memory)
   end
+  def defrag(memory) do
+    {last_pos, free_size} = Enum.reduce(memory, {0, 0}, fn {pos , size}, {_last_pos, free_size} ->
+      new_free_size = free_size + size
+      {pos - free_size, new_free_size}
+    end)
+    [{last_pos, free_size}]
+  end
 end

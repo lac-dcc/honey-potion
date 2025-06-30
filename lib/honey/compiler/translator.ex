@@ -1,8 +1,10 @@
 defmodule Honey.Compiler.TranslatorContext do
-  defstruct [:maps, :free_memory_blocks, :var_pointer_map, :free_program_var]
+  defstruct [:maps, :free_memory_blocks, :var_pointer_map, :pos_to_var_map, :free_program_var]
 
-  def new(maps, free_memory_blocks, var_pointer_map, free_program_var \\ false) do
-    %__MODULE__{maps: maps, free_memory_blocks: free_memory_blocks, var_pointer_map: var_pointer_map, free_program_var: free_program_var}
+  alias Honey.Runtime.MemoryBlocks
+
+  def new(maps, free_memory_blocks, var_pointer_map, pos_to_var_map, free_program_var \\ false) do
+    %__MODULE__{maps: maps, free_memory_blocks: free_memory_blocks, var_pointer_map: var_pointer_map, pos_to_var_map: pos_to_var_map, free_program_var: free_program_var}
   end
 end
 
@@ -10,6 +12,7 @@ defmodule Honey.Compiler.Translator do
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
   """
+  alias Honey.Compiler.TranslatorContext
   alias Honey.Codegen.Boilerplates
   alias Honey.Utils.Guard
   alias Honey.Analysis.ElixirTypes
@@ -26,7 +29,7 @@ defmodule Honey.Compiler.Translator do
     case func_name do
       "main" ->
         Guard.ensure_sec_type!(sec)
-        context = Honey.Compiler.TranslatorContext.new(elixir_maps, MemoryBlocks.create(4096), %{})
+        context = Honey.Compiler.TranslatorContext.new(elixir_maps, MemoryBlocks.create(4096), %{}, %{})
         #IO.inspect(context)
         translated_code = to_c(ast, context)
         IO.inspect(translated_code)
@@ -65,25 +68,94 @@ defmodule Honey.Compiler.Translator do
       {pos, _, _} -> pos 
     end
 
-    if TypeSet.is_generic?(translated_code.return_var_type) do
-      "(*(Generic*) (stack + #{c_var_position}))"
-    else
-      if TypeSet.is_integer?(translated_code.return_var_type) do
-      "(*(int*) (stack + #{c_var_position}))"
-      else
-        # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
-      "(*(Generic*) (stack + #{c_var_position}))"
-      end
+    cond do 
+      TypeSet.is_generic?(translated_code.return_var_type) ->
+        "(*(Generic*) (stack + #{c_var_position}))"
+      TypeSet.is_integer?(translated_code.return_var_type) ->
+        "(*(int*) (stack + #{c_var_position}))"
+      TypeSet.is_void?(translated_code.return_var_type) ->
+        "(*(void**) ((stack + #{c_var_position})))"
+      true ->
+      # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
+        "(*(Generic*) (stack + #{c_var_position}))"
     end
+  end
+
+  def get_var_stack_pos(context, var_name) do
+    elem = Map.get(context.var_pointer_map, var_name)
+    case elem do 
+      {pos, _} -> pos
+      {pos, _, _} -> pos 
+    end
+  end
+
+  def defragment_context(context) do
+    %TranslatorContext{free_memory_blocks: memory, var_pointer_map: var_map, pos_to_var_map: pos_map} = context
+    positions = Enum.sort(Map.keys(pos_map))
+    {defrag_code, var_map, pos_map, _target_pos} = Enum.reduce(positions, {"//Starting Defragmentation \n", var_map, pos_map, 0}, fn old_pos, {defrag_code, var_map, pos_map, target_pos} ->
+      {name, size} = Map.get(pos_map, old_pos)
+
+      if(target_pos == old_pos) do
+        {"", var_map, pos_map, target_pos + size}
+      else
+        
+        var_map = Map.update!(var_map, name, fn {_pos, size} ->
+          {target_pos, size}
+        end)
+        pos_map = Map.drop(pos_map, [old_pos])
+        pos_map = Map.put(pos_map, target_pos, {name, size})
+
+        defrag_code = defrag_code <>
+          case size do
+          4 ->
+            """
+            stack_int = (int*) (stack + #{target_pos});
+            stack_int[0] = *((int*) (stack + #{old_pos}));
+            """
+          8 ->
+            """
+            stack_str = (String*) (stack + #{target_pos});
+            stack_str[0] = *((String*) (stack + #{old_pos}));
+            """
+          12 ->
+            """
+            stack_gen = (Generic*) (stack + #{target_pos});
+            stack_gen[0] = *((Generic*) (stack + #{old_pos}));
+            """
+        end
+
+        target_pos = target_pos + size
+        {defrag_code, var_map, pos_map, target_pos}
+      end
+    end)
+    memory = MemoryBlocks.defrag(memory)
+    context = %{context |
+      var_pointer_map: var_map,
+      pos_to_var_map: pos_map,
+      free_memory_blocks: memory
+    }
+    {context, defrag_code}
   end
 
   def allocate_var_in_context(context, var_name_in_c, size) do
       {memory, pos} = MemoryBlocks.get(context.free_memory_blocks, size)
+      {memory, defrag_code, pos} = 
+        if pos == -1 do
+          {context, defrag_code} = defragment_context(context)
+          {memory, pos} = MemoryBlocks.get(context.free_memory_blocks, size)
+          if pos == -1 do
+            raise "Not enough stack size."
+          end
+          {memory, defrag_code, pos}
+        else
+          {memory, "", pos} 
+        end
       context = %{ context | 
         free_memory_blocks: memory,
-        var_pointer_map: Map.put(context.var_pointer_map, var_name_in_c, {pos, size})
+        var_pointer_map: Map.put(context.var_pointer_map, var_name_in_c, {pos, size}),
+        pos_to_var_map: Map.put(context.pos_to_var_map, pos, {var_name_in_c, size})
       }
-      {context, pos}
+      {context, defrag_code, pos}
   end
 
   def return_var_in_context(context, var_name_in_c, keep \\ true) do
@@ -104,7 +176,8 @@ defmodule Honey.Compiler.Translator do
         memory = MemoryBlocks.give(context.free_memory_blocks, pos, size)
         %{ context | 
           free_memory_blocks: memory,
-          var_pointer_map: pointer_map 
+          var_pointer_map: pointer_map,
+          pos_to_var_map: Map.drop(context.pos_to_var_map, [pos])
         }
       {_, _, :dead} -> 
         %{ context | 
@@ -144,7 +217,7 @@ defmodule Honey.Compiler.Translator do
   @doc """
   Translates specific segments of the AST to C.
   """
-  def to_c(tree, context \\ {})
+  def to_c(tree, context)
 
   # Variables
   def to_c({_, meta, _} = var, context) when is_var(var) do
@@ -275,13 +348,14 @@ defmodule Honey.Compiler.Translator do
         context = Enum.reduce(code_vars, context, fn var, context -> deallocate_var_in_context(context, var) end)
 
         result_var = unique_helper_var()
-        {context, pos} = allocate_var_in_context(context, result_var, 4)
+        {context, defrag_code, pos} = allocate_var_in_context(context, result_var, 4)
 
         # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
         """
         #{code}
         bpf_printk(\"#{string}\"#{vars});
 
+        #{defrag_code}
         // Defining variable #{result_var};
         stack_int = (int*) (stack + #{pos});
         stack_int[0] = 0;
@@ -315,7 +389,6 @@ defmodule Honey.Compiler.Translator do
 
         map_content = map[:content]
 
-        item_var = unique_helper_var()
         # found_var = unique_helper_var()
 
         str_map_name = Atom.to_string(map_name)
@@ -339,7 +412,7 @@ defmodule Honey.Compiler.Translator do
 
             key_code =
               cond do
-                TypeSet.has_unique_type(key.return_var_type, ElixirTypes.type_void()) ->
+                TypeSet.is_void?(key.return_var_type) ->
                   """
                   #{key.code}
                   lookup = bpf_map_lookup_elem(&#{str_map_name}, #{key_in_stack});
@@ -362,25 +435,31 @@ defmodule Honey.Compiler.Translator do
                   """
               end
 
-            not_found_code =
+            item_var = unique_helper_var()
+            {context, defrag_code, pos} = allocate_var_in_context(context, item_var, 4)
+
+
+            {not_found_code, context} =
               if default_value == :panic do
-                """
+                {"""
                   op_result = (OpResult){.exception = 1, .exception_msg = "(KeyNotFound) The key provided was not found in the map '#{str_map_name}'."};
                   goto CATCH;
-                """
+                """, context}
               else
                 # Here the assumption that maps keeps ints is also maintained. 
-                default_value_translated = to_c(default_value)
-
-                """
+                default_value_translated = to_c(default_value, context)
+                default_value_in_stack = get_var_stack_name(default_value_translated)
+                context = deallocate_var_in_context(default_value_translated.context, default_value_translated)
+                {"""
                   #{default_value_translated.code}
-                  #{item_var} = #{default_value_translated.return_var_name};
-                """
+                  stack_int = (int*) (stack + #{pos});
+                  stack_int[0] = #{default_value_in_stack};
+                """, context}
               end
-              {context, pos} = allocate_var_in_context(context, item_var, 4)
             (key_code <>
                """
                //Getting #{item_var}
+               #{defrag_code} 
                if(!lookup) {
                #{not_found_code}
                } else {
@@ -498,6 +577,9 @@ defmodule Honey.Compiler.Translator do
             #{update_value.code}
             #{generic_value.code}
             """
+
+            {context, defrag_code, pos} = allocate_var_in_context(context, result_var_c, 4)
+
             key_in_stack = get_var_stack_name(key)
             generic_value_in_stack = get_var_stack_name(generic_value)
             update_value_in_stack = get_var_stack_name(update_value)
@@ -506,12 +588,11 @@ defmodule Honey.Compiler.Translator do
             context = deallocate_var_in_context(context, update_value)
             context = deallocate_var_in_context(context, generic_value)
 
-            {context, pos} = allocate_var_in_context(context, result_var_c, 4)
-
             update =
               cond do
-                TypeSet.has_unique_type(key.return_var_type, ElixirTypes.type_void()) ->
+                TypeSet.is_void?(key.return_var_type) ->
                   """
+                  #{defrag_code}
                   #{generic_value_in_stack}.value.integer = #{update_value_in_stack};
                   stack_int = (int*) (stack + #{pos});
                   stack_int[0] = bpf_map_update_elem(&#{str_map_name}, (#{key_in_stack}), &#{generic_value_in_stack}, #{flags_str});
@@ -519,6 +600,7 @@ defmodule Honey.Compiler.Translator do
 
                 TypeSet.is_integer?(key.return_var_type) ->
                   """
+                  #{defrag_code}
                   #{generic_value_in_stack}.value.integer = #{update_value_in_stack};
                   stack_int = (int*) (stack + #{pos});
                   stack_int[0] = bpf_map_update_elem(&#{str_map_name}, &(#{key_in_stack}), &#{generic_value_in_stack}, #{flags_str});
@@ -526,6 +608,7 @@ defmodule Honey.Compiler.Translator do
 
                 true ->
                   """
+                  #{defrag_code}
                   if(#{key_in_stack}.type != INTEGER) {
                     op_result = (OpResult){.exception = 1, .exception_msg = "(MapKey) Keys passed to bpf_map_update_elem is not integer."};
                     goto CATCH;
@@ -535,7 +618,7 @@ defmodule Honey.Compiler.Translator do
                   """
               end
 
-            (start <> update)
+            (start <> "// Getting #{result_var_c}\n" <> update)
             |> gen()
             |> TranslatedCode.new(result_var_c, TypeSet.new(ElixirTypes.type_integer()), context)
 
@@ -545,9 +628,14 @@ defmodule Honey.Compiler.Translator do
 
       :bpf_get_current_pid_tgid ->
         result_var = unique_helper_var()
-        #TODO allocate_var_in_context(context, result_var, 4)
+        {context, defrag_code,pos} = allocate_var_in_context(context, result_var, 4)
 
-        "int #{result_var} = bpf_get_current_pid_tgid();\n"
+        """
+        #{defrag_code}
+        // Getting tgid into #{result_var}
+        stack_int = (int*) (stack + #{pos});
+        = bpf_get_current_pid_tgid();\n
+        """
         |> gen()
         |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()), context)
     end
@@ -577,8 +665,11 @@ defmodule Honey.Compiler.Translator do
         "" |> TranslatedCode.new("IPPROTO_UDP", TypeSet.new(ElixirTypes.type_integer()), context)
 
       :ip_protocol ->
+        {context, defrag_code, pos} = allocate_var_in_context(context, return_var, 4)
         """
-        int #{return_var};
+        #{defrag_code}
+        // Getting ip_protocol in #{return_var}
+        stack_int = (int*) (stack + #{pos});
         if (eth->h_proto == htons(ETH_P_IP)){
             struct iphdr *iph = data + nh_off;
 
@@ -587,7 +678,7 @@ defmodule Honey.Compiler.Translator do
                 return 0;
 
             nh_off += sizeof(struct iphdr);
-            #{return_var} = iph->protocol;
+            stack_int[0] = iph->protocol;
         } else if (eth->h_proto == htons(ETH_P_IPV6)) {
 
             struct ipv6hdr *ip6h = data + nh_off;
@@ -597,7 +688,7 @@ defmodule Honey.Compiler.Translator do
                 return 0;
 
             nh_off += sizeof(struct ipv6hdr);
-            #{return_var} = ip6h->nexthdr;
+            stack_int[0] = iph->protocol;
         } else {
             return XDP_PASS;
         }
@@ -606,14 +697,17 @@ defmodule Honey.Compiler.Translator do
         |> TranslatedCode.new(return_var, TypeSet.new(ElixirTypes.type_integer()), context)
 
       :destination_port ->
+        {context, defrag_code, pos} = allocate_var_in_context(context, return_var, 4)
         """
-        int #{return_var};
+        #{defrag_code}
+        // Getting destination port in #{return_var}
+        stack_int = (int*) (stack + #{pos});
         {
         struct udphdr *udph = data + nh_off;
 
         if (data + nh_off + sizeof(struct udphdr) > data_end)
             return 0;
-        #{return_var} = ntohs(udph->dest);
+        stack_int[0] = ntohs(udph->dest);
         }
         """
         |> gen()
@@ -621,7 +715,7 @@ defmodule Honey.Compiler.Translator do
 
       :set_destination_port ->
         [port] = params
-        port_var = to_c(port)
+        port_var = to_c(port, context)
 
         """
         #{port_var.code}
@@ -636,11 +730,15 @@ defmodule Honey.Compiler.Translator do
         |> TranslatedCode.new(port_var.return_var_name, TypeSet.new(ElixirTypes.type_integer()), context)
 
       :h_source ->
+        {context, defrag_code, pos} = allocate_var_in_context(context, return_var, 8)
         """
-        void* #{return_var} = eth->h_source;
+        #{defrag_code}
+        // h_source in #{return_var}
+        stack_str = (String*) (stack + #{pos});
+        stack_str[0] = *((String*) (&(eth->h_source)));
 
-        if (#{return_var} == 0) return XDP_PASS;
-        if (#{return_var} + 7 >= data_end) return XDP_PASS;
+        if ((void*) (stack + #{pos}) == 0) return XDP_PASS;
+        if (((void*) (stack + #{pos})) + 7 >= data_end) return XDP_PASS;
 
         """
         |> gen()
@@ -687,8 +785,9 @@ defmodule Honey.Compiler.Translator do
 
     cond do
       TypeSet.is_integer?(access_type) ->
-        {context, pos} = allocate_var_in_context(context, helper_var, 4)
+        {context, defrag_code, pos} = allocate_var_in_context(context, helper_var, 4)
         """
+        #{defrag_code}
         // Defining #{helper_var} in #{pos}
         stack_int = (int*) (stack + #{pos});
         stack_int[0] = ctx_arg->#{element};
@@ -697,8 +796,9 @@ defmodule Honey.Compiler.Translator do
         |> TranslatedCode.new(helper_var, TypeSet.new(ElixirTypes.type_integer()), context)
 
       TypeSet.is_generic?(access_type) ->
-        {context, pos} = allocate_var_in_context(context, helper_var, 12)
+        {context, defrag_code, pos} = allocate_var_in_context(context, helper_var, 12)
         """
+        #{defrag_code}
         // Defining #{helper_var} in #{pos}
         stack_gen = (Generic*) (stack + #{pos});
         stack_gen[0] = ctx_arg->#{element};
@@ -708,16 +808,22 @@ defmodule Honey.Compiler.Translator do
     end
   end
 
-  # General dot operator
+  # General dot operator; TODO
   def to_c({{:., _, [var, property]}, _, _}, context) do
-    var_name_in_c = var_to_string(var)
+    # Assumes that var has already been allocated.
+
     property_var = unique_helper_var()
+    {context, defrag_code, property_pos} = allocate_var_in_context(context, property_var, 12)
     str_name_var = unique_helper_var()
 
+    var_name_in_c = var_to_string(var)
+    {access_var_pos, _size} = Map.get(context.var_pointer_map, var_name_in_c)
+
     """
+    #{defrag_code}
     Generic #{property_var} = {0};
     char #{str_name_var}[20] = "#{Atom.to_string(property)}";
-    getMember(&op_result, &#{var_name_in_c}, #{str_name_var}, &#{property_var});
+    getMember(&op_result, (Generic*) (stack + #{access_var_pos}), #{str_name_var},(Generic*) (stack + #{property_pos}));
     if (op_result.exception) goto CATCH
     """
     |> gen()
@@ -744,10 +850,14 @@ defmodule Honey.Compiler.Translator do
   def to_c({:cond, _, [[do: conds]]}, context) do
     cond_var = unique_helper_var()
 
+    {context, defrag_code, pos} = allocate_var_in_context(context, cond_var, 12)
+
     cond_code = cond_statments_to_c(conds, cond_var, context)
 
     """
-    Generic #{cond_var} = {.type = INTEGER, .value.integer = 0};
+    #{defrag_code}
+    stack_gen = (Generic*) (stack + #{pos});
+    stack_gen[0] = (Generic) {.type = INTEGER, .value.integer = 0};
     #{cond_code}
     """
     |> gen()
@@ -755,15 +865,25 @@ defmodule Honey.Compiler.Translator do
   end
 
   def to_c({:{}, _, tuple_values}, context) when is_list(tuple_values) do
-    tuple_translations_to_c = Enum.map(tuple_values, fn element -> to_c(element) end)
+    {tuple_translations_to_c, context} = Enum.map_reduce(tuple_values, context, fn element, context ->
+      var = to_c(element, context) 
+      {var, var.context}
+    end)
 
-    generic_tuple_elements =
-      Enum.map(tuple_translations_to_c, fn element -> translated_code_to_generic(element, context) end)
+    {generic_tuple_elements, context} =
+      Enum.map_reduce(tuple_translations_to_c, context, fn element, context ->
+        var = translated_code_to_generic(element, context)
+        {var, var.context}
+      end)
 
-    tuple_var_names =
-      Enum.map(generic_tuple_elements, fn translation -> translation.return_var_name end)
+    {tuple_var_values, context} =
+      Enum.map_reduce(generic_tuple_elements, context, fn translation, context -> 
+        tuple_elem_value = get_var_stack_name(translation)
+        context = deallocate_var_in_context(context, translation)
+        {tuple_elem_value, context}
+      end)
 
-    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(tuple_var_names, 0)
+    {heap_allocation_code, heap_allocated_size} = allocate_tuple_in_heap(tuple_var_values, 0)
 
     tuple_values_code =
       Enum.reduce(Enum.zip(tuple_translations_to_c, generic_tuple_elements), "", fn tuple_to_c,
@@ -773,11 +893,14 @@ defmodule Honey.Compiler.Translator do
       end)
 
     tuple_var = unique_helper_var()
+    {context, defrag_code, pos} = allocate_var_in_context(context, tuple_var, 12)
 
     """
     #{tuple_values_code}
     #{heap_allocation_code}
-    Generic #{tuple_var} = {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
+    #{defrag_code}
+    stack_gen = (Generic*) (stack + #{pos});
+    stack_gen[0] = (Generic) {.type = TUPLE, .value.tuple = (Tuple){.start = (*tuple_pool_index)-#{heap_allocated_size}, .end = (*tuple_pool_index)-1}};
     """
     |> gen()
     |> TranslatedCode.new(tuple_var, TypeSet.new(ElixirTypes.type_tuple()), context)
@@ -789,11 +912,14 @@ defmodule Honey.Compiler.Translator do
 
   def to_c([], context) do
     list_var = unique_helper_var()
+    {context, defrag_code, pos} = allocate_var_in_context(context, list_var, 12)
 
     """
-    Generic #{list_var} = {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
+    #{defrag_code}
+    stack_gen = (Generic*) (stack + #{pos});
+    stack_gen[0] = (Generic) {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
     if((*heap_index) < HEAP_SIZE && (*heap_index) >= 0) {
-      (*heap)[(*heap_index)] = #{list_var};
+      (*heap)[(*heap_index)] = (*(Generic*) (stack + #{pos}))";
     } else {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
       goto CATCH;
@@ -826,24 +952,30 @@ defmodule Honey.Compiler.Translator do
 
   # Case
   def to_c({:case, _, [case_input, [do: cases]]} = _case_exp, context) do
-    case_input_translated = to_c(case_input)
+    case_input_translated = to_c(case_input, context)
 
     # We might not get a generic. We want a generic to operate on Case, as Case can have any type:
     generic_case_input = translated_code_to_generic(case_input_translated, context)
-    case_return_var = unique_helper_var()
+    generic_case_value = get_var_stack_name(generic_case_input)
 
+    case_return_var = unique_helper_var()
+    {context, defrag_code, case_return_pos} = allocate_var_in_context(context, case_return_var, 12)
+
+    # returns a string
     case_code =
       case_statements_to_c(
-        generic_case_input.return_var_name,
-        case_return_var,
+        generic_case_value,
+        case_return_pos,
         cases,
         context
       )
 
+    context = deallocate_var_in_context(context, generic_case_input)
+
     """
     #{case_input_translated.code}
     #{generic_case_input.code}
-    Generic #{case_return_var};
+    #{defrag_code}
     #{case_code}
     """
     |> gen()
@@ -947,9 +1079,15 @@ defmodule Honey.Compiler.Translator do
   end
 
   def allocate_list_header_into_heap(header_element, context) do
-    list_element_in_c = to_c(header_element)
+    list_element_in_c = to_c(header_element, context)
     generic_list_element = translated_code_to_generic(list_element_in_c, context)
+
     list_var = unique_helper_var()
+    {context, defrag_code, pos} = allocate_var_in_context(generic_list_element.context, list_var, 12)
+
+    generic_list_element_value = get_var_stack_name(generic_list_element)
+    context = deallocate_var_in_context(context, generic_list_element)
+
 
     (list_element_in_c.code <>
        generic_list_element.code <>
@@ -969,16 +1107,18 @@ defmodule Honey.Compiler.Translator do
        }
        ++(*tuple_pool_index);
 
-       Generic #{list_var} = (Generic){.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
+       #{defrag_code}
+       stack_gen = (Generic*) (stack + #{pos});
+       stack_gen[0] = (Generic) {.type = LIST, .value.tuple = (Tuple){.start = (*tuple_pool_index)-2, .end = (*tuple_pool_index)-1}};
        if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
-         (*heap)[(*heap_index)] = #{generic_list_element.return_var_name};
+         (*heap)[(*heap_index)] = #{generic_list_element_value};
        } else {
          op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
          goto CATCH;
        }
        ++(*heap_index);
        if(*heap_index < HEAP_SIZE && *heap_index >= 0) {
-         (*heap)[(*heap_index)] = #{list_var};
+         (*heap)[(*heap_index)] = *((Generic*) (stack + #{pos}));
        } else {
          op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
          goto CATCH;
@@ -986,25 +1126,31 @@ defmodule Honey.Compiler.Translator do
        ++(*heap_index);
        """)
     |> gen()
-    |> TranslatedCode.new(list_var)
+    |> TranslatedCode.new(list_var, TypeSet.new(ElixirTypes.type_list()), context)
   end
 
   defp generate_code_for_list_head_element_assignment(
-         list_head_var_name,
+         list_head_var_value,
          assignment_head,
          exit_label,
          context
        ) do
     head_element_var_name = unique_helper_var()
+    {context, defrag_head_code, _head_pos} = allocate_var_in_context(context, head_element_var_name, 12)
     heap_index_var_name = unique_helper_var()
+    {context, defrag_index, heap_index_pos} = allocate_var_in_context(context, heap_index_var_name, 4)
+    head_pos = get_var_stack_pos(context,head_element_var_name)
     
     prefix =
     """
-    Generic #{head_element_var_name};
-    if(#{list_head_var_name}.value.tuple.start < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start >= 0) {
-      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start));
-      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
-        #{head_element_var_name} = *(*(heap)+(#{heap_index_var_name}));
+    #{defrag_head_code}
+    #{defrag_index}
+    stack_gen = (Generic*) (stack + #{head_pos});
+    if(#{list_head_var_value}.value.tuple.start < TUPLE_POOL_SIZE && #{list_head_var_value}.value.tuple.start >= 0) {
+      stack_int = (int*) (stack + #{heap_index_pos});
+      stack_int[0] = *((*tuple_pool)+(#{list_head_var_value}.value.tuple.start));
+      if((*(unsigned*) (stack + #{heap_index_pos})) < HEAP_SIZE && (*(unsigned*) (stack + #{heap_index_pos}))>= 0) {
+        stack_gen[0] = *(*(heap) + (*(unsigned*) (stack + #{heap_index_pos})));
       } else {
         op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
         goto #{exit_label};
@@ -1014,20 +1160,35 @@ defmodule Honey.Compiler.Translator do
       goto #{exit_label};
     }
     """
-    suffix = pattern_matching(assignment_head, head_element_var_name, exit_label, context)
-    %{suffix | code: prefix <> suffix.code}
+    head_element_var_value = "(*(Generic*) + (stack + #{head_pos}))"
+
+    suffix = pattern_matching(assignment_head, head_element_var_value, exit_label, context)
+    context = suffix.context
+
+    context = return_var_in_context(context, heap_index_var_name)
+
+    %{suffix | 
+      code: prefix <> suffix.code,
+      context: context
+    }
   end
 
-  defp generate_code_for_get_next_list_head(list_head_var_name, exit_label, context) do
+  defp generate_code_for_get_next_list_head(list_head_var_value, exit_label, context) do
     next_list_head_var_name = unique_helper_label()
+    {context, defrag_head_code, _next_head_var_pos} = allocate_var_in_context(context, next_list_head_var_name, 12)
     heap_index_var_name = unique_helper_var()
+    {context, defrag_index, heap_index_pos} = allocate_var_in_context(context, heap_index_var_name, 4)
+    next_head_var_pos = get_var_stack_pos(context, next_list_head_var_name)
 
-    """
-    Generic #{next_list_head_var_name};
-    if(#{list_head_var_name}.value.tuple.start+1 < TUPLE_POOL_SIZE && #{list_head_var_name}.value.tuple.start+1 >= 0) {
-      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{list_head_var_name}.value.tuple.start+1));
-      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
-        #{next_list_head_var_name} = *(*(heap)+(#{heap_index_var_name}));
+    code = """
+    #{defrag_head_code}
+    #{defrag_index}
+    stack_gen = (Generic*) (stack + #{next_head_var_pos});
+    if(#{list_head_var_value}.value.tuple.start+1 < TUPLE_POOL_SIZE && #{list_head_var_value}.value.tuple.start+1 >= 0) {
+      stack_int = (int*) (stack + #{heap_index_pos});
+      stack_int[0] = *((int*) ((*tuple_pool)+(#{list_head_var_value}.value.tuple.start+1)));
+      if((*(unsigned*) (stack + #{heap_index_pos})) < HEAP_SIZE && (*(unsigned*) (stack + #{heap_index_pos}))>= 0) {
+        stack_gen[0] = *(*(heap)+(#{heap_index_var_name}));
       } else {
         op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
         goto #{exit_label};
@@ -1037,13 +1198,16 @@ defmodule Honey.Compiler.Translator do
       goto #{exit_label};
     }
     """
+    context = return_var_in_context(context, heap_index_var_name)
+
+    code
     |> gen()
     |> TranslatedCode.new(next_list_head_var_name, TypeSet.new(ElixirTypes.type_any()), context)
   end
 
-  defp get_list_elements_from_heap(list_head_var_name, [], exit_label, context) do
+  defp get_list_elements_from_heap(list_head_var_value, [], exit_label, context) do
     """
-    if(#{list_head_var_name}.value.tuple.start != -1 || #{list_head_var_name}.value.tuple.end != -1) {
+    if(#{list_head_var_value}.value.tuple.start != -1 || #{list_head_var_value}.value.tuple.end != -1) {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
@@ -1051,41 +1215,53 @@ defmodule Honey.Compiler.Translator do
   end
 
   defp get_list_elements_from_heap(
-         list_head_var_name,
+         list_head_var_value,
          [assignment_head | assignments_tail],
          exit_label,
          context
        ) do
+
     head_element =
       generate_code_for_list_head_element_assignment(
-        list_head_var_name,
+        list_head_var_value,
         assignment_head,
         exit_label,
         context
       )
 
-    next_list_header = generate_code_for_get_next_list_head(list_head_var_name, exit_label, head_element.context)
+    next_list_header = generate_code_for_get_next_list_head(list_head_var_value, exit_label, head_element.context)
+    next_list_header_value = get_var_stack_name(next_list_header)
 
-    tail_list = get_list_elements_from_heap(next_list_header.return_var_name, assignments_tail, exit_label, context)
+    # Not sure if apropriate. Beware, could be source of bugs
+    context = deallocate_var_in_context(next_list_header.context, head_element)
+
+
+    tail_list = get_list_elements_from_heap(next_list_header_value, assignments_tail, exit_label, context)
     %{tail_list | code:
     head_element.code <>
     next_list_header.code <>
     tail_list.code}
   end
 
-  defp get_tuple_element_from_heap(_tuple_var_name, [], _index, _exit_label, context), do: TranslatedCode.new("\n//EndOfTuple\n", "", TypeSet.new(ElixirTypes.type_any()), context)
+  defp get_tuple_element_from_heap(_tuple_var_value, [], _index, _exit_label, context), do: TranslatedCode.new("\n//EndOfTuple\n", "NoVar", TypeSet.new(ElixirTypes.type_any()), context)
 
-  defp get_tuple_element_from_heap(tuple_var_name, [first_tuple_elm | tail], index, exit_label, context) do
+  defp get_tuple_element_from_heap(tuple_var_value, [first_tuple_elm | tail], index, exit_label, context) do
     rhs_var = unique_helper_var()
     heap_index_var_name = unique_helper_var()
+    {context, defrag_code_rhs, _rhs_pos} = allocate_var_in_context(context, rhs_var, 12)
+    {context, defrag_code_index_var, index_var_pos} = allocate_var_in_context(context, heap_index_var_name, 4)
+    rhs_pos = get_var_stack_pos(context, rhs_var)
     
     prefix = 
     """
-    Generic #{rhs_var};
-    if(#{tuple_var_name}.value.tuple.start + #{index} < TUPLE_POOL_SIZE && #{tuple_var_name}.value.tuple.start + #{index}>= 0) {
-      unsigned #{heap_index_var_name} = *((*tuple_pool)+(#{tuple_var_name}.value.tuple.start + #{index}));
-      if(#{heap_index_var_name} < HEAP_SIZE && #{heap_index_var_name} >= 0) {
-        #{rhs_var} = *(*(heap)+(#{heap_index_var_name}));
+    #{defrag_code_rhs}
+    #{defrag_code_index_var}
+    stack_gen = (Generic*) (stack + #{rhs_pos});
+    if(#{tuple_var_value}.value.tuple.start + #{index} < TUPLE_POOL_SIZE && #{tuple_var_value}.value.tuple.start + #{index}>= 0) {
+      stack_int = (int*) (stack + #{index_var_pos});
+      stack_int[0] = *((int*) ((*tuple_pool)+(#{tuple_var_value}.value.tuple.start + #{index})));
+      if((*(unsigned*) (stack + #{index_var_pos})) < HEAP_SIZE && (*(unsigned*) (stack + #{index_var_pos}))>= 0) {
+        stack_gen[0] = *(*(heap)+(#{heap_index_var_name}));
       } else {
         op_result = (OpResult){.exception = 1, .exception_msg = "HEAP(MatchError) No match of right hand side value."};
         goto #{exit_label};
@@ -1095,37 +1271,47 @@ defmodule Honey.Compiler.Translator do
       goto #{exit_label};
     }
     """ 
+
     suffix = if is_var(first_tuple_elm) and
          not TypeSet.is_generic?(TypeSet.get_typeset_from_var_ast(first_tuple_elm)) do
       lhs_var_type = TypeSet.get_typeset_from_var_ast(first_tuple_elm)
+
       typed_rhs = unique_helper_var()
       # TODO: Add type verification before grabbing rhs_var and go to exit label
       cond do
         TypeSet.is_integer?(lhs_var_type) ->
+          {context, defrag_code, typed_rhs_pos} = allocate_var_in_context(context, typed_rhs, 4)
           prefix = 
           """
-          int #{typed_rhs} = #{rhs_var}.value.integer;
+          #{defrag_code}
+          stack_int = (int*) (stack + #{typed_rhs_pos});
+          stack_int[0] = #{get_var_stack_pos(context, rhs_var)}
           """
-          matching = pattern_matching(first_tuple_elm, typed_rhs, exit_label, context)
-          tuple = get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label, matching.context)
+          typed_rhs_value = "(*(int*) (stack + #{typed_rhs_pos}}));"
+          matching = pattern_matching(first_tuple_elm, typed_rhs_value, exit_label, context)
+          tuple = get_tuple_element_from_heap(tuple_var_value, tail, index + 1, exit_label, matching.context)
           %{tuple | code: prefix <> matching.code <> tuple.code}
 
         TypeSet.is_string?(lhs_var_type) ->
+          {context, defrag_code, typed_rhs_pos} = allocate_var_in_context(context, typed_rhs, 8)
           prefix = 
           """
-          STRING #{typed_rhs} = {rhs_var}.vale.string;
+          #{defrag_code}
+          stack_str = (String*) (stack + #{typed_rhs_pos});
+          stack_str[0] = #{get_var_stack_pos(context, rhs_var)};
           """
-
-          matching = pattern_matching(first_tuple_elm, typed_rhs, exit_label, context) 
-          tuple = get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label, matching.context)
+          typed_rhs_value = "(*(String*) (stack + #{typed_rhs_pos}}));"
+          matching = pattern_matching(first_tuple_elm, typed_rhs_value, exit_label, context) 
+          tuple = get_tuple_element_from_heap(tuple_var_value, tail, index + 1, exit_label, matching.context)
           %{tuple | code: prefix <> matching.code <> tuple.code}
 
         true ->
           raise "TODO"
       end
     else
-      matching = pattern_matching(first_tuple_elm, rhs_var, exit_label, context, true)
-      tuple = get_tuple_element_from_heap(tuple_var_name, tail, index + 1, exit_label, matching.context)
+      rhs_value = "(*(Generic*) (stack + #{rhs_pos}));"
+      matching = pattern_matching(first_tuple_elm, rhs_value, exit_label, context, true)
+      tuple = get_tuple_element_from_heap(tuple_var_value, tail, index + 1, exit_label, matching.context)
       %{tuple | code: matching.code <> tuple.code}
     end
     %{suffix | code: prefix <> suffix.code}
@@ -1176,8 +1362,9 @@ defmodule Honey.Compiler.Translator do
       )
 
     next_list_header = generate_code_for_get_next_list_head(helper_var_value, exit_label, head_element.context)
+    next_list_header_value = get_var_stack_name(next_list_header)
 
-    list_tail = pattern_matching(tail_assignments, next_list_header.return_var_name, exit_label, next_list_header.context)
+    list_tail = pattern_matching(tail_assignments, next_list_header_value, exit_label, next_list_header.context)
 
     %{list_tail | code:
     """
@@ -1191,12 +1378,12 @@ defmodule Honey.Compiler.Translator do
     list_tail.code}
   end
 
-  defp pattern_matching(list_handlers, helper_var_name, exit_label, context, _generic)
+  defp pattern_matching(list_handlers, helper_var_value, exit_label, context, _generic)
        when is_list(list_handlers) do
-    list = get_list_elements_from_heap(helper_var_name, list_handlers, exit_label, context)
+    list = get_list_elements_from_heap(helper_var_value, list_handlers, exit_label, context)
     %{list | code:
     """
-    if(#{helper_var_name}.type != LIST){
+    if(#{helper_var_value}.type != LIST){
       op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
@@ -1210,30 +1397,34 @@ defmodule Honey.Compiler.Translator do
     var_typeset = TypeSet.get_typeset_from_var_ast(var)
 
     if generic do
-      {context, pos} = allocate_var_in_context(context, c_var_name, 12)
+      {context, defrag_code, pos} = allocate_var_in_context(context, c_var_name, 12)
       """
+      #{defrag_code}
       stack_gen = (Generic*) (stack + #{pos});
       stack_gen[0] = #{helper_var_value};
       """ |> TranslatedCode.new(c_var_name, TypeSet.new(ElixirTypes.type_any()), context)
     else
       cond do
         TypeSet.is_integer?(var_typeset) ->
-          {context, pos} = allocate_var_in_context(context, c_var_name, 4)
+          {context, defrag_code, pos} = allocate_var_in_context(context, c_var_name, 4)
           """
+          #{defrag_code}
           stack_int = (int*) (stack + #{pos});
           stack_int[0] = #{helper_var_value};
           """ |> TranslatedCode.new(c_var_name, TypeSet.new(ElixirTypes.type_integer()), context)
 
         TypeSet.is_string?(var_typeset) ->
-          {context, pos} = allocate_var_in_context(context, c_var_name, 4)
+          {context, defrag_code, pos} = allocate_var_in_context(context, c_var_name, 4)
           """
+          #{defrag_code}
           stack_str = (String*) (stack + #{pos});
           stack_str[0] = #{helper_var_value};
           """ |> TranslatedCode.new(c_var_name, TypeSet.new(ElixirTypes.type_integer()), context)
 
         TypeSet.has_unique_type(var_typeset, ElixirTypes.type_binary()) ->
-          {context, pos} = allocate_var_in_context(context, c_var_name, 4)
+          {context, defrag_code, pos} = allocate_var_in_context(context, c_var_name, 4)
           """
+          #{defrag_code}
           stack_str = (String*) (stack + #{pos});
           stack_str[0] = #{helper_var_value};
           """ |> TranslatedCode.new(c_var_name, TypeSet.new(ElixirTypes.type_integer()), context)
@@ -1246,8 +1437,9 @@ defmodule Honey.Compiler.Translator do
 #
         # TODO: Other types.
         true ->
-          {context, pos} = allocate_var_in_context(context, c_var_name, 12)
+          {context, defrag_code, pos} = allocate_var_in_context(context, c_var_name, 12)
           """
+          #{defrag_code}
           stack_gen = (Generic*) (stack + #{pos});
           stack_gen[0] = #{helper_var_value};
           """ |> TranslatedCode.new(c_var_name, TypeSet.new(ElixirTypes.type_any()), context)
@@ -1343,20 +1535,23 @@ defmodule Honey.Compiler.Translator do
     end
   end
 
-  defp case_statements_to_c(_case_input_var_name, _return_var_name, [], context) do
+  defp case_statements_to_c(_case_input_var_name, _return_var_pos, [], _context) do
     """
       op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
       goto CATCH;
     """
   end
 
-  defp case_statements_to_c(case_input_var_name, return_var_name, [
+  defp case_statements_to_c(case_input_var_name, return_var_pos, [
          {:->, _meta, [[lhs_expression], case_code_block]} | further_cases
        ], context) do
     exit_label = unique_helper_label()
-    translated_case_code_block = to_c(case_code_block)
+    translated_case_code_block = to_c(case_code_block, context)
 
-    generic_translated_case = translated_code_to_generic(translated_case_code_block, context)
+    generic_translated_case = translated_code_to_generic(translated_case_code_block, translated_case_code_block.context)
+    context = generic_translated_case.context
+    generic_translated_case_value = get_var_stack_name(generic_translated_case)
+    context = deallocate_var_in_context(context, generic_translated_case)
 
     """
     op_result.exception = 0;
@@ -1366,9 +1561,10 @@ defmodule Honey.Compiler.Translator do
     if(op_result.exception == 0) {
       #{translated_case_code_block.code}
       #{generic_translated_case.code}
-      #{return_var_name} = #{generic_translated_case.return_var_name};
+      stack_gen = (Generic*) (stack + #{return_var_pos});
+      stack_gen[0] = #{generic_translated_case_value};
     } else {
-      #{case_statements_to_c(case_input_var_name, return_var_name, further_cases, context)}
+      #{case_statements_to_c(case_input_var_name, return_var_pos, further_cases, context)}
     }
     """
   end
@@ -1385,10 +1581,11 @@ defmodule Honey.Compiler.Translator do
 
     cond do
       is_integer(item) ->
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 4)
+        {context, defrag_code, pos} = allocate_var_in_context(context, var_name_in_c, 4)
         {:ok,
          TranslatedCode.new(gen(
             """
+              #{defrag_code}
               // Defining variable #{var_name_in_c};
               stack_int = (int*) (stack + #{pos});
               stack_int[0] = #{item};
@@ -1400,10 +1597,11 @@ defmodule Honey.Compiler.Translator do
          )}
 
       is_number(item) ->
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 12)
+        {context, defrag_code,pos} = allocate_var_in_context(context, var_name_in_c, 12)
         {:ok,
          TranslatedCode.new(gen(
           """
+            #{defrag_code}
             // Defining variable #{var_name_in_c};
             stack_gen = (Generic*) (stack + #{pos});
             stack_gen[0] = #{item};
@@ -1416,7 +1614,7 @@ defmodule Honey.Compiler.Translator do
 
       # Considering only strings for now
       is_bitstring(item) ->
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 8)
+        {context, defrag_code, pos} = allocate_var_in_context(context, var_name_in_c, 8)
         # TODO: Check whether the zero-termination is ok the way it is
 
         # TODO: consider other special chars
@@ -1429,6 +1627,7 @@ defmodule Honey.Compiler.Translator do
 
         code =
           gen("""
+          #{defrag_code}
           // Defining variable #{var_name_in_c};
           unsigned #{len_var_name} = #{str_len};
           unsigned #{end_var_name} = *string_pool_index + #{len_var_name} - 1;
@@ -1462,12 +1661,14 @@ defmodule Honey.Compiler.Translator do
               "ATOM_NIL"
 
             _ ->
+              IO.inspect(item)
               raise "We cannot convert arbitrary atoms yet (only 'true', 'false' and 'nil')."
           end
 
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 12)
+        {context, defrag_code, pos} = allocate_var_in_context(context, var_name_in_c, 12)
 
         code = """
+          #{defrag_code}
           // Defining variable #{var_name_in_c};
           stack_gen = (Generic*) (stack + #{pos});
           stack_gen[0] = #{value};
@@ -1490,10 +1691,11 @@ defmodule Honey.Compiler.Translator do
 
     cond do
       is_integer(item) ->
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 12)
+        {context, defrag_code, pos} = allocate_var_in_context(context, var_name_in_c, 12)
         {:ok,
          TranslatedCode.new(gen(
           """
+            #{defrag_code}
             // Defining variable #{var_name_in_c};
             stack_gen = (Generic*) (stack + #{pos});
             stack_gen[0] = (Generic) {.type = INTEGER, .value.integer = #{item}};;
@@ -1505,10 +1707,11 @@ defmodule Honey.Compiler.Translator do
          )}
 
       is_number(item) ->
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 12)
+        {context, defrag_code, pos} = allocate_var_in_context(context, var_name_in_c, 12)
         {:ok,
          TranslatedCode.new(gen(
           """
+            #{defrag_code}
             // Defining variable #{var_name_in_c};
             stack_gen = (Generic*) (stack + #{pos});
             stack_gen[0] = (Generic)  {.type = DOUBLE, .value.double_precision = #{item}};
@@ -1522,7 +1725,7 @@ defmodule Honey.Compiler.Translator do
       is_bitstring(item) ->
         # TODO: Check whether the zero-termination is ok the way it is
 
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 12)
+        {context, defrag_code, pos} = allocate_var_in_context(context, var_name_in_c, 12)
 
         # TODO: consider other special chars
         # You can use `Macro.unescape_string/2` for this, but please check it
@@ -1534,6 +1737,7 @@ defmodule Honey.Compiler.Translator do
 
         code =
           gen("""
+            #{defrag_code}
           // Defining variable #{var_name_in_c};
           unsigned #{len_var_name} = #{str_len};
           unsigned #{end_var_name} = *string_pool_index + #{len_var_name} - 1;
@@ -1554,7 +1758,7 @@ defmodule Honey.Compiler.Translator do
         {:ok, TranslatedCode.new(code, var_name_in_c, TypeSet.new(ElixirTypes.type_any()), context)}
 
       is_atom(item) ->
-        {context, pos} = allocate_var_in_context(context, var_name_in_c, 12)
+        {context, defrag_code, pos} = allocate_var_in_context(context, var_name_in_c, 12)
 
         # TODO: Convert arbitrary atoms
         value =
@@ -1573,6 +1777,7 @@ defmodule Honey.Compiler.Translator do
           end
 
         code = """
+          #{defrag_code}
           stack_gen = (Generic*) (stack + #{pos});
           stack_gen[0] = (Generic) #{value};
         """
@@ -1598,40 +1803,48 @@ defmodule Honey.Compiler.Translator do
   end
 
   # Transforms conditional statements to C one condition at a time.
-  def cond_statments_to_c([cond_stat | other_conds], cond_var_name_in_c, context) do
+  def cond_statments_to_c([cond_stat | other_conds], cond_return_pos, context) do
     {:->, _, [[condition] | [block]]} = cond_stat
+
     condition_in_c = to_c(condition, context)
-
-    block_in_c = to_c(block, context)
-    generic_block = translated_code_to_generic(block_in_c, context)
-
+    condition_in_c_stack_name = get_var_stack_name(condition_in_c) 
     if_cond =
       cond do
         TypeSet.is_integer?(condition_in_c.return_var_type) ->
-          "if (#{condition_in_c.return_var_name}) {"
+          "if (#{condition_in_c_stack_name}) {"
 
         TypeSet.is_generic?(condition_in_c.return_var_type) ->
-          "if (to_bool(&#{condition_in_c.return_var_name})) {"
+          "if (to_bool(&#{condition_in_c_stack_name})) {"
       end
+    cond_context = deallocate_var_in_context(condition_in_c.context, condition_in_c)
+
+    # We don't deallocate because it's discarded after with the context.
+    block_in_c = to_c(block, cond_context)
+    generic_block = translated_code_to_generic(block_in_c, block_in_c.context)
+
+    generic_block_in_stack = get_var_stack_name(generic_block)
 
     if TypeSet.is_integer?(block_in_c.return_var_type) do
       gen("""
         #{condition_in_c.code}
         #{if_cond}
-        #{block_in_c.code}
-        #{generic_block.code}
-        #{cond_var_name_in_c} = #{generic_block.return_var_name};
+          #{block_in_c.code}
+          #{generic_block.code}
+          stack_gen = (Generic*) (stack + #{cond_return_pos});
+          stack_gen[0] = #{generic_block_in_stack};
       } else {
-        #{cond_statments_to_c(other_conds, cond_var_name_in_c, context)}
+        #{cond_statments_to_c(other_conds, cond_return_pos, cond_context)}
       }
       """)
     else
       gen("""
       #{condition_in_c.code}
+      #{if_cond}
         #{block_in_c.code}
-        #{cond_var_name_in_c} = #{block_in_c.return_var_name};
+        stack_gen = (Generic*) (stack + #{cond_return_pos});
+        stack_gen[0] = #{generic_block_in_stack};
       } else {
-        #{cond_statments_to_c(other_conds, cond_var_name_in_c, context)}
+        #{cond_statments_to_c(other_conds, cond_return_pos, cond_context)}
       }
       """)
     end
@@ -1720,8 +1933,9 @@ defmodule Honey.Compiler.Translator do
         context = deallocate_var_in_context(context, rhs_in_c)
         case function do
           :== ->
-            {context, pos} = allocate_var_in_context(context, return_name, 12)
+            {context, defrag_code, pos} = allocate_var_in_context(context, return_name, 12)
             """
+            #{defrag_code}
             stack_gen = (Generic*) (stack + #{pos});
             if (#{lhs_value} == #{rhs_value}){
               stack_gen[0] = ATOM_TRUE;
@@ -1733,8 +1947,9 @@ defmodule Honey.Compiler.Translator do
             |> TranslatedCode.new(return_name, TypeSet.new(ElixirTypes.type_any()), context)
 
           _ ->
-            {context, pos} = allocate_var_in_context(context, return_name, 4)
+            {context, defrag_code, pos} = allocate_var_in_context(context, return_name, 4)
             """
+            #{defrag_code}
             stack_int = (int*) (stack + #{pos});
             stack_int[0] = #{lhs_value} #{function} #{rhs_value};
             """
@@ -1752,12 +1967,14 @@ defmodule Honey.Compiler.Translator do
       "" |> TranslatedCode.new(typed_var.return_var_name, typed_var.return_var_type, context)
     else
       generic_var = unique_helper_var()
-
-      {context, pos} = allocate_var_in_context(context, generic_var, 12)
       typed_var_value = get_var_stack_name(typed_var)
+      context = deallocate_var_in_context(context, typed_var)
+
+      {context, defrag_code, pos} = allocate_var_in_context(context, generic_var, 12)
       cond do
         TypeSet.is_integer?(typed_var.return_var_type) ->
           """
+            #{defrag_code}
             // Defining variable #{generic_var};
             stack_gen = (Generic*) (stack + #{pos});
             stack_gen[0] = (Generic){.type = INTEGER, .value.integer = #{typed_var_value}};
@@ -1768,6 +1985,7 @@ defmodule Honey.Compiler.Translator do
 
         TypeSet.is_string?(typed_var.return_var_type) ->
           """
+            #{defrag_code}
             // Defining variable #{generic_var};
             stack_gen = (Generic*) (stack + #{pos});
             stack_gen[0] = (Generic){.type = STRING, .value.integer = #{typed_var_value}};
