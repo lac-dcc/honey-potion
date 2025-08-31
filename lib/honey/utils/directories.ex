@@ -11,6 +11,7 @@ defmodule Honey.Utils.Directories do
     create_src(userdir)
     create_obj(userdir)
     create_bin(userdir)
+    create_dot(userdir)
   end
 
   @doc """
@@ -39,5 +40,9 @@ defmodule Honey.Utils.Directories do
 
   defp create_bin(userdir) do
     File.mkdir_p(userdir |> Path.join("bin/"))
+  end
+
+  def create_dot(userdir) do
+    File.mkdir_p(userdir |> Path.join("dot/"))
   end
 end

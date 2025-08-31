@@ -2,6 +2,7 @@ defmodule Honey.Optimization.Optimizer do
   @moduledoc """
   Module to define and run the optimization pipeline that runs over elixirs AST.
   """
+  alias Honey.Analysis.DotGraph
   alias Honey.Analysis.StaticAnalysis
   alias Honey.Optimization.ConstantPropagation
   alias Honey.Optimization.DeadCodeElimination
@@ -21,6 +22,7 @@ defmodule Honey.Optimization.Optimizer do
     # |> Honey.Analysis.AstSize.output(env, " - Final")
     #|> IO.inspect()
     |> TreeSplit.run()
+    |> DotGraph.variable_interference_graph(env)
     #|> IO.inspect()
   end
 end
