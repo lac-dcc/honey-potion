@@ -123,6 +123,12 @@ defmodule Honey.Analysis.StaticAnalysis do
   end
 
   defp do_cond_notup_traverse_l({form, meta, args}, acc, pre, post, _casecondFather)
+       when is_atom(form) and form == := do
+    {args, acc} = do_cond_notup_traverse_args_equalsl(args, acc, pre, post, false, true)
+    post.({form, meta, args}, acc)
+  end
+
+  defp do_cond_notup_traverse_l({form, meta, args}, acc, pre, post, _casecondFather)
        when is_atom(form) do
     {args, acc} = do_cond_notup_traverse_args_l(args, acc, pre, post, false)
     post.({form, meta, args}, acc)
@@ -186,6 +192,25 @@ defmodule Honey.Analysis.StaticAnalysis do
     end
   end
 
+  defp do_cond_notup_traverse_args_equalsl(args, acc, pre, post, _casecondFather, _sharedAccumulator)
+       when is_list(args) do
+    traverse = &do_cond_notup_traverse_l/5
+
+    :lists.mapfoldr(
+        fn x, acc ->
+          {x, acc} = pre.(x, acc)
+          traverse.(x, acc, pre, post, false)
+        end,
+        acc,
+        args
+    )
+  end
+
+  defp do_cond_notup_traverse_args_equalsl(args, acc, _pre, _post, _casecondFather, _sharedAccumulator)
+       when is_atom(args) do
+    {args, acc}
+  end
+
   # Does a right to left traverse. If in a case or cond block creates unique acumulators per block. All return the union upwards.
   defp cond_backwards_traverse(ast, acc, pre, post)
        when is_function(pre, 2) and is_function(post, 2) do
@@ -202,7 +227,7 @@ defmodule Honey.Analysis.StaticAnalysis do
 
   defp do_cond_traverse_r({form, meta, args}, acc, pre, post, _casecondFather)
        when is_atom(form) and form == := do
-    {args, acc} = do_cond_traverse_args_equals(args, acc, pre, post, false, true)
+    {args, acc} = do_cond_traverse_args_equalsr(args, acc, pre, post, false, true)
     post.({form, meta, args}, acc)
   end
 
@@ -274,21 +299,21 @@ defmodule Honey.Analysis.StaticAnalysis do
   end
 
   # In the case of a =, the RHS is calculated first, so we need to visit the left first in a backwards travel.
-  defp do_cond_traverse_args_equals(args, acc, pre, post, _casecondFather, _sharedAccumulator)
+  defp do_cond_traverse_args_equalsr(args, acc, pre, post, _casecondFather, _sharedAccumulator)
        when is_list(args) do
     traverse = &do_cond_traverse_r/5
 
     :lists.mapfoldl(
-      fn x, acc ->
-        {x, acc} = pre.(x, acc)
-        traverse.(x, acc, pre, post, false)
-      end,
-      acc,
-      args
+        fn x, acc ->
+          {x, acc} = pre.(x, acc)
+          traverse.(x, acc, pre, post, false)
+        end,
+        acc,
+        args
     )
   end
 
-  defp do_cond_traverse_args_equals(args, acc, _pre, _post, _casecondFather, _sharedAccumulator)
+  defp do_cond_traverse_args_equalsr(args, acc, _pre, _post, _casecondFather, _sharedAccumulator)
        when is_atom(args) do
     {args, acc}
   end

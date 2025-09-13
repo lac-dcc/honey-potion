@@ -14,15 +14,15 @@ defmodule Honey.Optimization.Optimizer do
   """
   def run(fun_def, arguments, env) do
     fun_def
-    |> StaticAnalysis.run()
+    # Modifying optimizations
     |> ConstantPropagation.run()
     |> DeadCodeElimination.run()
-    |> TypePropagation.run(arguments, env)
-
-    # |> Honey.Analysis.AstSize.output(env, " - Final")
-    #|> IO.inspect()
     |> TreeSplit.run()
+    # Analysis optimizations
+    |> StaticAnalysis.run()
+    |> TypePropagation.run(arguments, env)
+    # Debugging and info optimizations
     |> DotGraph.variable_interference_graph(env)
-    #|> IO.inspect()
+    #|> Honey.Analysis.AstSize.output(env, " - Final")
   end
 end
