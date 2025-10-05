@@ -4,7 +4,7 @@ CC := clang
 SRC_DIR := $(shell realpath .)
 BPFTOOL := $(SRC_DIR)/../tools/bpftool
 
-LIBS := -lbpf -lelf -lz
+LIBS := -lbpf -lelf -lz -lncurses
 
 # Flag de arquitetura BPF alvo
 BPF_ARCH := -D__TARGET_ARCH_x86
