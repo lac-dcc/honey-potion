@@ -1,0 +1,4 @@
+prog
+prog.bpf.o
+prog.bpf.ll
+debug
