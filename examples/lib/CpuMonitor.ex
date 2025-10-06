@@ -1,4 +1,4 @@
-defmodule CpuMonitorFull do
+defmodule CpuMonitor do
   use Honey, license: "Dual BSD/GPL"
 
   @max_entries 41943040

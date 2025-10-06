@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
-#include <errno.h>
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
 #include <string.h>

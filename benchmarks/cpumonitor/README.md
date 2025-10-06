@@ -51,3 +51,4 @@ PID   NAME                 %USR   %SYS   %TOT     USER(ms)  KERN(ms)  TOTAL(ms)
 ## Further reading (explain/)
 - `explain/EBPF_IMPLEMENTATION.md`: eBPF architecture, maps, and timing logic
 - `explain/USERSPACE_IMPLEMENTATION.md`: loader/UI details, smoothing, sorting and rendering
+- `explain/SYSTEM_INTEGRATION.md`: How eBPF and user-space programs work together
