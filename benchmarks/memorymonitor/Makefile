@@ -1,21 +1,24 @@
-CC = clang
-BPFTOOL = ../tools/bpftool
-TARGET = prog
+-include ../Makefile.config
 
-LIBS = -lncurses -lbpf -lelf -lz
+LIBS := -lbpf -lelf -lz -lncurses
 
-all: $(TARGET)
+BPFTOOL_DEFAULT := $(SRC_DIR)/../tools/bpftool
+BPFTOOL_SYSTEM := /usr/sbin/bpftool
 
-# eBPF program compilation
-prog.bpf.o: prog.bpf.c vmlinux.h
-	clang -S -target bpf -D__BPF_TRACING__ -D__TARGET_ARCH_x86 -O2 -emit-llvm -c -g prog.bpf.c -o prog.bpf.ll
-	llc -march=bpf -filetype=obj -o prog.bpf.o prog.bpf.ll
+BPFTOOL := $(shell if $(BPFTOOL_DEFAULT) version >/dev/null 2>&1; then echo "$(BPFTOOL_DEFAULT)"; else echo "$(BPFTOOL_SYSTEM)"; fi)
 
-# Main program with eBPF integration
-$(TARGET): prog.c prog.bpf.o
-	$(CC) -o $(TARGET) prog.c $(LIBS)
+.PHONY: show-bpftool
+show-bpftool:
+	@echo "Usando bpftool: $(BPFTOOL)"
+	@$(BPFTOOL) version
 
-clean:
-	rm -f $(TARGET) prog.bpf.o prog.bpf.ll
+BPF_ARCH := -D__TARGET_ARCH_x86
 
-.PHONY: all clean
+$(SRC_DIR)/$(TARGET).bpf.o: $(SRC_DIR)/vmlinux.h
+$(SRC_DIR)/vmlinux.h:
+	$(BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > $(SRC_DIR)/vmlinux.h
+
+clean: clean-vmlinux
+
+clean-vmlinux:
+	@$(RM) $(SRC_DIR)/vmlinux.h

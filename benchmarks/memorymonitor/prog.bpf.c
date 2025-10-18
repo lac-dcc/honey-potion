@@ -4,18 +4,16 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-// Structure to track memory allocation events
 struct mem_event {
     u64 timestamp;
     u32 pid;
     u32 tgid;
     u64 size;
     u64 address;
-    u8 event_type; // 0=alloc, 1=free, 2=mmap, 3=munmap
+    u8 event_type;
     char comm[16];
 };
 
-// Structure for process memory statistics
 struct mem_stats {
     u64 total_allocated;
     u64 total_freed;
@@ -28,7 +26,6 @@ struct mem_stats {
     u64 last_update;
 };
 
-// Maps for tracking memory events and statistics
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 10240);
@@ -36,13 +33,11 @@ struct {
     __type(value, struct mem_stats);
 } mem_stats_map SEC(".maps");
 
-// Ring buffer for memory events
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 256 * 1024);
 } mem_events SEC(".maps");
 
-// Map to track active allocations for leak detection
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 10240);
@@ -50,7 +45,6 @@ struct {
     __type(value, u64);
 } active_allocs SEC(".maps");
 
-// Helper function to get current process info
 static inline u32 get_current_pid(void) {
     return bpf_get_current_pid_tgid() & 0xFFFFFFFF;
 }
@@ -59,7 +53,6 @@ static inline u32 get_current_tgid(void) {
     return bpf_get_current_pid_tgid() >> 32;
 }
 
-// Helper function to update memory statistics
 static inline void update_mem_stats(u32 pid, u64 size, u8 event_type) {
     struct mem_stats *stats = bpf_map_lookup_elem(&mem_stats_map, &pid);
     if (!stats) {
@@ -73,7 +66,7 @@ static inline void update_mem_stats(u32 pid, u64 size, u8 event_type) {
     stats->last_update = bpf_ktime_get_ns();
 
     switch (event_type) {
-        case 0: // malloc/alloc
+        case 0:
             stats->total_allocated += size;
             stats->current_usage += size;
             stats->alloc_count++;
@@ -81,21 +74,21 @@ static inline void update_mem_stats(u32 pid, u64 size, u8 event_type) {
                 stats->peak_usage = stats->current_usage;
             }
             break;
-        case 1: // free
+        case 1:
             if (stats->current_usage >= size) {
                 stats->current_usage -= size;
             }
             stats->total_freed += size;
             stats->free_count++;
             break;
-        case 2: // mmap
+        case 2:
             stats->mmap_count++;
             stats->current_usage += size;
             if (stats->current_usage > stats->peak_usage) {
                 stats->peak_usage = stats->current_usage;
             }
             break;
-        case 3: // munmap
+        case 3:
             if (stats->current_usage >= size) {
                 stats->current_usage -= size;
             }
@@ -104,18 +97,15 @@ static inline void update_mem_stats(u32 pid, u64 size, u8 event_type) {
     }
 }
 
-// Hook into mmap system call
 SEC("tracepoint/syscalls/sys_enter_mmap")
 int trace_mmap_enter(struct trace_event_raw_sys_enter *ctx) {
     u32 pid = get_current_pid();
     u32 tgid = get_current_tgid();
-    u64 length = ctx->args[1]; // length parameter
+    u64 length = ctx->args[1];
     
-    // Only track significant allocations (>= 1KB)
     if (length >= 1024) {
         update_mem_stats(pid, length, 2);
         
-        // Send event to ring buffer
         struct mem_event *event = bpf_ringbuf_reserve(&mem_events, sizeof(*event), 0);
         if (event) {
             event->timestamp = bpf_ktime_get_ns();
@@ -132,16 +122,14 @@ int trace_mmap_enter(struct trace_event_raw_sys_enter *ctx) {
     return 0;
 }
 
-// Hook into munmap system call
 SEC("tracepoint/syscalls/sys_enter_munmap")
 int trace_munmap_enter(struct trace_event_raw_sys_enter *ctx) {
     u32 pid = get_current_pid();
     u32 tgid = get_current_tgid();
-    u64 length = ctx->args[1]; // length parameter
+    u64 length = ctx->args[1];
     
     update_mem_stats(pid, length, 3);
     
-    // Send event to ring buffer
     struct mem_event *event = bpf_ringbuf_reserve(&mem_events, sizeof(*event), 0);
     if (event) {
         event->timestamp = bpf_ktime_get_ns();
@@ -157,22 +145,20 @@ int trace_munmap_enter(struct trace_event_raw_sys_enter *ctx) {
     return 0;
 }
 
-// Hook into brk system call for heap management
 SEC("tracepoint/syscalls/sys_enter_brk")
 int trace_brk_enter(struct trace_event_raw_sys_enter *ctx) {
     u32 pid = get_current_pid();
     u32 tgid = get_current_tgid();
     u64 addr = ctx->args[0];
     
-    // Send event to ring buffer
     struct mem_event *event = bpf_ringbuf_reserve(&mem_events, sizeof(*event), 0);
     if (event) {
         event->timestamp = bpf_ktime_get_ns();
         event->pid = pid;
         event->tgid = tgid;
-        event->size = 0; // brk size calculation would need more context
+        event->size = 0;
         event->address = addr;
-        event->event_type = 4; // brk event type
+        event->event_type = 4;
         bpf_get_current_comm(event->comm, sizeof(event->comm));
         bpf_ringbuf_submit(event, 0);
     }
