@@ -303,3 +303,39 @@ static void Equals(OpResult *result, Generic *var1, Generic *var2) {
           "(AplhaVersion) Currently, we can only compare integers with the '==' operator."};
   return;  
 }
+
+static void GreaterThan(OpResult *result, Generic *var1, Generic *var2) {
+  result->exception = 0;
+
+  if (var1->type == INTEGER && var2->type == INTEGER) {
+    if (var1->value.integer > var2->value.integer) {
+      result->result_var = ATOM_TRUE;
+    } else {
+      result->result_var = ATOM_FALSE;
+    }
+    return;
+  }
+
+  *result = (OpResult){
+      .exception = 1,
+      .exception_msg =
+          "(AplhaVersion) Currently, we can only compare integers with the '>' operator."};
+}
+
+static void LessThan(OpResult *result, Generic *var1, Generic *var2) {
+  result->exception = 0;
+
+  if (var1->type == INTEGER && var2->type == INTEGER) {
+    if (var1->value.integer < var2->value.integer) {
+      result->result_var = ATOM_TRUE;
+    } else {
+      result->result_var = ATOM_FALSE;
+    }
+    return;
+  }
+
+  *result = (OpResult){
+      .exception = 1,
+      .exception_msg =
+          "(AplhaVersion) Currently, we can only compare integers with the '<' operator."};
+}

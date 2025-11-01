@@ -24,9 +24,9 @@ defmodule Honey.Utils.Guard do
   end
 
   @doc """
-  Guarantees we have a valid type in the sec argument for an eBPF program. Only three types in alpha.
+  Ensures that we have a valid type in the sec argument to an eBPF program. We currently have four supported types.
   """
-  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/raw_syscalls/sys_enter xdp_md)
+  @supported_types ~w(tracepoint/syscalls/sys_enter_kill tracepoint/syscalls/sys_enter_write tracepoint/sched/sched_switch tracepoint/raw_syscalls/sys_enter xdp_md)
   def ensure_sec_type!(type) do
     case type do
       type when type in @supported_types ->
