@@ -56,7 +56,7 @@ defmodule Honey.Codegen.Boilerplates do
     #include "#{module_name}.skel.h"\n
     // xdp_md includes
     #include <net/if.h>
-    #include <linux/if_link.h> 
+    #include <linux/if_link.h>
     #include <signal.h>
     """
 
@@ -92,7 +92,7 @@ defmodule Honey.Codegen.Boilerplates do
           case 'p': printAll = true; break;
           case 't': lifeTime = atoi(optarg);
         }
-      } 
+      }
 
       struct #{module_name}_bpf *skel;
       int err;
@@ -256,7 +256,7 @@ defmodule Honey.Codegen.Boilerplates do
                 :int -> "int #{name}_prev_key = 0;"
                 :char6 -> "unsigned char #{name}_prev_key[6];"
               end}
-                success = bpf_map_get_next_key(#{name}_fd, NULL, #{key_var}); 
+                success = bpf_map_get_next_key(#{name}_fd, NULL, #{key_var});
                 while(success == 0){
                   success = bpf_map_lookup_elem(#{name}_fd, #{key_var}, &value);
                   if (success == 0) {
@@ -626,6 +626,20 @@ defmodule Honey.Codegen.Boilerplates do
         } syscalls_enter_kill_args;
         """)
 
+      "tracepoint/sched/sched_switch" ->
+        gen("""
+        typedef struct sched_switch_args {
+            __u64 pad;               // 8 bytes of padding to align tracepoint args
+            char prev_comm[16];      // previous task name
+            __u32 prev_pid;          // previous PID
+            __u32 prev_prio;         // previous priority
+            __u64 prev_state;        // state of the previous task
+            char next_comm[16];      // next task name
+            __u32 next_pid;          // next PID
+            __u32 next_prio;         // next priority
+        }sched_switch_args;
+        """)
+
       "tracepoint/raw_syscalls/sys_enter" ->
         gen("""
         typedef struct syscalls_enter_args
@@ -686,6 +700,9 @@ defmodule Honey.Codegen.Boilerplates do
     case config.libbpf_prog_type do
       "tracepoint/syscalls/sys_enter_kill" ->
         "syscalls_enter_kill_args *ctx_arg"
+
+      "tracepoint/sched/sched_switch" ->
+        "struct sched_switch_args *ctx_arg"
 
       "tracepoint/raw_syscalls/sys_enter" ->
         "syscalls_enter_args *ctx_arg"

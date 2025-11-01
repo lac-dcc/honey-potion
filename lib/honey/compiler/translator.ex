@@ -66,9 +66,9 @@ defmodule Honey.Compiler.Translator do
     c_var_type = TypeSet.get_typeset_from_var_ast(var)
     context = %{context | free_program_var: Keyword.get(meta, :last)}
     var_pointer = Map.get(context.var_pointer_map, c_var_name)
-    pos = case var_pointer do 
+    pos = case var_pointer do
       {pos, _} -> pos
-      {pos, _, _} -> pos 
+      {pos, _, _} -> pos
     end
     {TranslatedCode.new("// Using variable #{c_var_name} in pos #{pos}", c_var_name, c_var_type), context}
   end
@@ -115,15 +115,14 @@ defmodule Honey.Compiler.Translator do
         :== ->
           "Equals"
 
-        # :> ->
-        #   " ..."
+        :> ->
+          "GreaterThan"
+
+        :< ->
+          "LessThan"
 
         # :>= ->
         #   " ... "
-
-        # :< ->
-        #   " ..."
-
         # :<= ->
         #   " ... "
 
@@ -197,14 +196,19 @@ defmodule Honey.Compiler.Translator do
         {"""
         #{code}
         bpf_printk(\"#{string}\"#{vars});
-
-        #{defrag_code}
-        // Defining variable #{result_var};
-        stack_int = (int*) (stack + #{pos});
-        stack_int[0] = 0;
+        int #{result_var} = 0;
         """
         |> gen()
         |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer())), context}
+
+      :bpf_ktime_get_ns ->
+        result_var = unique_helper_var()
+
+        """
+        int #{result_var} = bpf_ktime_get_ns();
+        """
+        |> gen()
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
 
       :bpf_map_lookup_elem ->
         params =
@@ -289,7 +293,7 @@ defmodule Honey.Compiler.Translator do
                   goto CATCH;
                 """, context}
               else
-                # Here the assumption that maps keeps ints is also maintained. 
+                # Here the assumption that maps keeps ints is also maintained.
                 {default_value_translated, default_context} = to_c(default_value, context)
                 default_value_in_stack = Context.get_code_value(default_value_translated, default_context)
                 context = Context.deallocate_code(default_context, default_value_translated)
@@ -302,7 +306,7 @@ defmodule Honey.Compiler.Translator do
             {(key_code <>
                """
                //Getting #{item_var}
-               #{defrag_code} 
+               #{defrag_code}
                if(!lookup) {
                #{not_found_code}
                } else {
@@ -401,7 +405,7 @@ defmodule Honey.Compiler.Translator do
           |> String.replace("Elixir.", "")
 
         {key, context} = to_c(key_ast, context)
-        {update_value, context} = to_c(value_ast, context) 
+        {update_value, context} = to_c(value_ast, context)
         {generic_value, context} = translated_code_to_generic(update_value, context)
 
         result_var_c = unique_helper_var()
@@ -721,7 +725,7 @@ defmodule Honey.Compiler.Translator do
 
   def to_c({:{}, _, tuple_values}, context) when is_list(tuple_values) do
     {tuple_translations_to_c, context} = Enum.map_reduce(tuple_values, context, fn element, context ->
-      {var, context} = to_c(element, context) 
+      {var, context} = to_c(element, context)
       {var, context}
     end)
 
@@ -732,7 +736,7 @@ defmodule Honey.Compiler.Translator do
       end)
 
     {tuple_var_values, context} =
-      Enum.map_reduce(generic_tuple_elements, context, fn translation, context -> 
+      Enum.map_reduce(generic_tuple_elements, context, fn translation, context ->
         tuple_elem_value = Context.get_code_value(translation, context)
         context = Context.deallocate_code(context, translation)
         {tuple_elem_value, context}
@@ -1002,7 +1006,7 @@ defmodule Honey.Compiler.Translator do
     {context, defrag_index} = Context.allocate_var(context, heap_index_var_name, 4)
     head_pos = Context.get_var_pos(context, head_element_var_name)
     heap_index_pos = Context.get_var_pos(context, heap_index_var_name)
-    
+
     prefix =
     """
     #{defrag_head_code}
@@ -1028,7 +1032,7 @@ defmodule Honey.Compiler.Translator do
 
     context = Context.return_var(context, heap_index_var_name)
 
-    {%{suffix | 
+    {%{suffix |
       code: prefix <> suffix.code,
     }, context}
   end
@@ -1113,8 +1117,8 @@ defmodule Honey.Compiler.Translator do
     {context, defrag_code_index_var} = Context.allocate_var(context, heap_index_var_name, 4)
     index_var_pos = Context.get_var_pos(context, heap_index_var_name)
     rhs_pos = Context.get_var_pos(context, rhs_var)
-    
-    prefix = 
+
+    prefix =
     """
     #{defrag_code_rhs}
     #{defrag_code_index_var}
@@ -1132,7 +1136,7 @@ defmodule Honey.Compiler.Translator do
       op_result = (OpResult){.exception = 1, .exception_msg = "TUPLE(MatchError) No match of right hand side value."};
       goto #{exit_label};
     }
-    """ 
+    """
 
     {suffix, context} = if is_var(first_tuple_elm) and
          not TypeSet.is_generic?(TypeSet.get_typeset_from_var_ast(first_tuple_elm)) do
@@ -1144,7 +1148,7 @@ defmodule Honey.Compiler.Translator do
         TypeSet.is_integer?(lhs_var_type) ->
           {context, defrag_code} = Context.allocate_var(context, typed_rhs, 4)
           typed_rhs_pos = Context.get_var_pos(context, typed_rhs)
-          prefix = 
+          prefix =
           """
           #{defrag_code}
           stack_int = (int*) (stack + #{typed_rhs_pos});
@@ -1158,14 +1162,14 @@ defmodule Honey.Compiler.Translator do
         TypeSet.is_string?(lhs_var_type) ->
           {context, defrag_code} = Context.allocate_var(context, typed_rhs, 8)
           typed_rhs_pos = Context.get_var_pos(context, typed_rhs)
-          prefix = 
+          prefix =
           """
           #{defrag_code}
           stack_str = (String*) (stack + #{typed_rhs_pos});
           stack_str[0] = #{Context.get_var_pos(context, rhs_var)};
           """
           typed_rhs_value = "(*(String*) (stack + #{typed_rhs_pos}}));"
-          {matching, context} = pattern_matching(first_tuple_elm, typed_rhs_value, exit_label, context) 
+          {matching, context} = pattern_matching(first_tuple_elm, typed_rhs_value, exit_label, context)
           {tuple, context} = get_tuple_element_from_heap(tuple_var_value, tail, index + 1, exit_label, context)
           {%{tuple | code: prefix <> matching.code <> tuple.code}, context}
 
@@ -1695,7 +1699,7 @@ defmodule Honey.Compiler.Translator do
     {:->, _, [[condition] | [block]]} = cond_stat
 
     {condition_in_c, context} = to_c(condition, context)
-    condition_in_c_stack_name = Context.get_code_value(condition_in_c, context) 
+    condition_in_c_stack_name = Context.get_code_value(condition_in_c, context)
     if_cond =
       cond do
         TypeSet.is_integer?(condition_in_c.return_var_type) ->
