@@ -11,14 +11,14 @@ defmodule Honey.Runtime.StackContext do
     #IO.inspect(Map.get(translated_code.context.var_pointer_map, translated_code.return_var_name))
 
     elem = Map.get(context.var_pointer_map, translated_code.return_var_name)
-    c_var_position = case elem do 
+    c_var_position = case elem do
       {pos, _} -> pos
-      {pos, _, _} -> pos 
+      {pos, _, _} -> pos
       nil -> {:custom, translated_code.return_var_name}
     end
 
-    cond do 
-      match?({:custom, _name}, c_var_position) -> 
+    cond do
+      match?({:custom, _name}, c_var_position) ->
         {_, name} = c_var_position
         name
       TypeSet.is_generic?(translated_code.return_var_type) ->
@@ -38,9 +38,9 @@ defmodule Honey.Runtime.StackContext do
 
   def get_var_pos(context, var_name) do
     elem = Map.get(context.var_pointer_map, var_name)
-    case elem do 
+    case elem do
       {pos, _} -> pos
-      {pos, _, _} -> pos 
+      {pos, _, _} -> pos
     end
   end
 
@@ -93,7 +93,7 @@ defmodule Honey.Runtime.StackContext do
 
   def allocate_var(context, var_name_in_c, size) do
       {memory, pos} = MemoryBlocks.get(context.free_memory_blocks, size)
-      {memory, defrag_code, pos} = 
+      {memory, defrag_code, pos} =
         if pos == -1 do
           {context, defrag_code} = defragment_context(context)
           {memory, pos} = MemoryBlocks.get(context.free_memory_blocks, size)
@@ -102,9 +102,9 @@ defmodule Honey.Runtime.StackContext do
           end
           {memory, defrag_code, pos}
         else
-          {memory, "", pos} 
+          {memory, "", pos}
         end
-      context = %{ context | 
+      context = %{ context |
         free_memory_blocks: memory,
         var_pointer_map: Map.put(context.var_pointer_map, var_name_in_c, {pos, size}),
         pos_to_var_map: Map.put(context.pos_to_var_map, pos, {var_name_in_c, size})
@@ -123,19 +123,19 @@ defmodule Honey.Runtime.StackContext do
     else
       Map.pop(context.var_pointer_map, var_name_in_c)
     end
-   
+
     case elem do
       nil -> context
-      {pos, size} -> 
+      {pos, size} ->
         memory = MemoryBlocks.give(context.free_memory_blocks, pos, size)
-        %{ context | 
+        %{ context |
           free_memory_blocks: memory,
           var_pointer_map: pointer_map,
           pos_to_var_map: Map.drop(context.pos_to_var_map, [pos])
         }
-      {_, _, :dead} -> 
-        %{ context | 
-          var_pointer_map: pointer_map 
+      {_, _, :dead} ->
+        %{ context |
+          var_pointer_map: pointer_map
         }
     end
   end

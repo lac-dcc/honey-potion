@@ -3,10 +3,8 @@ defmodule Honey.Codegen.Boilerplates do
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
-  alias Logger.Translator
   alias Honey.Codegen.Boilerplates
 
-  alias Honey.Compiler.Translator
   alias Honey.Analysis.ElixirTypes
   alias Honey.Runtime.Info
   alias Honey.TypeSet
