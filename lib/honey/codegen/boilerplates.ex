@@ -3,10 +3,8 @@ defmodule Honey.Codegen.Boilerplates do
   Module for generating C boilerplate needed to translate Elixir to eBPF readable C.
   Also picks up the translated code and puts it in the appropriate section.
   """
-  alias Logger.Translator
   alias Honey.Codegen.Boilerplates
 
-  alias Honey.Compiler.Translator
   alias Honey.Analysis.ElixirTypes
   alias Honey.Runtime.Info
   alias Honey.TypeSet
@@ -14,17 +12,18 @@ defmodule Honey.Codegen.Boilerplates do
 
   import Honey.Utils.Core, only: [gen: 1]
 
-  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code]
+  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code, :context]
 
   # Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
-  def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code) do
+  def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code, context) do
     %__MODULE__{
       libbpf_prog_type: libbpf_prog_type,
       func_args: func_args,
       license: license,
       elixir_maps: elixir_maps,
       requires: requires,
-      translated_code: translated_code
+      translated_code: translated_code,
+      context: context
     }
   end
 
@@ -558,9 +557,9 @@ defmodule Honey.Codegen.Boilerplates do
   @doc """
   Returns the boilerplate ending of the main function of the backend.
   """
-  def generate_ending_main_code(translated_code) do
+  def generate_ending_main_code(translated_code, context) do
     int_type = TypeSet.new(ElixirTypes.type_integer())
-    return_value = Translator.get_var_stack_name(translated_code)
+    return_value = Honey.Runtime.StackContext.get_code_value(translated_code, context)
 
     return_text =
       cond do
@@ -710,7 +709,7 @@ defmodule Honey.Codegen.Boilerplates do
       // =============== beginning of user code ===============
       #{config.translated_code.code}
       // =============== end of user code ==============
-      #{generate_ending_main_code(config.translated_code)}
+      #{generate_ending_main_code(config.translated_code, config.context)}
     }
     """)
   end

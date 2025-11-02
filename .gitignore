@@ -29,6 +29,7 @@ ebpf_translator-*.tar
 /examples/lib/bin/
 /examples/lib/obj/
 /examples/lib/src/
+/examples/lib/dot/
 
 # Factorial and maxmaps Benchmark compilation files
 /benchmarks/factorial/bin/*
