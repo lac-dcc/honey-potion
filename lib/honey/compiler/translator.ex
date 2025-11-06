@@ -225,13 +225,13 @@ defmodule Honey.Compiler.Translator do
         {context, defrag_code} = Context.allocate_var(context, result_var, 4)
         pos = Context.get_var_pos(context, result_var)
 
-        """
+        {"""
         #{defrag_code}
         stack_int = (int*) (stack + #{pos});
         stack_int[0] = bpf_ktime_get_ns();
         """
         |> gen()
-        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer())), context}
 
       :bpf_map_lookup_elem ->
         params =
@@ -734,7 +734,7 @@ defmodule Honey.Compiler.Translator do
     {context, defrag_code} = Context.allocate_var(context, cond_var, 12)
     pos = Context.get_var_pos(context, cond_var)
 
-    cond_code = cond_statments_to_c(conds, cond_var, context)
+    cond_code = cond_statments_to_c(conds, pos, context)
 
     {"""
     #{defrag_code}
@@ -1713,8 +1713,11 @@ defmodule Honey.Compiler.Translator do
   """
 
   # Creates a situation for when all conditions are exhausted from the method below.
-  def cond_statments_to_c([], cond_var_name_in_c, _context) do
-    "#{cond_var_name_in_c} = (Generic){.type = ATOM, .value.string = (String){0, 2}};"
+  def cond_statments_to_c([], cond_var_pos, _context) do
+    """
+    stack_gen = (Generic*) (stack + #{cond_var_pos});
+    stack_gen[0] = (Generic){.type = ATOM, .value.string = (String){0, 2}};
+    """
   end
 
   # Transforms conditional statements to C one condition at a time.
@@ -1725,11 +1728,11 @@ defmodule Honey.Compiler.Translator do
     condition_in_c_stack_name = Context.get_code_value(condition_in_c, context)
     if_cond =
       cond do
+        TypeSet.is_generic?(condition_in_c.return_var_type) or TypeSet.is_atom?(condition_in_c.return_var_type) ->
+          "if (to_bool(&#{condition_in_c_stack_name})) {"
+
         TypeSet.is_integer?(condition_in_c.return_var_type) ->
           "if (#{condition_in_c_stack_name}) {"
-
-        TypeSet.is_generic?(condition_in_c.return_var_type) ->
-          "if (to_bool(&#{condition_in_c_stack_name})) {"
       end
     cond_context = Context.deallocate_code(context, condition_in_c)
 

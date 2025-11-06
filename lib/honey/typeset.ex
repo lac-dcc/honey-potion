@@ -64,6 +64,10 @@ defmodule Honey.TypeSet do
     has_unique_type(set, ElixirTypes.type_void())
   end
 
+  def is_atom?(set = %__MODULE__{}) do
+    has_unique_type(set, ElixirTypes.type_atom())
+  end
+
   def size(set = %__MODULE__{}) do
     MapSet.size(set.types)
   end
