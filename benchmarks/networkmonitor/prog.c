@@ -18,7 +18,6 @@ void handle_sigint(int sig) {
     exiting = 1;
 }
 
-// Helper function to get map FD by name
 int get_map_fd_by_name(struct bpf_object *obj, const char *name) {
     struct bpf_map *map = bpf_object__find_map_by_name(obj, name);
     if (!map) {
@@ -28,7 +27,6 @@ int get_map_fd_by_name(struct bpf_object *obj, const char *name) {
     return bpf_map__fd(map);
 }
 
-// Protocol name mapping
 const char* get_protocol_name(__u8 protocol) {
     switch (protocol) {
         case 6: return "TCP";   // PROTO_TCP
@@ -46,7 +44,6 @@ const char* get_protocol_name(__u8 protocol) {
     }
 }
 
-// Common port to application mapping
 const char* get_port_name(__u16 port) {
     switch (port) {
         case 80: return "HTTP";
@@ -66,7 +63,6 @@ const char* get_port_name(__u16 port) {
     }
 }
 
-// Format bytes to human readable format
 void format_bytes(__u64 bytes, char *buf, size_t buflen) {
     const char *units[] = {"B", "KB", "MB", "GB", "TB"};
     int unit = 0;
@@ -80,14 +76,12 @@ void format_bytes(__u64 bytes, char *buf, size_t buflen) {
     snprintf(buf, buflen, "%.2f %s", size, units[unit]);
 }
 
-// Format IP address
 void format_ip(__u32 ip, char *buf, size_t buflen) {
     struct in_addr addr;
     addr.s_addr = ip;
     snprintf(buf, buflen, "%s", inet_ntoa(addr));
 }
 
-// Get process name from PID
 void get_comm_by_pid(__u32 pid, char *buf, size_t buflen) {
     char path[64];
     snprintf(path, sizeof(path), "/proc/%u/comm", pid);
@@ -106,7 +100,6 @@ void get_comm_by_pid(__u32 pid, char *buf, size_t buflen) {
     if (len > 0 && buf[len - 1] == '\n') buf[len - 1] = '\0';
 }
 
-// Check if a PID is likely a kernel thread based on process name
 static int is_kernel_thread(__u32 pid, const char *name) {
     if (!name || name[0] == '\0' || name[0] == '-') {
         return 0;  // Unknown, assume not kernel thread
@@ -126,7 +119,6 @@ static int is_kernel_thread(__u32 pid, const char *name) {
     return 0;
 }
 
-// Network traffic entry
 struct traffic_entry {
     struct traffic_key key;
     char name[64];
@@ -178,7 +170,6 @@ static void free_traffic_list(struct traffic_entry *list) {
     }
 }
 
-// Compare function for sorting by bandwidth or total bytes
 static int compare_traffic_bandwidth(const void *va, const void *vb) {
     const struct traffic_entry *const *a = (const struct traffic_entry *const *)va;
     const struct traffic_entry *const *b = (const struct traffic_entry *const *)vb;
@@ -206,14 +197,12 @@ int main() {
     
     signal(SIGINT, handle_sigint);
     
-    // Open BPF object
     obj = bpf_object__open_file("prog.bpf.o", NULL);
     if (!obj) {
         fprintf(stderr, "Failed to open BPF object\n");
         return 1;
     }
     
-    // Load BPF object
     err = bpf_object__load(obj);
     if (err) {
         fprintf(stderr, "Failed to load BPF object: %d\n", err);
@@ -221,7 +210,6 @@ int main() {
         return 1;
     }
     
-    // Attach tracepoints (syscalls run in process context - correct PID!)
     struct bpf_program *prog_sendto = bpf_object__find_program_by_name(obj, "on_sys_enter_sendto");
     struct bpf_program *prog_recvfrom = bpf_object__find_program_by_name(obj, "on_sys_enter_recvfrom");
     struct bpf_program *prog_sendmsg = bpf_object__find_program_by_name(obj, "on_sys_enter_sendmsg");
@@ -247,14 +235,12 @@ int main() {
         if (link_recvmsg) printf("Attached to syscalls:sys_enter_recvmsg\n");
     }
     
-    // At least one tracepoint should be attached
     if (!link_sendto && !link_recvfrom && !link_sendmsg && !link_recvmsg) {
         fprintf(stderr, "Error: Failed to attach any tracepoints\n");
         bpf_object__close(obj);
         return 1;
     }
     
-    // Prepare ncurses UI
     initscr();
     cbreak();
     noecho();
@@ -285,7 +271,6 @@ int main() {
     int view_count_cached = 0;
     
     while (!exiting) {
-        // Smooth, responsive input handling
         int ch;
         while ((ch = getch()) != ERR) {
             if (ch == 'q' || ch == 'Q') { exiting = 1; break; }
@@ -297,7 +282,6 @@ int main() {
             if (view_cached && scroll > view_count_cached - 1) scroll = view_count_cached - 1;
         }
         
-        // Periodic data update (~1s)
         clock_gettime(CLOCK_MONOTONIC, &ts_now);
         double elapsed_ns = (ts_now.tv_sec - ts_prev.tv_sec) * 1e9 + (ts_now.tv_nsec - ts_prev.tv_nsec);
         if (elapsed_ns >= update_interval_ns) {
@@ -315,7 +299,6 @@ int main() {
                         struct traffic_entry *e = find_or_add_traffic(&state, &key);
                         if (!e) continue;
                         
-                        // Calculate bandwidth
                         __u64 d_sent = 0, d_recv = 0;
                         if (e->prev_bytes_sent > 0 || e->prev_bytes_recv > 0) {
                             if (stats.bytes_sent >= e->prev_bytes_sent) d_sent = stats.bytes_sent - e->prev_bytes_sent;
@@ -345,7 +328,6 @@ int main() {
                         e->prev_bytes_recv = stats.bytes_recv;
                         e->last_update_ns = stats.last_update_ns;
                         
-                        // Update name if not set
                         if (e->name[0] == '\0' || e->name[0] == '-') {
                             if (key.pid > 0) {
                                 get_comm_by_pid(key.pid, e->name, sizeof(e->name));
@@ -355,14 +337,8 @@ int main() {
                 } while (bpf_map_get_next_key(traffic_fd, &key, &next_key) == 0 && (key = next_key, 1));
             }
             
-            // Also show entries even if bandwidth is 0 but they have traffic
-            // This helps show data even if bandwidth calculation hasn't happened yet
-            
-            // Rebuild cached view - top 50 by bandwidth or total bytes
-            // Filter out kernel threads
             int count = 0;
             for (struct traffic_entry *c = state; c; c = c->next) {
-                // Include entries with any traffic, but exclude kernel threads
                 if ((c->bytes_sent > 0 || c->bytes_recv > 0 || c->bandwidth_total > 0) &&
                     !is_kernel_thread(c->key.pid, c->name)) {
                     count++;
@@ -380,8 +356,6 @@ int main() {
                         arr[i++] = c;
                     }
                 }
-                // Sort by total bytes if bandwidth is 0, otherwise by bandwidth
-                // This ensures we see data even before bandwidth is calculated
                 qsort(arr, count, sizeof(*arr), compare_traffic_bandwidth);
                 view_count = count > 50 ? 50 : count;
                 if (view_count > 0) {
@@ -401,13 +375,11 @@ int main() {
             if (scroll < 0) scroll = 0;
         }
         
-        // Draw from cached view
         erase();
         mvprintw(0, 0, "Network Monitor - q: quit  ↑/↓: scroll");
         mvprintw(1, 0, "%-7s %-20s %-6s %12s %12s %12s",
                  "PID", "PROCESS", "PROTO", "SENT", "RECV", "BANDWIDTH");
         
-        // Print protocol statistics
         mvprintw(2, 0, "Protocol Stats: ");
         __u8 proto_key = 0, next_proto_key;
         int proto_col = 18;
@@ -434,7 +406,6 @@ int main() {
             for (int i = start; i < end; i++, row++) {
                 struct traffic_entry *e = view_cached[i];
                 
-                // Skip kernel threads (filter in user-space)
                 if (is_kernel_thread(e->key.pid, e->name)) {
                     continue;  // Skip displaying kernel threads
                 }
@@ -444,17 +415,14 @@ int main() {
                 format_bytes(e->bytes_recv, recv_str, sizeof(recv_str));
                 format_bytes((__u64)e->bandwidth_total, bw_str, sizeof(bw_str));
                 
-                // Highlight anomalies (> 10 MB/s)
                 if (e->bandwidth_total > 10 * 1024 * 1024) {
                     attron(A_REVERSE);
                 }
                 
-                // Format bandwidth string
                 char bw_display[32];
                 if (e->bandwidth_total > 0) {
                     snprintf(bw_display, sizeof(bw_display), "%s/s", bw_str);
                 } else {
-                    // Show total bytes if bandwidth not calculated yet
                     __u64 total = e->bytes_sent + e->bytes_recv;
                     format_bytes(total, bw_display, sizeof(bw_display));
                 }
@@ -469,7 +437,6 @@ int main() {
                 }
             }
             
-            // Anomaly detection summary at bottom
             int anomaly_count = 0;
             for (int i = 0; i < view_count_cached; i++) {
                 if (view_cached[i]->bandwidth_total > 10 * 1024 * 1024) {
@@ -486,7 +453,6 @@ int main() {
         }
         refresh();
         
-        // Render/input at ~100 FPS
         struct timespec tiny = { .tv_sec = 0, .tv_nsec = 10000000 };
         nanosleep(&tiny, NULL);
     }
