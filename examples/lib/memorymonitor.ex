@@ -30,7 +30,7 @@ defmodule MemoryMonitor do
     pid = Honey.BpfHelpers.bpf_get_current_pid_tgid()
 
     cond do
-      syscall_id == 9 ->  # mmap
+      syscall_id == 9 -> 
         count = Honey.BpfHelpers.bpf_map_lookup_elem(:mmap_count, pid)
         Honey.BpfHelpers.bpf_map_update_elem(:mmap_count, pid, count + 1)
         Honey.BpfHelpers.bpf_printk(["PID: %d; MMap Operations: %llu;", pid, count + 1])
