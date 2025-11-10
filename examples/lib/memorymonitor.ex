@@ -6,6 +6,24 @@ defmodule MemoryMonitor do
   defmap(:munmap_count, :bpf_array, [max_entries: @max_entries])
   defmap(:brk_count, :bpf_array, [max_entries: @max_entries])
 
+  @doc """
+   Monitors memory-related system calls (`mmap`, `munmap`, `brk`)
+   and counts how many times each process performs them.
+
+   Every time a process requests memory, releases memory, or adjusts
+   its heap size, this function increments a counter in an eBPF map 
+   keyed by the process ID (PID). These counters allow us to observe
+   memory pressure patterns per process and detect unusual allocation 
+   behavior in real time.
+
+   Syscalls tracked:
+     * `mmap`  – Process requests new memory from the OS
+     * `munmap` – Process releases previously allocated memory
+     * `brk`   – Process grows or shrinks its heap segment
+
+   The collected metrics can later be queried from user-space for
+   debugging, monitoring, or performance analysis purposes.
+   """
   @sec "tracepoint/raw_syscalls/sys_enter"
   def main(ctx) do
     syscall_id = ctx.id
