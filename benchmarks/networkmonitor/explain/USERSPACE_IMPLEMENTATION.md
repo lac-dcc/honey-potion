@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Network Monitor user-space frontend provides an ncurses experience similar to `cpumonitor`, but optimised for traffic metrics. It connects to the eBPF maps, computes bandwidth, applies smoothing, and highlights anomalies. This document describes the structures, algorithms, and design decisions involved.
+The Network Monitor user-space frontend provides an ncurses experience similar to `cpumonitor`, but optimized for traffic metrics. It connects to the eBPF maps, computes bandwidth, applies smoothing, and highlights anomalies. This document describes the structures, algorithms, and design decisions involved.
 
 ## Architecture
 
