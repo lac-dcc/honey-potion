@@ -93,7 +93,7 @@ sudo ./prog
 The program will:
 1. Load the eBPF program into the kernel
 2. Attach to network tracepoints
-3. Display real-time network statistics every 2 seconds
+3. Display real-time network statistics every 1 second
 4. Show protocol statistics, top processes, and anomaly alerts
 
 Press `Ctrl+C` to exit.
