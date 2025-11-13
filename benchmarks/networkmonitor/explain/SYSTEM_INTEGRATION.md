@@ -101,7 +101,7 @@ Entries above the threshold are rendered with `A_REVERSE`, and the footer summar
 
 - **Kernel**: O(1) work per syscall, no loops. Maps sized for ~10K keys to avoid collisions.
 - **User space**:
-  - Map iteration every 500 ms (configurable).
+  - Map iteration every 1 s (configurable).
   - 100 Hz rendering keeps the UI responsive.
   - `format_bytes()` uses small static buffers to minimise allocations.
 
