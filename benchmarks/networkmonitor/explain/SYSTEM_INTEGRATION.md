@@ -67,7 +67,7 @@ bpf_map_update_elem(anomaly_fd, &entry->key, &bandwidth, BPF_ANY);
 
 ## Synchronisation Strategy
 
-- **Collection interval**: `update_interval_ns = 500ms` (tunable). Balances latency and map-read overhead.
+- **Collection interval**: `update_interval_ns = 1000ms` (tunable). Balances latency and map-read overhead.
 - **Cached view**: after each full read the frontend builds `view_cached`, a pointer array to traffic entries. Sorting is done once per cycle, keeping the 100 Hz renderer cheap.
 - **Exit signalling**: the `exiting` flag and signal handlers ensure links are detached and the terminal restored.
 
