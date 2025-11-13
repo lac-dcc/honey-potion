@@ -9,14 +9,14 @@ The Network Monitor user-space frontend provides an ncurses experience similar t
 ### Main components
 
 1. **libbpf loader** — opens the compiled object, creates maps, and attaches tracepoints.
-2. **Update loop** — every 500 ms reads `traffic_map`, `pid_stats`, `protocol_totals`, and `anomaly_map`.
+2. **Update loop** — every 1000 ms (1 second) reads `traffic_map`, `pid_stats`, `protocol_totals`, and `anomaly_map`.
 3. **Computation engine** — converts counters to rates, applies EMA, and infers metadata.
 4. **ncurses UI** — renders a scrollable table and handles user commands (`q`, arrow keys).
 
 ### Design motivations
 
 - **ncurses**: consistent UX with other benchmarks; no graphical dependencies.
-- **Dual loop**: separates collection (500 ms) from rendering (10 ms) to keep interactions smooth.
+- **Dual loop**: separates collection (1000 ms) from rendering (10 ms) to keep interactions smooth.
 - **Immutable cache**: minimises reallocations and resorting during rendering.
 
 ## Data Structures
