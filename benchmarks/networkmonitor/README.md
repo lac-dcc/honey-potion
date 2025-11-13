@@ -17,9 +17,10 @@ The Network Monitor uses eBPF tracepoints to capture network activity at the ker
 
 The eBPF program uses multiple tracepoints to capture network activity:
 
-1. **`sock:sock_sendmsg`**: Captures outgoing socket operations
-2. **`sock:sock_recvmsg`**: Captures incoming socket operations  
-3. **`skb:kfree_skb`**: Captures packet release events (for more accurate packet counting)
+1. **`syscalls/sys_enter_sendto`**: Captures outgoing sendto socket operations
+2. **`syscalls/sys_enter_recvfrom`**: Captures incoming recvfrom socket operations
+3. **`syscalls/sys_enter_sendmsg`**: Captures outgoing sendmsg socket operations
+4. **`syscalls/sys_enter_recvmsg`**: Captures incoming recvmsg socket operations
 
 #### BPF Maps
 
