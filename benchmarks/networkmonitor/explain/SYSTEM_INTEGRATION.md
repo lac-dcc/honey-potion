@@ -87,7 +87,7 @@ entry->smoothed_bandwidth = alpha * sent_rate +
                             (1.0 - alpha) * entry->smoothed_bandwidth;
 ```
 **Parameters**:
-- `alpha = 0.4`: fast response with moderate smoothing.
+- `alpha = 0.3`: fast response with moderate smoothing.
 - `interval` relies on the kernel’s `last_update_ns`, reducing dependency on user-space clocks.
 
 ### Highlighting anomalies
