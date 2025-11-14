@@ -38,7 +38,7 @@ defmodule Honey.MixProject do
     [
       # The Honey.Mix.Tasks.CompileBPF.run function currently has no use. It has been left as a reference of
       # where code can be added for it to be executed before the compilation step of Elixir.
-      #compile: ["compile", &Honey.Mix.Tasks.CompileBPF.run/1]
+      # compile: ["compile", &Honey.Mix.Tasks.CompileBPF.run/1]
     ]
   end
 
