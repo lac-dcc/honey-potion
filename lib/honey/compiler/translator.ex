@@ -48,6 +48,111 @@ defmodule Honey.Compiler.Translator do
     "label_#{:erlang.unique_integer([:positive])}"
   end
 
+  # Translates Logger calls to bpf_printk with appropriate log level prefixes.
+  defp translate_logger_call(level, params, context) do
+    case params do
+      [message | args] when is_bitstring(message) ->
+        # Add log level prefix to the message
+        level_prefix = get_log_level_prefix(level)
+        prefixed_message = "#{level_prefix} #{message}"
+        
+        # Use the same logic as bpf_printk
+        translate_bpf_printk_with_message(prefixed_message, args, context)
+      
+      [message | _args] ->
+        # Handle non-string messages (variables, expressions)
+        level_prefix = get_log_level_prefix(level)
+        message_translated = to_c(message, context)
+        
+        # For dynamic messages, we'll need to handle them differently
+        # For now, convert to string format
+        case TypeSet.is_string?(message_translated.return_var_type) do
+          true ->
+            # Create a formatted message with prefix
+            result_var = unique_helper_var()
+            """
+            #{message_translated.code}
+            bpf_printk(\"#{level_prefix} %s\", #{message_translated.return_var_name});
+            int #{result_var} = 0;
+            """
+            |> gen()
+            |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+          
+          false ->
+            # For non-string dynamic messages, convert them
+            result_var = unique_helper_var()
+            """
+            #{message_translated.code}
+            bpf_printk(\"#{level_prefix} (dynamic message)\");
+            int #{result_var} = 0;
+            """
+            |> gen()
+            |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+        end
+      
+      [] ->
+        # Logger call without message
+        level_prefix = get_log_level_prefix(level)
+        result_var = unique_helper_var()
+        
+        """
+        bpf_printk(\"#{level_prefix}\");
+        int #{result_var} = 0;
+        """
+        |> gen()
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+    end
+  end
+
+  # Returns the appropriate log level prefix for each Logger level.
+  defp get_log_level_prefix(level) do
+    case level do
+      :debug -> "[DEBUG]"
+      :info -> "[INFO]"
+      :warn -> "[WARN]"
+      :error -> "[ERROR]"
+      _ -> "[LOG]"
+    end
+  end
+
+  # Translates bpf_printk calls with a given message and arguments.
+  # This is a refactored version of the original bpf_printk logic.
+  defp translate_bpf_printk_with_message(string, other_params, context) do
+    if !is_bitstring(string) do
+      raise "Logger message must be a string. Received: #{inspect(string)}"
+    end
+
+    string = String.replace(string, "\n", "\\n")
+    code_vars = Enum.map(other_params, &to_c(&1, context))
+
+    code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
+
+    vars =
+      Enum.reduce(code_vars, "", fn translated, so_far ->
+        if TypeSet.is_generic?(translated.return_var_type) do
+          so_far <> ", " <> translated.return_var_name <> ".value.integer"
+        else
+          if TypeSet.is_integer?(translated.return_var_type) do
+            so_far <> ", " <> translated.return_var_name
+          else
+            # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
+            so_far <> ", " <> translated.return_var_name <> ".value.integer"
+          end
+        end
+      end)
+
+    result_var = unique_helper_var()
+
+    # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
+    """
+    #{code}
+    bpf_printk(\"#{string}\"#{vars});
+    int #{result_var} = 0;
+    """
+    |> gen()
+    |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+  end
+
   @doc """
   Translates specific segments of the AST to C.
   """
@@ -135,6 +240,17 @@ defmodule Honey.Compiler.Translator do
     """
     |> gen()
     |> TranslatedCode.new(c_var.return_var_name, c_var.return_var_type)
+  end
+
+  # Logger support
+  def to_c({{:., _, [Logger, function]}, _, params}, context) do
+    case function do
+      level when level in [:debug, :info, :warn, :error] ->
+        translate_logger_call(level, params, context)
+      
+      _ ->
+        raise "Logger.#{function} not supported in eBPF context. Supported levels: debug, info, warn, error"
+    end
   end
 
   # C libraries
