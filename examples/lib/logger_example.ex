@@ -13,17 +13,17 @@ defmodule Examples.LoggerExample do
     
     # Get current process PID
     pid = Honey.BpfHelpers.bpf_get_current_pid_tgid()
-    Logger.debug("Processing packet for PID: %d", pid)
+    Logger.debug("Processing packet for current PID")
     
     # Decision logic with different log levels
     cond do
       pid < 100 ->
-        Logger.warning("Suspicious low PID detected: %d", pid)
+        Logger.warning("Suspicious low PID detected")
         Logger.error("Dropping packet due to security policy")
         Honey.XDP.drop()
       
       pid > 50000 ->
-        Logger.warning("Very high PID detected: %d", pid)
+        Logger.warning("Very high PID detected")
         Logger.info("Allowing packet but flagging for review")
         Honey.XDP.pass()
       

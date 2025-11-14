@@ -61,6 +61,8 @@ defmodule Honey.Compiler.Translator do
       
       [message | _args] ->
         # Handle non-string messages (variables, expressions)
+        # For now, string interpolation is not fully supported
+        # TODO: Implement proper string interpolation support
         level_prefix = get_log_level_prefix(level)
         message_translated = to_c(message, context)
         
