@@ -1,11 +1,3 @@
-defmodule Honey.Compiler.TranslatorContext do
-  defstruct [:maps]
-
-  def new(maps) do
-    %__MODULE__{maps: maps}
-  end
-end
-
 defmodule Honey.Compiler.Translator do
   @moduledoc """
   Translates the elixir AST into eBPF readable C code.
@@ -19,7 +11,7 @@ defmodule Honey.Compiler.Translator do
   import Honey.Utils.Core, only: [gen: 1, var_to_string: 1, is_var: 1]
 
   @doc """
-  #Translates the main function.
+  Translates the main function.
   """
   def translate(func_name, ast, sec, license, requires, elixir_maps) do
     case func_name do
@@ -48,127 +40,31 @@ defmodule Honey.Compiler.Translator do
     "label_#{:erlang.unique_integer([:positive])}"
   end
 
-  # Translates Logger calls to bpf_printk with appropriate log level prefixes.
-  defp translate_logger_call(level, params, context) do
-    case params do
-      [message | args] when is_bitstring(message) ->
-        # Add log level prefix to the message
-        level_prefix = get_log_level_prefix(level)
-        prefixed_message = "#{level_prefix} #{message}"
-        
-        # Use the same logic as bpf_printk
-        translate_bpf_printk_with_message(prefixed_message, args, context)
-      
-      [message | _args] ->
-        # Handle non-string messages (variables, expressions)
-        # For now, string interpolation is not fully supported
-        # TODO: Implement proper string interpolation support
-        level_prefix = get_log_level_prefix(level)
-        message_translated = to_c(message, context)
-        
-        # For dynamic messages, we'll need to handle them differently
-        # For now, convert to string format
-        case TypeSet.is_string?(message_translated.return_var_type) do
-          true ->
-            # Create a formatted message with prefix
-            result_var = unique_helper_var()
-            """
-            #{message_translated.code}
-            bpf_printk(\"#{level_prefix} %s\", #{message_translated.return_var_name});
-            int #{result_var} = 0;
-            """
-            |> gen()
-            |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
-          
-          false ->
-            # For non-string dynamic messages, convert them
-            result_var = unique_helper_var()
-            """
-            #{message_translated.code}
-            bpf_printk(\"#{level_prefix} (dynamic message)\");
-            int #{result_var} = 0;
-            """
-            |> gen()
-            |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
-        end
-      
-      [] ->
-        # Logger call without message
-        level_prefix = get_log_level_prefix(level)
-        result_var = unique_helper_var()
-        
-        """
-        bpf_printk(\"#{level_prefix}\");
-        int #{result_var} = 0;
-        """
-        |> gen()
-        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
-    end
-  end
-
-  # Returns the appropriate log level prefix for each Logger level.
-  defp get_log_level_prefix(level) do
-    case level do
-      :debug -> "[DEBUG]"
-      :info -> "[INFO]"
-      :warn -> "[WARN]"
-      :warning -> "[WARN]"
-      :error -> "[ERROR]"
-      _ -> "[LOG]"
-    end
-  end
-
-  # Translates bpf_printk calls with a given message and arguments.
-  # This is a refactored version of the original bpf_printk logic.
-  defp translate_bpf_printk_with_message(string, other_params, context) do
-    if !is_bitstring(string) do
-      raise "Logger message must be a string. Received: #{inspect(string)}"
-    end
-
-    string = String.replace(string, "\n", "\\n")
-    code_vars = Enum.map(other_params, &to_c(&1, context))
-
-    code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
-
-    vars =
-      Enum.reduce(code_vars, "", fn translated, so_far ->
-        if TypeSet.is_generic?(translated.return_var_type) do
-          so_far <> ", " <> translated.return_var_name <> ".value.integer"
-        else
-          if TypeSet.is_integer?(translated.return_var_type) do
-            so_far <> ", " <> translated.return_var_name
-          else
-            # TODO: This should handle CTX variables somehow. Currently (?) they get a type of :type_ctx_pid.
-            so_far <> ", " <> translated.return_var_name <> ".value.integer"
-          end
-        end
-      end)
-
-    result_var = unique_helper_var()
-
-    # TODO: Instead of returning 0, return the actual result of the call to bpf_printk
-    """
-    #{code}
-    bpf_printk(\"#{string}\"#{vars});
-    int #{result_var} = 0;
-    """
-    |> gen()
-    |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
-  end
-
   @doc """
   Translates specific segments of the AST to C.
   """
   def to_c(tree, context \\ {})
 
-  # Variables
   def to_c(var, _context) when is_var(var) do
     c_var_name = var_to_string(var)
     c_var_type = TypeSet.get_typeset_from_var_ast(var)
     TranslatedCode.new("", c_var_name, c_var_type)
   end
 
-  # Blocks
+  def to_c({:<<>>, _, parts}, context) do
+    {_format_string, variables} = process_string_interpolation(parts, context)
+    code_vars = Enum.map(variables, &to_c(&1, context))
+    code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
+    result_var = unique_helper_var()
+
+    """
+    #{code}
+    char #{result_var}[256];
+    """
+    |> gen()
+    |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_bitstring()))
+  end
+
   def to_c({:__block__, _, [expr]}, context) do
     to_c(expr, context)
   end
@@ -178,7 +74,6 @@ defmodule Honey.Compiler.Translator do
     %TranslatedCode{block | code: "\n" <> block.code <> "\n"}
   end
 
-  # Erlang functions
   def to_c({{:., _, [:erlang, function]}, _, [constant]}, _context)
       when is_integer(constant) do
     case function do
@@ -250,7 +145,7 @@ defmodule Honey.Compiler.Translator do
     case function do
       level when level in [:debug, :info, :warn, :warning, :error] ->
         translate_logger_call(level, params, context)
-      
+
       _ ->
         raise "Logger.#{function} not supported in eBPF context. Supported levels: debug, info, warn, warning, error"
     end
@@ -901,6 +796,125 @@ defmodule Honey.Compiler.Translator do
     (pattern_matching_code <> exit_code)
     |> gen()
     |> TranslatedCode.new(return_rhs.return_var_name)
+  end
+
+  defp translate_logger_call(level, params, context) do
+    case params do
+      [message | args] when is_bitstring(message) ->
+        level_prefix = get_log_level_prefix(level)
+        prefixed_message = "#{level_prefix} #{message}"
+        translate_bpf_printk_with_message(prefixed_message, args, context)
+
+      [{:<<>>, _, parts} | _args] ->
+        level_prefix = get_log_level_prefix(level)
+        {format_string, variables} = process_string_interpolation(parts, context)
+        prefixed_format = "#{level_prefix} #{format_string}"
+        translate_bpf_printk_with_message(prefixed_format, variables, context)
+
+      [message | _args] ->
+        level_prefix = get_log_level_prefix(level)
+        message_translated = to_c(message, context)
+
+        case TypeSet.is_string?(message_translated.return_var_type) do
+          true ->
+            result_var = unique_helper_var()
+
+            """
+            #{message_translated.code}
+            bpf_printk(\"#{level_prefix} %s\", #{message_translated.return_var_name});
+            int #{result_var} = 0;
+            """
+            |> gen()
+            |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+
+          false ->
+            result_var = unique_helper_var()
+
+            """
+            #{message_translated.code}
+            bpf_printk(\"#{level_prefix} (dynamic message)\");
+            int #{result_var} = 0;
+            """
+            |> gen()
+            |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+        end
+
+      [] ->
+        level_prefix = get_log_level_prefix(level)
+        result_var = unique_helper_var()
+
+        """
+        bpf_printk(\"#{level_prefix}\");
+        int #{result_var} = 0;
+        """
+        |> gen()
+        |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+    end
+  end
+
+  defp get_log_level_prefix(level) do
+    case level do
+      :debug -> "[DEBUG]"
+      :info -> "[INFO]"
+      :warn -> "[WARN]"
+      :warning -> "[WARN]"
+      :error -> "[ERROR]"
+      _ -> "[LOG]"
+    end
+  end
+
+  defp translate_bpf_printk_with_message(string, other_params, context) do
+    if !is_bitstring(string) do
+      raise "Logger message must be a string. Received: #{inspect(string)}"
+    end
+
+    string = String.replace(string, "\n", "\\n")
+    code_vars = Enum.map(other_params, &to_c(&1, context))
+    code = Enum.reduce(code_vars, "", fn %{code: code}, so_far -> so_far <> code end)
+
+    vars =
+      Enum.reduce(code_vars, "", fn translated, so_far ->
+        if TypeSet.is_generic?(translated.return_var_type) do
+          so_far <> ", " <> translated.return_var_name <> ".value.integer"
+        else
+          if TypeSet.is_integer?(translated.return_var_type) do
+            so_far <> ", " <> translated.return_var_name
+          else
+            so_far <> ", " <> translated.return_var_name <> ".value.integer"
+          end
+        end
+      end)
+
+    result_var = unique_helper_var()
+
+    """
+    #{code}
+    bpf_printk(\"#{string}\"#{vars});
+    int #{result_var} = 0;
+    """
+    |> gen()
+    |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer()))
+  end
+
+  defp process_string_interpolation(parts, _context) do
+    {format_string, variables} =
+      Enum.reduce(parts, {"", []}, fn part, {str_acc, vars_acc} ->
+        case part do
+          string when is_binary(string) ->
+            {str_acc <> string, vars_acc}
+
+          {:"::", _, [{{:., _, [Kernel, :to_string]}, _, [expr]}, _type]} ->
+            {str_acc <> "%d", vars_acc ++ [expr]}
+
+          {variable, _, _} when is_atom(variable) ->
+            {str_acc <> "%d", vars_acc ++ [part]}
+
+          _other ->
+            {str_acc <> "%d", vars_acc ++ [part]}
+        end
+      end)
+
+    {format_string, variables}
   end
 
   defp allocate_tuple_in_heap([], index) do
