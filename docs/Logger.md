@@ -4,13 +4,12 @@ Honey Potion now supports Elixir's standard `Logger` module for logging in eBPF 
 
 ## Current Status
 
-✅ **Fully Supported**:
+**Fully Supported**:
 - All Logger levels with automatic prefixes
 - Simple string messages
 - Logger.warn/warning compatibility
 
-⚠️ **Planned for Future**:
-- String interpolation (`"PID: #{pid}"`)
+**Planned for Future**:
 - Multiple arguments to Logger functions
 
 ## Supported Logger Functions
@@ -91,13 +90,13 @@ bpf_printk("[INFO] Processing packet");
 Currently, string interpolation like `"PID: #{pid}"` is not supported. This feature is planned for future releases. For now, use descriptive messages without variables:
 
 ```elixir
-# ✅ Current approach
+# urrent approach
 pid = Honey.BpfHelpers.bpf_get_current_pid_tgid()
 if pid > 1000 do
   Logger.warning("High PID detected")
 end
 
-# 📋 Future feature (not yet supported)
+# Future feature (not yet supported)
 Logger.warning("High PID detected: #{pid}")
 ```
 
@@ -132,30 +131,6 @@ Logger.error("Invalid packet")
 
 4. **Metadata**: Logger metadata and structured logging features are not available in eBPF context.
 
-## Best Practices
-
-1. **Use Appropriate Levels**:
-   - `debug`: Detailed diagnostic information
-   - `info`: General operational messages
-   - `warning`: Warning conditions that don't stop operation (preferred)
-   - `warn`: Warning conditions (deprecated, use `warning`)
-   - `error`: Error conditions
-
-2. **String Messages**: For now, use simple string messages without interpolation:
-   ```elixir
-   # ✅ Currently supported
-   Logger.info("Processing packet")
-   Logger.debug("Starting operation")
-   
-   # ⚠️ Planned for future (use with caution)
-   Logger.info("PID: #{pid}")
-   
-   # 📋 Current workaround for variables
-   pid = Honey.BpfHelpers.bpf_get_current_pid_tgid()
-   Logger.info("Processing packet")  # Log context separately
-   ```
-
-3. **Performance**: Remember that logging in eBPF has performance implications. Use appropriate log levels and avoid excessive logging in hot paths.
 
 ## Complete Example
 
