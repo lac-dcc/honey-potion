@@ -6,6 +6,7 @@ defmodule Examples.LoggerExample do
   The Logger calls are automatically translated to bpf_printk with appropriate 
   log level prefixes.
   """
+  require Logger
 
   def main(ctx) do
     Logger.info("Starting packet processing")
@@ -17,12 +18,12 @@ defmodule Examples.LoggerExample do
     # Decision logic with different log levels
     cond do
       pid < 100 ->
-        Logger.warn("Suspicious low PID detected: %d", pid)
+        Logger.warning("Suspicious low PID detected: %d", pid)
         Logger.error("Dropping packet due to security policy")
         Honey.XDP.drop()
       
       pid > 50000 ->
-        Logger.warn("Very high PID detected: %d", pid)
+        Logger.warning("Very high PID detected: %d", pid)
         Logger.info("Allowing packet but flagging for review")
         Honey.XDP.pass()
       

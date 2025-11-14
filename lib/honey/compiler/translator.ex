@@ -110,6 +110,7 @@ defmodule Honey.Compiler.Translator do
       :debug -> "[DEBUG]"
       :info -> "[INFO]"
       :warn -> "[WARN]"
+      :warning -> "[WARN]"
       :error -> "[ERROR]"
       _ -> "[LOG]"
     end
@@ -245,11 +246,11 @@ defmodule Honey.Compiler.Translator do
   # Logger support
   def to_c({{:., _, [Logger, function]}, _, params}, context) do
     case function do
-      level when level in [:debug, :info, :warn, :error] ->
+      level when level in [:debug, :info, :warn, :warning, :error] ->
         translate_logger_call(level, params, context)
       
       _ ->
-        raise "Logger.#{function} not supported in eBPF context. Supported levels: debug, info, warn, error"
+        raise "Logger.#{function} not supported in eBPF context. Supported levels: debug, info, warn, warning, error"
     end
   end
 

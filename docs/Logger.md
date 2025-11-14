@@ -8,8 +8,11 @@ The following Logger functions are supported:
 
 - `Logger.debug/1` and `Logger.debug/2`
 - `Logger.info/1` and `Logger.info/2`
-- `Logger.warn/1` and `Logger.warn/2`
+- `Logger.warn/1` and `Logger.warn/2` (deprecated, use `warning`)
+- `Logger.warning/1` and `Logger.warning/2`
 - `Logger.error/1` and `Logger.error/2`
+
+**Note**: Both `Logger.warn` and `Logger.warning` are supported for compatibility, but `Logger.warning` is preferred as `Logger.warn` is deprecated in newer Elixir versions.
 
 ## Usage Examples
 
@@ -20,7 +23,8 @@ defmodule MyBPF do
   def main(ctx) do
     Logger.info("Program started")
     Logger.debug("Debug information")
-    Logger.warn("Warning message")
+    Logger.warning("Warning message")  # Preferred
+    Logger.warn("Warning message")     # Deprecated but supported
     Logger.error("Error occurred")
     
     Honey.XDP.pass()
@@ -39,7 +43,7 @@ defmodule MyBPF do
     Logger.debug("Current context: %p", ctx)
     
     if pid > 1000 do
-      Logger.warn("High PID detected: %d", pid)
+      Logger.warning("High PID detected: %d", pid)
     end
     
     Honey.XDP.pass()
@@ -53,7 +57,8 @@ Each Logger function automatically adds an appropriate prefix to the output:
 
 - `Logger.debug("message")` → `"[DEBUG] message"`
 - `Logger.info("message")` → `"[INFO] message"`
-- `Logger.warn("message")` → `"[WARN] message"`
+- `Logger.warn("message")` → `"[WARN] message"` (deprecated)
+- `Logger.warning("message")` → `"[WARN] message"` (preferred)
 - `Logger.error("message")` → `"[ERROR] message"`
 
 ## Generated C Code
@@ -106,7 +111,8 @@ Logger.error("Invalid packet")
 1. **Use Appropriate Levels**:
    - `debug`: Detailed diagnostic information
    - `info`: General operational messages
-   - `warn`: Warning conditions that don't stop operation
+   - `warning`: Warning conditions that don't stop operation (preferred)
+   - `warn`: Warning conditions (deprecated, use `warning`)
    - `error`: Error conditions
 
 2. **Format Strings**: Use printf-style format strings for variables:
