@@ -13,7 +13,7 @@ defmodule Examples.LoggerExample do
     
     # Get current process PID
     pid = Honey.BpfHelpers.bpf_get_current_pid_tgid()
-    Logger.debug("Processing packet for current PID")
+    Logger.debug("Processing packet for current PID #{pid}")
     
     # Decision logic with different log levels
     cond do
