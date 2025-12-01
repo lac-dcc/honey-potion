@@ -45,6 +45,17 @@ defmodule Honey.Compiler.Translator do
   end
 
   @doc """
+  Generates a string with the format "helper_var_<UniqueNumber>" to be used as an unique variable.
+  """
+  def unique_helper_var() do
+    "helper_var_#{:erlang.unique_integer([:positive])}"
+  end
+
+  def unique_helper_label() do
+    "label_#{:erlang.unique_integer([:positive])}"
+  end
+
+  @doc """
   Translates specific segments of the AST to C.
   """
   def to_c(tree, context)
@@ -437,7 +448,7 @@ defmodule Honey.Compiler.Translator do
 
             key_in_stack = Context.get_code_value(key, context)
             generic_value_in_stack = Context.get_code_value(generic_value, context)
-            update_value_in_stack = Context.get_code_value(update_value, context)
+            #update_value_in_stack = Context.get_code_value(update_value, context)
 
             context = Context.deallocate_code(context, key)
             context = Context.deallocate_code(context, update_value)
@@ -682,9 +693,6 @@ defmodule Honey.Compiler.Translator do
     {context, defrag_code} = Context.allocate_var(context, property_var, 12)
     property_pos = Context.get_var_pos(context, property_var)
     str_name_var = unique_helper_var()
-
-    var_name_in_c = var_to_string(var)
-    {access_var_pos, _size} = Map.get(context.var_pointer_map, var_name_in_c)
 
     var_name_in_c = var_to_string(var)
     {access_var_pos, _size} = Map.get(context.var_pointer_map, var_name_in_c)
