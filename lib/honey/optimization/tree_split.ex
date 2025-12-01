@@ -37,6 +37,8 @@ defmodule Honey.Optimization.TreeSplit do
               {arrow, metadata, [boolcond, resultcond]} = x
               {arrow, metadata, [boolcond, {:__block__, [], [resultcond] ++ tree}]}
             end)
+
+            conditions_list = conditions_list ++ [{:->, metadata, [[true], {:__block__, [], [nil] ++ tree}]}]
             #IO.inspect("Here lol")
             #IO.inspect(conditions_list)
           [[do: conditions_list]]

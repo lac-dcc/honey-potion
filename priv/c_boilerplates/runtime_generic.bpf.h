@@ -75,7 +75,7 @@ typedef union ElixirValue
   String string;
 } ElixirValue;
 
-typedef struct Generic
+typedef struct __attribute__((packed)) Generic
 {
   Type type;
   ElixirValue value;

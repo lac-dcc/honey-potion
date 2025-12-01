@@ -33,7 +33,7 @@ defmodule Honey.Compiler.Translator do
         context = TranslatorContext.new(elixir_maps, MemoryBlocks.create(4096), %{}, %{})
         #IO.inspect(context)
         {translated_code, context} = to_c(ast, context)
-        IO.inspect(translated_code)
+        IO.inspect(translated_code, [limit: :infinity, printable_limit: :infinity, pretty: :true])
 
         sec
         |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code, context)
@@ -71,7 +71,7 @@ defmodule Honey.Compiler.Translator do
       {pos, _} -> pos
       {pos, _, _} -> pos
     end
-    {TranslatedCode.new("// Using variable #{c_var_name} in pos #{pos}", c_var_name, c_var_type), context}
+    {TranslatedCode.new("// Using variable #{c_var_name} in pos #{pos}\n", c_var_name, c_var_type), context}
   end
 
   # Blocks
@@ -461,9 +461,10 @@ defmodule Honey.Compiler.Translator do
             update =
               cond do
                 TypeSet.is_void?(key.return_var_type) ->
+                  #                  #{generic_value_in_stack}.value.integer = #{update_value_in_stack};
+                  # on line 2 was removed to test.
                   """
                   #{defrag_code}
-                  #{generic_value_in_stack}.value.integer = #{update_value_in_stack};
                   stack_int = (int*) (stack + #{pos});
                   stack_int[0] = bpf_map_update_elem(&#{str_map_name}, &(#{key_in_stack}), &#{generic_value_in_stack}, #{flags_str});
                   """
@@ -471,7 +472,6 @@ defmodule Honey.Compiler.Translator do
                 TypeSet.is_integer?(key.return_var_type) ->
                   """
                   #{defrag_code}
-                  #{generic_value_in_stack}.value.integer = #{update_value_in_stack};
                   stack_int = (int*) (stack + #{pos});
                   stack_int[0] = bpf_map_update_elem(&#{str_map_name}, &(#{key_in_stack}), &#{generic_value_in_stack}, #{flags_str});
                   """
@@ -560,7 +560,7 @@ defmodule Honey.Compiler.Translator do
                 return 0;
 
             nh_off += sizeof(struct ipv6hdr);
-            stack_int[0] = iph->protocol;
+            stack_int[0] = ip6h->nexthdr;
         } else {
             return XDP_PASS;
         }
@@ -590,6 +590,7 @@ defmodule Honey.Compiler.Translator do
       :set_destination_port ->
         [port] = params
         {port_var, context} = to_c(port, context)
+        port_value = Context.get_code_value(port_var, context)
 
         context = Context.deallocate_code(context, port_var)
 
@@ -599,7 +600,7 @@ defmodule Honey.Compiler.Translator do
         struct udphdr *udph = data + nh_off;
 
         if (data + nh_off + sizeof(struct udphdr) <= data_end)
-            udph->dest = ntohs(#{port_var.return_var_name});
+            udph->dest = ntohs(#{port_value});
         }
         """
         |> gen()
@@ -804,7 +805,7 @@ defmodule Honey.Compiler.Translator do
     stack_gen = (Generic*) (stack + #{pos});
     stack_gen[0] = (Generic) {.type = LIST, .value.tuple = (Tuple){.start = -1, .end = -1}};
     if((*heap_index) < HEAP_SIZE && (*heap_index) >= 0) {
-      (*heap)[(*heap_index)] = (*(Generic*) (stack + #{pos}))";
+      (*heap)[(*heap_index)] = (*(Generic*) (stack + #{pos}));
     } else {
       op_result = (OpResult){.exception = 1, .exception_msg = "(MemoryLimitReached) Impossible to allocate memory in the heap."};
       goto CATCH;
@@ -874,6 +875,8 @@ defmodule Honey.Compiler.Translator do
     #TODO: ERROR: Change constant to code to give context and fix here.
     case constant_to_code(other, context) do
       {:ok, code} ->
+        #IO.inspect("Just translated here:\n\n\n AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        #IO.inspect(code)
         code
 
       _ ->
@@ -1049,7 +1052,7 @@ defmodule Honey.Compiler.Translator do
       goto #{exit_label};
     }
     """
-    head_element_var_value = "(*(Generic*) + (stack + #{head_pos}))"
+    head_element_var_value = "(*(Generic*) (stack + #{head_pos}))"
 
     {suffix, context} = pattern_matching(assignment_head, head_element_var_value, exit_label, context)
 
@@ -1076,7 +1079,7 @@ defmodule Honey.Compiler.Translator do
       stack_int = (int*) (stack + #{heap_index_pos});
       stack_int[0] = *((int*) ((*tuple_pool)+(#{list_head_var_value}.value.tuple.start+1)));
       if((*(unsigned*) (stack + #{heap_index_pos})) < HEAP_SIZE && (*(unsigned*) (stack + #{heap_index_pos}))>= 0) {
-        stack_gen[0] = *(*(heap)+(#{heap_index_var_name}));
+        stack_gen[0] = *(*(heap)+(#{heap_index_pos}));
       } else {
         op_result = (OpResult){.exception = 1, .exception_msg = "(MatchError) No match of right hand side value."};
         goto #{exit_label};
@@ -1150,7 +1153,7 @@ defmodule Honey.Compiler.Translator do
       stack_int = (int*) (stack + #{index_var_pos});
       stack_int[0] = *((int*) ((*tuple_pool)+(#{tuple_var_value}.value.tuple.start + #{index})));
       if((*(unsigned*) (stack + #{index_var_pos})) < HEAP_SIZE && (*(unsigned*) (stack + #{index_var_pos}))>= 0) {
-        stack_gen[0] = *(*(heap)+(#{heap_index_var_name}));
+        stack_gen[0] = *(*(heap)+(#{index_var_pos}));
       } else {
         op_result = (OpResult){.exception = 1, .exception_msg = "HEAP(MatchError) No match of right hand side value."};
         goto #{exit_label};
@@ -1175,9 +1178,9 @@ defmodule Honey.Compiler.Translator do
           """
           #{defrag_code}
           stack_int = (int*) (stack + #{typed_rhs_pos});
-          stack_int[0] = #{Context.get_var_pos(context, rhs_var)}
+          stack_int[0] = #{Context.get_var_pos(context, rhs_var)};
           """
-          typed_rhs_value = "(*(int*) (stack + #{typed_rhs_pos}}));"
+          typed_rhs_value = "(*(int*) (stack + #{typed_rhs_pos}))"
           {matching, context} = pattern_matching(first_tuple_elm, typed_rhs_value, exit_label, context)
           {tuple, context} = get_tuple_element_from_heap(tuple_var_value, tail, index + 1, exit_label, context)
           {%{tuple | code: prefix <> matching.code <> tuple.code}, context}
@@ -1191,7 +1194,7 @@ defmodule Honey.Compiler.Translator do
           stack_str = (String*) (stack + #{typed_rhs_pos});
           stack_str[0] = #{Context.get_var_pos(context, rhs_var)};
           """
-          typed_rhs_value = "(*(String*) (stack + #{typed_rhs_pos}}));"
+          typed_rhs_value = "(*(String*) (stack + #{typed_rhs_pos}}))"
           {matching, context} = pattern_matching(first_tuple_elm, typed_rhs_value, exit_label, context)
           {tuple, context} = get_tuple_element_from_heap(tuple_var_value, tail, index + 1, exit_label, context)
           {%{tuple | code: prefix <> matching.code <> tuple.code}, context}
@@ -1200,7 +1203,7 @@ defmodule Honey.Compiler.Translator do
           raise "TODO"
       end
     else
-      rhs_value = "(*(Generic*) (stack + #{rhs_pos}));"
+      rhs_value = "(*(Generic*) (stack + #{rhs_pos}))"
       {matching, context} = pattern_matching(first_tuple_elm, rhs_value, exit_label, context, true)
       {tuple, context} = get_tuple_element_from_heap(tuple_var_value, tail, index + 1, exit_label, context)
       {%{tuple | code: matching.code <> tuple.code}, context}
@@ -1445,20 +1448,24 @@ defmodule Honey.Compiler.Translator do
     {"""
       op_result = (OpResult){.exception = 1, .exception_msg = "(CaseClauseError) no case clause matching."};
       goto CATCH;
-    """, context}
+    """
+    |> gen()
+    |> TranslatedCode.new(), context}
   end
 
   defp case_statements_to_c(case_input_var_name, return_var_pos, [
          {:->, _meta, [[lhs_expression], case_code_block]} | further_cases
        ], context) do
     exit_label = unique_helper_label()
-    translated_case_code_block = to_c(case_code_block, context)
+    {translated_case_code_block, context} = to_c(case_code_block, context)
 
-    {generic_translated_case, context} = translated_code_to_generic(translated_case_code_block, translated_case_code_block.context)
+    {generic_translated_case, context} = translated_code_to_generic(translated_case_code_block, context)
     generic_translated_case_value = Context.get_code_value(generic_translated_case, context)
     context = Context.deallocate_code(context, generic_translated_case)
 
     {case_code, context} = pattern_matching(lhs_expression, case_input_var_name, exit_label, context, true)
+
+    {else_case, _context} = case_statements_to_c(case_input_var_name, return_var_pos, further_cases, context)
     {"""
     op_result.exception = 0;
     #{case_code.code}
@@ -1469,7 +1476,7 @@ defmodule Honey.Compiler.Translator do
       stack_gen = (Generic*) (stack + #{return_var_pos});
       stack_gen[0] = #{generic_translated_case_value};
     } else {
-      #{case_statements_to_c(case_input_var_name, return_var_pos, further_cases, context)}
+      #{else_case.code}
     }
     """
     |> gen()
@@ -1610,6 +1617,7 @@ defmodule Honey.Compiler.Translator do
             #{defrag_code}
             // Defining variable #{var_name_in_c};
             stack_gen = (Generic*) (stack + #{pos});
+            // We called this an int
             stack_gen[0] = (Generic) {.type = INTEGER, .value.integer = #{item}};;
 
           """),
@@ -1884,7 +1892,7 @@ defmodule Honey.Compiler.Translator do
   end
 
   defp translated_code_to_generic(typed_var, context) do
-    if TypeSet.is_generic?(typed_var.return_var_type) do
+    if TypeSet.is_generic?(typed_var.return_var_type) or TypeSet.is_atom?(typed_var.return_var_type) or TypeSet.is_tuple?(typed_var.return_var_type) do
       {"" |> TranslatedCode.new(typed_var.return_var_name, typed_var.return_var_type), context}
     else
       generic_var = unique_helper_var()
@@ -1910,7 +1918,7 @@ defmodule Honey.Compiler.Translator do
             #{defrag_code}
             // Defining variable #{generic_var};
             stack_gen = (Generic*) (stack + #{pos});
-            stack_gen[0] = (Generic){.type = STRING, .value.integer = #{typed_var_value}};
+            stack_gen[0] = (Generic){.type = STRING, .value.string = #{typed_var_value}};
           """
 
         TypeSet.has_unique_type(typed_var.return_var_type, ElixirTypes.type_binary()) ->
@@ -1920,6 +1928,7 @@ defmodule Honey.Compiler.Translator do
           raise "A void* type can't be translated to Generic. Make sure not to use it in tuples or the return of case/cond/if."
 
         true ->
+          IO.puts("Here")
           IO.inspect(typed_var)
           raise "TODO"
       end

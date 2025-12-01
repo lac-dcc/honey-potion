@@ -142,10 +142,10 @@ defmodule Honey.Runtime.StackContext do
 
   def deallocate_code(context, translated_code) do
     var_name_in_c = translated_code.return_var_name
-    IO.inspect("Removing")
-    IO.inspect(var_name_in_c)
+    #IO.inspect("Removing")
+    #IO.inspect(var_name_in_c)
     if String.match?(var_name_in_c, ~r/^helper_var_/) do
-      IO.inspect("Helper")
+      #IO.inspect("Helper")
       return_var(context, var_name_in_c)
       #else
       #dv = Keyword.get(meta, :dv)
@@ -154,8 +154,9 @@ defmodule Honey.Runtime.StackContext do
       #  return_var_in_context(context, var_name_in_c)
       else
         if context.free_program_var do
-            IO.inspect("Freeprogvar")
-            IO.inspect(return_var(context, var_name_in_c))
+        #IO.inspect("Freeprogvar")
+        #IO.inspect(return_var(context, var_name_in_c))
+            return_var(context,var_name_in_c)
         else
           context
 #        case Keyword.get(meta, :last) do
