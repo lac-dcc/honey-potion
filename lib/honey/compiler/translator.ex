@@ -501,7 +501,7 @@ defmodule Honey.Compiler.Translator do
         #{defrag_code}
         // Getting tgid into #{result_var}
         stack_int = (int*) (stack + #{pos});
-        = bpf_get_current_pid_tgid();\n
+        stack_int[0] = bpf_get_current_pid_tgid();\n
         """
         |> gen()
         |> TranslatedCode.new(result_var, TypeSet.new(ElixirTypes.type_integer())), context}
