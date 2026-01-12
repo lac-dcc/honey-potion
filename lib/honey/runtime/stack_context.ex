@@ -107,8 +107,10 @@ defmodule Honey.Runtime.StackContext do
       context = %{ context |
         free_memory_blocks: memory,
         var_pointer_map: Map.put(context.var_pointer_map, var_name_in_c, {pos, size}),
-        pos_to_var_map: Map.put(context.pos_to_var_map, pos, {var_name_in_c, size})
+        pos_to_var_map: Map.put(context.pos_to_var_map, pos, {var_name_in_c, size}),
+        max_used_memspace: Enum.max([context.max_used_memspace, pos + size])
       }
+
       {context, defrag_code}
   end
 

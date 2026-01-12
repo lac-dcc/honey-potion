@@ -1,10 +1,10 @@
 defmodule Honey.Runtime.TranslatorContext do
-  defstruct [:maps, :free_memory_blocks, :var_pointer_map, :pos_to_var_map, :free_program_var]
+  defstruct [:maps, :free_memory_blocks, :var_pointer_map, :pos_to_var_map, :free_program_var, :max_used_memspace]
 
   alias Honey.Runtime.MemoryBlocks
 
   def new(maps, free_memory_blocks, var_pointer_map, pos_to_var_map, free_program_var \\ false) do
-    %__MODULE__{maps: maps, free_memory_blocks: free_memory_blocks, var_pointer_map: var_pointer_map, pos_to_var_map: pos_to_var_map, free_program_var: free_program_var}
+    %__MODULE__{maps: maps, free_memory_blocks: free_memory_blocks, var_pointer_map: var_pointer_map, pos_to_var_map: pos_to_var_map, free_program_var: free_program_var, max_used_memspace: 0}
   end
 end
 
@@ -26,17 +26,18 @@ defmodule Honey.Compiler.Translator do
   @doc """
   #Translates the main function.
   """
-  def translate(func_name, ast, sec, license, requires, elixir_maps) do
+  def translate(func_name, ast, sec, license, env, elixir_maps) do
     case func_name do
       "main" ->
         Guard.ensure_sec_type!(sec)
         context = TranslatorContext.new(elixir_maps, MemoryBlocks.create(4096), %{}, %{})
         #IO.inspect(context)
         {translated_code, context} = to_c(ast, context)
-        IO.inspect(translated_code, [limit: :infinity, printable_limit: :infinity, pretty: :true])
+        #IO.inspect(translated_code, [limit: :infinity, printable_limit: :infinity, pretty: :true])
+        #IO.puts("After translate it was #{context.max_used_memspace}")
 
         sec
-        |> Boilerplates.config(["ctx0nil"], license, elixir_maps, requires, translated_code, context)
+        |> Boilerplates.config(["ctx0nil"], license, elixir_maps, env, translated_code, context)
         |> Boilerplates.generate_whole_code()
 
       _ ->
@@ -731,7 +732,9 @@ defmodule Honey.Compiler.Translator do
     {context, defrag_code} = Context.allocate_var(context, cond_var, 12)
     pos = Context.get_var_pos(context, cond_var)
 
-    cond_code = cond_statments_to_c(conds, pos, context)
+    {cond_code, cond_context} = cond_statments_to_c(conds, pos, context)
+
+    context = %{context | max_used_memspace: cond_context.max_used_memspace}
 
     {"""
     #{defrag_code}
@@ -1717,11 +1720,11 @@ defmodule Honey.Compiler.Translator do
   """
 
   # Creates a situation for when all conditions are exhausted from the method below.
-  def cond_statments_to_c([], cond_var_pos, _context) do
-    """
+  def cond_statments_to_c([], cond_var_pos, context) do
+    {"""
     stack_gen = (Generic*) (stack + #{cond_var_pos});
     stack_gen[0] = (Generic){.type = ATOM, .value.string = (String){0, 2}};
-    """
+    """, context}
   end
 
   # Transforms conditional statements to C one condition at a time.
@@ -1747,8 +1750,10 @@ defmodule Honey.Compiler.Translator do
     {generic_block, context} = translated_code_to_generic(block_in_c, context)
 
     generic_block_in_stack = Context.get_code_value(generic_block, context)
-
-    if TypeSet.is_integer?(block_in_c.return_var_type) do
+    
+    {final_code, cond_context} = cond_statments_to_c(other_conds, cond_return_pos, cond_context)
+    cond_context = %{cond_context | max_used_memspace: Enum.max([context.max_used_memspace, cond_context.max_used_memspace])}
+    {if TypeSet.is_integer?(block_in_c.return_var_type) do
       gen("""
         #{condition_in_c.code}
         #{if_cond}
@@ -1757,7 +1762,7 @@ defmodule Honey.Compiler.Translator do
           stack_gen = (Generic*) (stack + #{cond_return_pos});
           stack_gen[0] = #{generic_block_in_stack};
       } else {
-        #{cond_statments_to_c(other_conds, cond_return_pos, cond_context)}
+        #{final_code}
       }
       """)
     else
@@ -1768,10 +1773,10 @@ defmodule Honey.Compiler.Translator do
         stack_gen = (Generic*) (stack + #{cond_return_pos});
         stack_gen[0] = #{generic_block_in_stack};
       } else {
-        #{cond_statments_to_c(other_conds, cond_return_pos, cond_context)}
+        #{final_code}
       }
       """)
-    end
+    end, cond_context}
   end
 
   # Translates a block of code by calling to_c for each element in that block.

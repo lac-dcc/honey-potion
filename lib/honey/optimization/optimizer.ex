@@ -14,12 +14,12 @@ defmodule Honey.Optimization.Optimizer do
   def run(fun_def, arguments, env) do
     # Currently IO.inspect is bugged and can't print typed AST's properly. Use this to debug instead.
     fun_def
-    |> IO.inspect([limit: :infinity, pretty: :true])
+    #|> IO.inspect([limit: :infinity, pretty: :true])
     |> ConstantPropagation.run()
     |> DeadCodeElimination.run()
     |> StaticAnalysis.run()
     |> TreeSplit.run()
-    |> IO.inspect([limit: :infinity, pretty: :true])
+    #|> IO.inspect([limit: :infinity, pretty: :true])
 
     # Use this to execute code.
     fun_def

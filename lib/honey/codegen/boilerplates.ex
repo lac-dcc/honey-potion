@@ -12,16 +12,16 @@ defmodule Honey.Codegen.Boilerplates do
 
   import Honey.Utils.Core, only: [gen: 1]
 
-  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :requires, :translated_code, :context]
+  defstruct [:libbpf_prog_type, :func_args, :license, :elixir_maps, :env, :translated_code, :context]
 
   # Keeps parameters on how the translation will be done. Set before calling generate_whole_code.
-  def config(libbpf_prog_type, func_args, license, elixir_maps, requires, translated_code, context) do
+  def config(libbpf_prog_type, func_args, license, elixir_maps, env, translated_code, context) do
     %__MODULE__{
       libbpf_prog_type: libbpf_prog_type,
       func_args: func_args,
       license: license,
       elixir_maps: elixir_maps,
-      requires: requires,
+      env: env,
       translated_code: translated_code,
       context: context
     }
@@ -719,7 +719,7 @@ defmodule Honey.Codegen.Boilerplates do
   Puts together all main generating methods and the translated code.
   """
   def generate_main(config) do
-    gen("""
+    output = gen("""
     SEC("#{config.libbpf_prog_type}")
     int main_func(#{generate_main_arguments(config)}) {
       #{beginning_main_code()}
@@ -729,5 +729,7 @@ defmodule Honey.Codegen.Boilerplates do
       #{generate_ending_main_code(config.translated_code, config.context)}
     }
     """)
+    IO.puts("Maximum used memory in #{Core.module_name(config.env)} is #{config.context.max_used_memspace}")
+    output
   end
 end
