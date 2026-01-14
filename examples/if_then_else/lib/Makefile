@@ -1,4 +1,4 @@
-# To understand this makefile in a easier to digest format, please see /docs/Makefile!
+# To understand this makefile in a easier to digest format, please see /docs/advanced/concepts/makefile!
 TARGET ?= prog
 
 #This directory represents the user directory, where the user creates .ex files.

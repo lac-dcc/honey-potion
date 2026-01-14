@@ -1,21 +1,45 @@
 defmodule Honey do
   @moduledoc """
-  Honey Potion is a framework that brings the powerful eBPF technology into Elixir.
-  Users can write Elixir code that will be transformed into eBPF bytecodes.
-  Many high-level features of Elixir are available and more will be added soon.
-  In this alpha version, the framework translates the code to a subset of C that uses libbpf's features.
-  Then it's possible to use clang to obtain the bytecodes and load it into the Kernel.
+  Honey Potion brings eBPF programming to Elixir, letting you write eBPF programs in a safe, statically analyzable subset of Elixir. Programs are compiled to C and loaded into the Linux kernel.
 
-  ## Aliases
+  ## Example
 
-  - `Mix.Task.Compiler`: Manages compilation tasks.
-  - `Honey.Utils.Guard`: Stops execution if main doesn't exist.
-  - `Honey.AST.RecursionExpansion`: Unrolls function calls.
-  - `Honey.Optimization.Optimizer`: Optimizes the AST with DCE (Dead Code Elimination) and CP (Constant Propagation) and performs variable analysis.
-  - `Honey.Runtime.Info`: Gathers information about the AST.
-  - `Honey.Compiler.CodeGenerator`: Uses the gathered info to generate frontend and backend code.
-  - `Honey.Utils.Write`: Writes files into the appropriate folders for compilation.
-  - `Honey.Compiler.Pipeline`: Compiles the files into `userdir/bin/`.
+      defmodule HelloWorld do
+        use Honey, license: "Dual BSD/GPL"
+
+        @sec "tracepoint/syscalls/sys_enter_write"
+        def main(_ctx) do
+          Honey.BpfHelpers.bpf_printk(["Hello World"])
+        end
+      end
+
+  ## Tracepoints
+
+  Use the `@sec` attribute to attach your program to a tracepoint, kprobe, or other eBPF hook:
+
+      @sec "tracepoint/syscalls/sys_enter_write"
+      def main(ctx) do
+        # ...
+      end
+
+  ## Supported Map Types
+
+  Define eBPF maps using the `defmap/3` macro:
+
+      defmap(:my_map, :bpf_array, max_entries: 10)
+
+  Supported map types:
+    - `:bpf_array` (BPF_MAP_TYPE_ARRAY)
+    - `:bpf_hash` (BPF_MAP_TYPE_HASH)
+
+  ## Features
+
+  - Pattern matching (limited)
+  - Recursion via the `fuel` macro
+  - Logger macros for debug output
+  - eBPF helpers via `Honey.BpfHelpers`
+
+  See the documentation and examples for advanced usage, including maps, helpers, and program types.
   """
   require Logger
 

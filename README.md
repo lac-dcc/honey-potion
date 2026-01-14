@@ -100,12 +100,12 @@ end
 
 For detailed documentation and examples, see:
 
-- [`docs/Language.md`](docs/Language.md)
-- Example programs in [`/examples/lib`](examples/lib):
-  - `HelloWorld.ex`
-  - `Maps.ex`
-  - `CountSysCalls.ex`
-  - `Forcekill.ex`
+- [`Language`](docs/getting_started/language.md)
+- Example programs in [`/examples`](examples):
+  - [`hello_world`](examples/hello_world/)
+  - [`maps`](examples/maps/)
+  - [`count_syscalls`](examples/count_syscalls/)
+  - [`force_kill`](examples/force_kill/)
 
 Or watch the [YouTube tutorial](https://www.youtube.com/watch?v=Wis5e3vLcMg).
 
